@@ -1,0 +1,17 @@
+{
+  "node": {
+    "40b0a1d2512db4b435a9032fddb86ef8ffd5d74f1c": {
+      "workers": {
+        "app/lp/vcc-automation/page": {
+          "moduleId": 684827,
+          "async": false,
+          "exportedName": "provisionAgency",
+          "filename": "src/app/actions/provision-agency.ts"
+        }
+      },
+      "exportedName": "provisionAgency",
+      "filename": "src/app/actions/provision-agency.ts"
+    }
+  },
+  "edge": {}
+}

@@ -1,0 +1,3 @@
+{
+  "/api/alerts/count/route": "app/api/alerts/count/route.js"
+}

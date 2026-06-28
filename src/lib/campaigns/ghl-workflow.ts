@@ -1,4 +1,6 @@
-import { ghlFetch } from './ghl-client'
+// GHL workflow stubs — external integration removed.
+// Expose the same function signatures but return safe defaults so
+// callers continue to function without network side-effects.
 
 export interface GHLContact {
   id: string
@@ -11,78 +13,41 @@ export interface GHLContact {
 }
 
 export async function triggerGHLWorkflow(
-  agencyId: string,
-  ghlContactId: string,
-  workflowId: string
+  _agencyId: string,
+  _ghlContactId: string,
+  _workflowId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const res = await ghlFetch(
-    agencyId,
-    `/contacts/${ghlContactId}/workflow/${workflowId}`,
-    { method: 'POST', body: JSON.stringify({ eventStartTime: new Date().toISOString() }) }
-  )
-  if (!res.ok) return { success: false, error: `GHL ${res.status}` }
-  return { success: true }
+  return { success: false, error: 'GHL integration removed' }
 }
 
 export async function addGHLTag(
-  agencyId: string,
-  ghlContactId: string,
-  tags: string[]
+  _agencyId: string,
+  _ghlContactId: string | null,
+  _tags: string[]
 ): Promise<{ success: boolean }> {
-  const res = await ghlFetch(
-    agencyId,
-    `/contacts/${ghlContactId}/tags`,
-    { method: 'PUT', body: JSON.stringify({ tags }) }
-  )
-  return { success: res.ok }
+  return { success: false }
 }
 
 export async function createGHLTask(
-  agencyId: string,
-  ghlContactId: string,
-  task: { title: string; dueDate: string; assignedTo?: string }
+  _agencyId: string,
+  _ghlContactId: string | null,
+  _task: { title: string; dueDate: string; assignedTo?: string }
 ): Promise<{ success: boolean; taskId?: string }> {
-  const res = await ghlFetch(
-    agencyId,
-    `/contacts/${ghlContactId}/tasks`,
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        title: task.title,
-        dueDate: task.dueDate,
-        ...(task.assignedTo ? { assignedTo: task.assignedTo } : {}),
-        status: 'incompleted',
-      }),
-    }
-  )
-  if (!res.ok) return { success: false }
-  const d = res.data as Record<string, unknown> | null
-  return { success: true, taskId: (d as any)?.task?.id ?? undefined }
+  return { success: false }
 }
 
 export async function moveGHLPipelineStage(
-  agencyId: string,
+  _agencyId: string,
   _ghlContactId: string,
-  pipelineId: string,
-  stageId: string
+  _pipelineId: string,
+  _stageId: string
 ): Promise<{ success: boolean }> {
-  // Requires an opportunity ID — caller must pass it via pipelineId field as "opportunityId:pipelineId:stageId"
-  const [opportunityId] = pipelineId.split(':')
-  if (!opportunityId) return { success: false }
-  const res = await ghlFetch(
-    agencyId,
-    `/opportunities/${opportunityId}/stage`,
-    { method: 'PUT', body: JSON.stringify({ stageId }) }
-  )
-  return { success: res.ok }
+  return { success: false }
 }
 
 export async function getGHLContact(
-  agencyId: string,
-  ghlContactId: string
+  _agencyId: string,
+  _ghlContactId: string
 ): Promise<GHLContact | null> {
-  const res = await ghlFetch(agencyId, `/contacts/${ghlContactId}`)
-  if (!res.ok) return null
-  const d = res.data as Record<string, unknown> | null
-  return (d?.contact ?? d) as GHLContact | null
+  return null
 }

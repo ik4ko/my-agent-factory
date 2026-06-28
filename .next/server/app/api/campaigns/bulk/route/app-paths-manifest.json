@@ -1,0 +1,3 @@
+{
+  "/api/campaigns/bulk/route": "app/api/campaigns/bulk/route.js"
+}

@@ -1,0 +1,12 @@
+var R=require("../../../../chunks/[turbopack]_runtime.js")("server/app/api/marx/verify/route.js")
+R.c("server/chunks/[root-of-the-server]__02z4t66._.js")
+R.c("server/chunks/node_modules_@opentelemetry_api_build_esm_0s-cgu-._.js")
+R.c("server/chunks/node_modules_1-3avnw._.js")
+R.c("server/chunks/src_lib_email_send-notifications_ts_1luxypc._.js")
+R.c("server/chunks/node_modules_next_08s853w._.js")
+R.c("server/chunks/node_modules_@supabase_supabase-js_dist_index_mjs_0u-n9p7._.js")
+R.c("server/chunks/[root-of-the-server]__07b4raf._.js")
+R.c("server/chunks/node_modules_next_dist_esm_build_templates_app-route_1av2cq_.js")
+R.c("server/chunks/_next-internal_server_app_api_marx_verify_route_actions_1c2nq2j.js")
+R.m(737152)
+module.exports=R.m(737152).exports

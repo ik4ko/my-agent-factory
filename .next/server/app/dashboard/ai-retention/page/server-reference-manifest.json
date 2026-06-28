@@ -1,0 +1,41 @@
+{
+  "node": {
+    "40b0a1d2512db4b435a9032fddb86ef8ffd5d74f1c": {
+      "workers": {
+        "app/dashboard/ai-retention/page": {
+          "moduleId": 634920,
+          "async": false,
+          "exportedName": "provisionAgency",
+          "filename": "src/app/actions/provision-agency.ts"
+        }
+      },
+      "exportedName": "provisionAgency",
+      "filename": "src/app/actions/provision-agency.ts"
+    },
+    "409cc7906173a597263b3f8a5156fe23202d5e9776": {
+      "workers": {
+        "app/dashboard/ai-retention/page": {
+          "moduleId": 634920,
+          "async": false,
+          "exportedName": "generateRetentionScript",
+          "filename": "src/app/actions/generate-script.ts"
+        }
+      },
+      "exportedName": "generateRetentionScript",
+      "filename": "src/app/actions/generate-script.ts"
+    },
+    "0017050673a7b50c29396509c7b14282e1b058817a": {
+      "workers": {
+        "app/dashboard/ai-retention/page": {
+          "moduleId": 634920,
+          "async": false,
+          "exportedName": "getAgencyContacts",
+          "filename": "src/app/actions/generate-script.ts"
+        }
+      },
+      "exportedName": "getAgencyContacts",
+      "filename": "src/app/actions/generate-script.ts"
+    }
+  },
+  "edge": {}
+}

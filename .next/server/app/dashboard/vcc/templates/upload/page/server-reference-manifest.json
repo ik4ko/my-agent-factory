@@ -1,0 +1,53 @@
+{
+  "node": {
+    "40b0a1d2512db4b435a9032fddb86ef8ffd5d74f1c": {
+      "workers": {
+        "app/dashboard/vcc/templates/upload/page": {
+          "moduleId": 313398,
+          "async": false,
+          "exportedName": "provisionAgency",
+          "filename": "src/app/actions/provision-agency.ts"
+        }
+      },
+      "exportedName": "provisionAgency",
+      "filename": "src/app/actions/provision-agency.ts"
+    },
+    "40b0d2127bf498e07fc25f29e718df1e7addba250c": {
+      "workers": {
+        "app/dashboard/vcc/templates/upload/page": {
+          "moduleId": 313398,
+          "async": false,
+          "exportedName": "uploadTemplatePDF",
+          "filename": "src/app/actions/vcc-templates.ts"
+        }
+      },
+      "exportedName": "uploadTemplatePDF",
+      "filename": "src/app/actions/vcc-templates.ts"
+    },
+    "406c2f8d68316b907d578d65cfd06aee987090a338": {
+      "workers": {
+        "app/dashboard/vcc/templates/upload/page": {
+          "moduleId": 313398,
+          "async": false,
+          "exportedName": "saveTemplate",
+          "filename": "src/app/actions/vcc-templates.ts"
+        }
+      },
+      "exportedName": "saveTemplate",
+      "filename": "src/app/actions/vcc-templates.ts"
+    },
+    "406c05fa8fe021421d3b805e9bf37e1ec15ccaec44": {
+      "workers": {
+        "app/dashboard/vcc/templates/upload/page": {
+          "moduleId": 313398,
+          "async": false,
+          "exportedName": "testFillTemplate",
+          "filename": "src/app/actions/vcc-templates.ts"
+        }
+      },
+      "exportedName": "testFillTemplate",
+      "filename": "src/app/actions/vcc-templates.ts"
+    }
+  },
+  "edge": {}
+}

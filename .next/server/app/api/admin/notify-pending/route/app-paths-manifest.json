@@ -1,0 +1,3 @@
+{
+  "/api/admin/notify-pending/route": "app/api/admin/notify-pending/route.js"
+}
