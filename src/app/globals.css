@@ -1,0 +1,404 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ── Core palette ─────────────────────────────────────────────────────── */
+    --background:          210 20% 98%;   /* Paper White */
+    --foreground:          222 47% 11%;
+
+    /* Card surfaces */
+    --card:                0 0% 100%;
+    --card-foreground:     222 47% 11%;
+    --surface-1:           0 0% 100%;     /* same as card */
+    --surface-2:           210 20% 97%;   /* slightly off-white for nested cards */
+    --surface-3:           210 20% 95%;   /* card-on-card, hover state */
+
+    --popover:             0 0% 100%;
+    --popover-foreground:  222 47% 11%;
+
+    /* Brand */
+    --primary:             174 100% 45%;  /* Sharp Teal */
+    --primary-foreground:  222 47% 6%;
+
+    --secondary:           210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted:               210 40% 96%;
+    --muted-foreground:    215 16% 47%;
+
+    --accent:              174 100% 45%;  /* Sharp Teal */
+    --accent-foreground:   222 47% 11%;
+
+    --destructive:         0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    /* ── Warning / CRITICAL_PENDING amber ─────────────────────────────────── */
+    --warning:             38 92% 50%;    /* Amber-500 — CRITICAL_PENDING only */
+    --warning-foreground:  38 60% 12%;
+    --warning-muted:       38 92% 50% / 0.12;
+
+    /* ── Border / Input / Ring ────────────────────────────────────────────── */
+    --border:              214 32% 91%;
+    --input:               214 32% 91%;
+    --ring:                221 83% 53%;
+    --radius:              1rem;
+
+    /* ── Sidebar ──────────────────────────────────────────────────────────── */
+    --sidebar-background:        0 0% 100%;
+    --sidebar-foreground:        222 47% 11%;
+    --sidebar-primary:           221 83% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent:            210 40% 96%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border:            214 32% 91%;
+    --sidebar-ring:              221 83% 53%;
+  }
+
+  .dark {
+    /* ── Core palette ─────────────────────────────────────────────────────── */
+    --background:          240 20% 3%;    /* #0a0a0f */
+    --foreground:          210 40% 98%;
+
+    /* Card surface depth system — 3-stop elevation */
+    --card:                230 18% 7%;    /* base card */
+    --card-foreground:     210 40% 98%;
+    --surface-1:           230 18% 7%;    /* floor */
+    --surface-2:           230 18% 10%;   /* raised card, hover state */
+    --surface-3:           230 18% 12%;   /* floating panel, modal */
+
+    --popover:             230 18% 8%;
+    --popover-foreground:  210 40% 98%;
+
+    /* Brand */
+    --primary:             174 100% 45%;  /* Sharp Teal */
+    --primary-foreground:  240 20% 3%;
+
+    --secondary:           217 32% 12%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted:               217 32% 12%;
+    --muted-foreground:    215 20% 65%;
+
+    --accent:              174 100% 45%;
+    --accent-foreground:   210 40% 98%;
+
+    --destructive:         0 62% 30%;
+    --destructive-foreground: 210 40% 98%;
+
+    /* ── Warning / CRITICAL_PENDING amber ─────────────────────────────────── */
+    --warning:             38 95% 53%;    /* Slightly brighter on dark for legibility */
+    --warning-foreground:  38 90% 10%;
+
+    /* ── Border / Input / Ring ────────────────────────────────────────────── */
+    --border:              230 16% 15%;
+    --input:               230 16% 15%;
+    --ring:                174 100% 45%;
+
+    /* ── Sidebar (deep slate — deliberately darker than --background) ──────── */
+    --sidebar-background:        240 20% 3%;
+    --sidebar-foreground:        210 40% 98%;
+    --sidebar-primary:           174 100% 45%;
+    --sidebar-primary-foreground: 240 20% 3%;
+    --sidebar-accent:            230 18% 9%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border:            230 16% 13%;
+    --sidebar-ring:              174 100% 45%;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLOBAL BASE RESETS
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer base {
+  /* Transition only color/opacity — never layout properties */
+  * {
+    @apply border-border;
+    transition-property: color, background-color, border-color, opacity, box-shadow, transform;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  html {
+    @apply scroll-smooth;
+    font-size: 14px;
+    /* Prevent iOS font-size inflation on orientation change */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    /* ── Font stack — Inter primary, system-ui fallback ── */
+    font-family:
+      'Inter',
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      'Segoe UI',
+      sans-serif;
+
+    /* ── Rendering — optimized for both Windows ClearType and Mac Retina ── */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  main {
+    animation: page-fade-in 220ms ease-out both;
+  }
+
+  input,
+  textarea,
+  select {
+    @apply border-white/10 bg-white/[0.03] text-foreground outline-none;
+  }
+
+  /* Selection highlight */
+  ::selection {
+    background-color: hsl(var(--primary) / 0.18);
+    color: hsl(var(--foreground));
+  }
+
+  /* ── Dark mode typography ── */
+  .dark {
+    color: rgb(226 232 240); /* slate-200 */
+  }
+  .dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+    color: rgb(255 255 255);
+    font-weight: 700;
+    letter-spacing: -0.015em;
+  }
+  .dark p, .dark li, .dark td {
+    color: rgb(226 232 240); /* slate-200 */
+  }
+  .dark th {
+    color: rgb(100 116 139); /* slate-500 — slightly dimmer than before for hierarchy */
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    white-space: nowrap;           /* ← prevents multi-line column header collapse */
+  }
+  .dark label {
+    color: rgb(203 213 225); /* slate-300 */
+  }
+  .dark .text-muted-foreground {
+    color: rgb(100 116 139) !important; /* slate-500 — tighter contrast than slate-400 */
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DATA-DENSE TYPOGRAPHY UTILITIES
+   Applies tabular-nums, OpenType tnum, and consistent mono metrics to
+   columns containing MBIs, NPNs, phone numbers, and dates.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer utilities {
+  /* Apply to any <td> or <span> that holds identifiers or numeric data */
+  .data-cell {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1, "kern" 0;
+    letter-spacing: 0.01em;
+  }
+
+  /* Monospace identifier style — MBI, NPN, plan codes */
+  .identifier {
+    font-family:
+      'JetBrains Mono',
+      'Fira Mono',
+      ui-monospace,
+      'Cascadia Code',
+      'SF Mono',
+      Menlo,
+      monospace;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+    letter-spacing: 0.04em;
+    font-size: 0.8em;
+  }
+
+  /* Table header lock — prevents column label line wrapping in dense tables */
+  .th-nowrap th,
+  .th-nowrap [role="columnheader"] {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── Warning / CRITICAL_PENDING amber utilities (not in Tailwind by default) ── */
+  .bg-warning {
+    background-color: hsl(var(--warning));
+  }
+  .text-warning {
+    color: hsl(var(--warning));
+  }
+  .border-warning {
+    border-color: hsl(var(--warning));
+  }
+  .bg-warning\/10 {
+    background-color: hsl(var(--warning) / 0.10);
+  }
+  .bg-warning\/15 {
+    background-color: hsl(var(--warning) / 0.15);
+  }
+  .border-warning\/30 {
+    border-color: hsl(var(--warning) / 0.30);
+  }
+  .text-warning-foreground {
+    color: hsl(var(--warning-foreground));
+  }
+
+  /* ── Surface elevation utilities ── */
+  .surface-1 { background-color: hsl(var(--surface-1)); }
+  .surface-2 { background-color: hsl(var(--surface-2)); }
+  .surface-3 { background-color: hsl(var(--surface-3)); }
+
+  .interactive-item {
+    transform: translateY(0);
+  }
+
+  .interactive-item:hover {
+    transform: translateY(-1px);
+  }
+
+  .interactive-card {
+    border-color: rgb(255 255 255 / 0.08);
+    background-color: hsl(var(--card) / 0.86);
+    box-shadow: none;
+    transform: translateY(0);
+    transition: border-color 180ms ease, background-color 180ms ease, transform 180ms ease;
+  }
+
+  .interactive-card:hover {
+    border-color: hsl(var(--primary) / 0.38);
+    background-color: hsl(var(--surface-2) / 0.96);
+    transform: translateY(-3px);
+  }
+
+  .headline-reveal {
+    animation: headline-reveal 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .idle-pulse {
+    animation: idle-pulse 2.8s ease-in-out infinite;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COMPONENT-LEVEL GLOBALS
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer components {
+  /* Premium card surface — used for dashboard info panels */
+  .card-premium {
+    @apply rounded-3xl border border-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)];
+    background-color: hsl(var(--surface-1));
+  }
+
+  /* Elevated variant — modal-tier surfaces */
+  .card-elevated {
+    @apply rounded-3xl border border-white/[0.08] shadow-xl shadow-black/30;
+    background-color: hsl(var(--surface-3));
+  }
+
+  /* Data table base — fixes header wrap and aligns number columns */
+  .data-table th {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 9px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: rgb(100 116 139); /* slate-500 */
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .data-table td {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Compact uppercase badge label */
+  .badge-label {
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SCROLLBARS
+   ═══════════════════════════════════════════════════════════════════════════ */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Minimal styled scrollbar for content panes (dark mode) */
+.dark ::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.dark ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgb(51 65 85 / 0.6); /* slate-700 / 60% */
+  border-radius: 99px;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgb(71 85 105 / 0.8); /* slate-600 / 80% */
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+.ai-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--primary) / 0.04) 25%,
+    hsl(var(--primary) / 0.10) 50%,
+    hsl(var(--primary) / 0.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Gentle fade-in for page-level content */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-up {
+  animation: fade-up 0.3s ease-out both;
+}
+
+/* Critical alert pulse ring — used by AegisMessage CRITICAL_RETENTION */
+@keyframes critical-ring {
+  0%, 100% { box-shadow: 0 0 0 0 hsl(0 72% 50% / 0.4); }
+  50%       { box-shadow: 0 0 0 6px hsl(0 72% 50% / 0.0); }
+}
+.animate-critical-ring {
+  animation: critical-ring 2s ease-in-out infinite;
+}
