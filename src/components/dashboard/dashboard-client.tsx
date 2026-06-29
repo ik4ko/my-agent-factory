@@ -8,6 +8,7 @@ import { LogTerminal } from './log-terminal';
 import { StatsBar } from './stats-bar';
 import { CommandPalette } from './command-palette';
 import { HermesInput } from './hermes-input';
+import { MemoryViewer } from './memory-viewer';
 import type { Agent, Task, Log } from '@/lib/types/database.types';
 import { useQueryClient } from '@tanstack/react-query';
 import { AGENTS_KEY } from '@/hooks/use-agents-query';
@@ -102,11 +103,25 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
 
         <VResizeHandle />
 
-        {/* Bottom row: Log Terminal */}
+        <VResizeHandle />
+
+        {/* Bottom row: Log Terminal + Memory Viewer */}
         <Panel defaultSize={45} minSize={20}>
-          <div className="h-full overflow-hidden border-t border-border p-4">
-            <LogTerminal initialLogs={initialLogs} />
-          </div>
+          <PanelGroup direction="horizontal" className="h-full">
+            <Panel defaultSize={65} minSize={35}>
+              <div className="h-full overflow-hidden border-t border-border p-4">
+                <LogTerminal initialLogs={initialLogs} />
+              </div>
+            </Panel>
+
+            <HResizeHandle />
+
+            <Panel defaultSize={35} minSize={22}>
+              <div className="h-full overflow-hidden border-t border-l border-border p-4">
+                <MemoryViewer />
+              </div>
+            </Panel>
+          </PanelGroup>
         </Panel>
       </PanelGroup>
 

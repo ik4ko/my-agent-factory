@@ -41,6 +41,9 @@ export interface Memory {
   value: Record<string, unknown>;
   agent_id: string | null;
   version: number;
+  tags: string[];
+  importance: number;
+  source: string | null;
   updated_at: string;
 }
 
@@ -71,7 +74,13 @@ export interface Database {
       };
       memory: {
         Row: Memory;
-        Insert: Omit<Memory, 'id' | 'updated_at'> & { id?: string; updated_at?: string };
+        Insert: Omit<Memory, 'id' | 'updated_at'> & {
+          id?: string;
+          updated_at?: string;
+          tags?: string[];
+          importance?: number;
+          source?: string | null;
+        };
         Update: Partial<Omit<Memory, 'id'>>;
         Relationships: [];
       };

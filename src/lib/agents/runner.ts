@@ -103,12 +103,11 @@ export async function runAgentWorker(input: AgentWorkerInput): Promise<void> {
       taskId
     );
 
-    await writeMemory(`agent:${agentType}:last_output`, {
-      taskId,
-      description,
-      preview: output.slice(0, 400),
-      timestamp: new Date().toISOString(),
-    });
+    await writeMemory(
+      `agent:${agentType}:last_output`,
+      { taskId, description, preview: output.slice(0, 400), timestamp: new Date().toISOString() },
+      { tags: [agentType, 'output', 'completed'], importance: 7, source: persona.label }
+    );
   } catch (err) {
     const errMsg = String(err);
     await Promise.all([

@@ -67,13 +67,11 @@ export async function runHermesCommand(command: string): Promise<HermesResult> {
 
   // 5. Write memory — record last command for future context
   try {
-    await writeMemory('hermes:last_command', {
-      command,
-      agentType: intent.agentType,
-      taskId: task.id,
-      agentName: agent.name,
-      timestamp: new Date().toISOString(),
-    });
+    await writeMemory(
+      'hermes:last_command',
+      { command, agentType: intent.agentType, taskId: task.id, agentName: agent.name, timestamp: new Date().toISOString() },
+      { tags: ['hermes', 'command', intent.agentType], importance: 4, source: 'hermes' }
+    );
   } catch { /* memory write failure does not break the response */ }
 
   return {
