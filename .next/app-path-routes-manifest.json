@@ -1,0 +1,7 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/api/hermes/command/route": "/api/hermes/command",
+  "/dashboard/page": "/dashboard",
+  "/page": "/"
+}

@@ -1,0 +1,185 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ── Obsidian base ─────────────────────────────────────── */
+    --background:           238 15% 4%;
+    --foreground:           220 15% 90%;
+
+    /* ── Surface depth ─────────────────────────────────────── */
+    --card:                 238 12% 7%;
+    --card-foreground:      220 15% 90%;
+    --popover:              238 12% 7%;
+    --popover-foreground:   220 15% 90%;
+    --surface-1:            238 12% 7%;
+    --surface-2:            238 10% 10%;
+    --surface-3:            238 8%  14%;
+
+    /* ── Primary — neon emerald ────────────────────────────── */
+    --primary:              158 75% 45%;
+    --primary-foreground:   0   0%  4%;
+
+    /* ── Secondary — dark slate ────────────────────────────── */
+    --secondary:            238 8%  12%;
+    --secondary-foreground: 220 12% 70%;
+
+    /* ── Muted ─────────────────────────────────────────────── */
+    --muted:                238 8%  10%;
+    --muted-foreground:     220 8%  48%;
+
+    /* ── Accent — electric cyan ────────────────────────────── */
+    --accent:               190 95% 50%;
+    --accent-foreground:    0   0%  4%;
+
+    /* ── Destructive ───────────────────────────────────────── */
+    --destructive:          0   84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* ── Structural ────────────────────────────────────────── */
+    --border:               238 8%  14%;
+    --input:                238 8%  8%;
+    --ring:                 158 75% 45%;
+    --radius:               0.5rem;
+
+    /* ── Warning / amber ───────────────────────────────────── */
+    --warning:              38  92% 50%;
+    --warning-foreground:   0   0%  0%;
+
+    /* ── Sidebar ───────────────────────────────────────────── */
+    --sidebar-background:         238 15% 3.5%;
+    --sidebar-foreground:         220 10% 65%;
+    --sidebar-primary:            158 75% 45%;
+    --sidebar-primary-foreground: 0   0%  4%;
+    --sidebar-accent:             238 8%  10%;
+    --sidebar-accent-foreground:  220 12% 80%;
+    --sidebar-border:             238 8%  10%;
+    --sidebar-ring:               158 75% 45%;
+
+    /* ── Charts ────────────────────────────────────────────── */
+    --chart-1: 158 75% 45%;
+    --chart-2: 190 95% 50%;
+    --chart-3: 267 84% 65%;
+    --chart-4: 38  92% 50%;
+    --chart-5: 0   84% 60%;
+
+    /* ── Neon raw HSL (pair with hsl()) ────────────────────── */
+    --neon-green:  158 100% 42%;
+    --neon-cyan:   190 100% 50%;
+    --neon-purple: 267 100% 70%;
+    --neon-orange: 38  100% 55%;
+    --neon-red:    0   100% 62%;
+  }
+
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    color-scheme: dark;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+    background-image: radial-gradient(
+      ellipse 90% 60% at 50% -10%,
+      hsl(158 75% 45% / 0.06) 0%,
+      transparent 65%
+    );
+    min-height: 100dvh;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.2);
+    color: hsl(var(--foreground));
+  }
+
+  /* ── Custom scrollbar ─────────────────────────────────────── */
+  ::-webkit-scrollbar        { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track  { background: hsl(var(--surface-1)); }
+  ::-webkit-scrollbar-thumb  {
+    background: hsl(var(--border));
+    border-radius: 2px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary) / 0.5); }
+}
+
+@layer utilities {
+  /* ── Neon glow box-shadows ──────────────────────────────── */
+  .glow-green {
+    box-shadow:
+      0 0 6px  hsl(var(--neon-green) / 0.55),
+      0 0 20px hsl(var(--neon-green) / 0.2);
+  }
+  .glow-cyan {
+    box-shadow:
+      0 0 6px  hsl(var(--neon-cyan) / 0.55),
+      0 0 20px hsl(var(--neon-cyan) / 0.2);
+  }
+  .glow-purple {
+    box-shadow:
+      0 0 6px  hsl(var(--neon-purple) / 0.55),
+      0 0 20px hsl(var(--neon-purple) / 0.2);
+  }
+  .glow-red {
+    box-shadow:
+      0 0 6px  hsl(var(--neon-red) / 0.55),
+      0 0 20px hsl(var(--neon-red) / 0.2);
+  }
+  .glow-orange {
+    box-shadow:
+      0 0 6px  hsl(var(--neon-orange) / 0.55),
+      0 0 20px hsl(var(--neon-orange) / 0.2);
+  }
+
+  /* ── Text glow ──────────────────────────────────────────── */
+  .text-glow-green  { text-shadow: 0 0 10px hsl(var(--neon-green) / 0.7); }
+  .text-glow-cyan   { text-shadow: 0 0 10px hsl(var(--neon-cyan) / 0.7); }
+  .text-glow-purple { text-shadow: 0 0 10px hsl(var(--neon-purple) / 0.7); }
+
+  /* ── Neon-tinted card border ────────────────────────────── */
+  .card-neon {
+    border-color: hsl(var(--neon-green) / 0.2);
+    box-shadow:
+      inset 0 1px 0 hsl(var(--neon-green) / 0.06),
+      0 0 0 1px hsl(var(--neon-green) / 0.08);
+  }
+
+  /* ── Glass / frosted surface ────────────────────────────── */
+  .glass {
+    background: hsl(var(--card) / 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* ── Terminal font ──────────────────────────────────────── */
+  .font-terminal {
+    font-family: var(--font-mono), 'JetBrains Mono', 'Fira Mono', ui-monospace, monospace;
+    font-size: 0.7rem;
+    line-height: 1.65;
+    letter-spacing: 0.01em;
+  }
+
+  /* ── Scanline overlay (decorative) ─────────────────────── */
+  .scanlines::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      hsl(0 0% 0% / 0.03) 2px,
+      hsl(0 0% 0% / 0.03) 4px
+    );
+    z-index: 10;
+  }
+
+  /* ── Tabular numerics ───────────────────────────────────── */
+  .tabular { font-variant-numeric: tabular-nums; }
+}

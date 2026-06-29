@@ -1,6 +1,6 @@
-# AegisSage Intelligence | Medicare Retention SaaS
+# my-agent-factory | AI Agent Dashboard
 
-This is an enterprise-grade Next.js application built for Medicare agencies to monitor member enrollment and prevent churn using AI-driven insights.
+This is an AI agent dashboard application built to support the local `my-agent-factory` workspace.
 
 ## Documentation
 - [Development Status](./docs/STATUS.md)
