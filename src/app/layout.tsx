@@ -22,8 +22,25 @@ const display = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: 'My Agent Factory',
-  description: 'AI agent orchestration dashboard powered by Hermes',
+  title: {
+    default: 'My Agent Factory',
+    template: '%s — My Agent Factory',
+  },
+  description: 'Cyberpunk AI agent orchestration dashboard. Dispatch Codex, Scout, Phantom, and Architect via natural language commands.',
+  keywords: ['AI agents', 'orchestration', 'Claude', 'automation', 'dashboard'],
+  authors: [{ name: 'My Agent Factory' }],
+  openGraph: {
+    type: 'website',
+    title: 'My Agent Factory',
+    description: 'Cyberpunk AI agent orchestration dashboard powered by Hermes + Claude.',
+    siteName: 'My Agent Factory',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'My Agent Factory',
+    description: 'Cyberpunk AI agent orchestration dashboard powered by Hermes + Claude.',
+  },
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

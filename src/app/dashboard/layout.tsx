@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
 export const metadata: Metadata = {
-  title: 'Dashboard — My Agent Factory',
+  title: 'Control Room',
 };
 
 const NAV_ITEMS = [
