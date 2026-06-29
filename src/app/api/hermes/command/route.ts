@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { z } from 'zod';
 import { runHermesCommand } from '@/lib/hermes';
+import { runAgentWorker } from '@/lib/agents/runner';
 
 const CommandSchema = z.object({
   command: z.string().min(1, 'Command cannot be empty').max(1000, 'Command too long'),
@@ -22,13 +23,21 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  try {
-    const result = await runHermesCommand(parsed.data.command);
-    return NextResponse.json(result);
-  } catch (err) {
-    return NextResponse.json(
-      { error: 'Internal server error', message: String(err) },
-      { status: 500 }
-    );
+  const result = await runHermesCommand(parsed.data.command);
+
+  // Fire the worker agent after the response is sent to the client.
+  // `after()` extends the serverless function lifetime beyond the response flush.
+  if (result.status === 'dispatched' && result.taskId && result.agentId) {
+    const { taskId, agentId } = result;
+    after(async () => {
+      await runAgentWorker({
+        taskId,
+        agentId,
+        agentType: result.intent.agentType,
+        description: result.intent.description,
+      });
+    });
   }
+
+  return NextResponse.json(result);
 }
