@@ -31,7 +31,13 @@ export function useRealtimeLogs(initialLogs: Log[] = [], limit = 100) {
           setLogs((prev) => [...prev, payload.new as Log].slice(-limit));
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime:logs-stream] channel error', err);
+        } else if (status === 'TIMED_OUT') {
+          console.warn('[Realtime:logs-stream] subscription timed out');
+        }
+      });
 
     channelRef.current = channel;
 

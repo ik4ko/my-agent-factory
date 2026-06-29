@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import type { Log } from '@/lib/types/database.types';
@@ -9,7 +9,7 @@ export const LOGS_KEY = ['logs'] as const;
 const LIMIT = 120;
 
 export function useLogsQuery(initialData: Log[] = []) {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -20,7 +20,13 @@ export function useLogsQuery(initialData: Log[] = []) {
           [...prev, payload.new as Log].slice(-LIMIT)
         );
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime:logs-q] channel error', err);
+        } else if (status === 'TIMED_OUT') {
+          console.warn('[Realtime:logs-q] subscription timed out');
+        }
+      });
 
     return () => { supabase.removeChannel(channel); };
   }, [queryClient, supabase]);

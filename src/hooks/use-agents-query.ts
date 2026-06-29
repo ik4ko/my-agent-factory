@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import type { Agent } from '@/lib/types/database.types';
@@ -8,7 +8,7 @@ import type { Agent } from '@/lib/types/database.types';
 export const AGENTS_KEY = ['agents'] as const;
 
 export function useAgentsQuery(initialData: Agent[] = []) {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -28,7 +28,13 @@ export function useAgentsQuery(initialData: Agent[] = []) {
           return prev;
         });
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime:agents-q] channel error', err);
+        } else if (status === 'TIMED_OUT') {
+          console.warn('[Realtime:agents-q] subscription timed out');
+        }
+      });
 
     return () => { supabase.removeChannel(channel); };
   }, [queryClient, supabase]);

@@ -39,7 +39,13 @@ export function useRealtimeAgents(initialAgents: Agent[] = []) {
           }
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime:agents-changes] channel error', err);
+        } else if (status === 'TIMED_OUT') {
+          console.warn('[Realtime:agents-changes] subscription timed out');
+        }
+      });
 
     channelRef.current = channel;
 

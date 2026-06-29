@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import type { Task } from '@/lib/types/database.types';
@@ -9,7 +9,7 @@ export const TASKS_KEY = ['tasks'] as const;
 const LIMIT = 20;
 
 export function useTasksQuery(initialData: Task[] = []) {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -29,7 +29,13 @@ export function useTasksQuery(initialData: Task[] = []) {
           return prev;
         });
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime:tasks-q] channel error', err);
+        } else if (status === 'TIMED_OUT') {
+          console.warn('[Realtime:tasks-q] subscription timed out');
+        }
+      });
 
     return () => { supabase.removeChannel(channel); };
   }, [queryClient, supabase]);

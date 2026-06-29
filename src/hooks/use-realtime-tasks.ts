@@ -39,7 +39,13 @@ export function useRealtimeTasks(initialTasks: Task[] = [], limit = 20) {
           }
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime:tasks-changes] channel error', err);
+        } else if (status === 'TIMED_OUT') {
+          console.warn('[Realtime:tasks-changes] subscription timed out');
+        }
+      });
 
     channelRef.current = channel;
 
