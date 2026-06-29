@@ -1,3 +1,6 @@
+// Dashboard uses cookies() for Supabase SSR auth — must never be statically rendered.
+export const dynamic = 'force-dynamic';
+
 import { Cpu, Wifi, Terminal } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { DashboardClient } from '@/components/dashboard/dashboard-client';
