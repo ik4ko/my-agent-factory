@@ -12,7 +12,6 @@ export interface AgentWorkerInput {
 }
 
 // claude-haiku-4-5: 1–3s per call — fits Vercel Hobby 10s limit.
-// Upgrade to claude-opus-4-8 + thinking:{type:"adaptive"} on a Pro plan.
 const MODEL = 'claude-haiku-4-5';
 
 const PERSONAS: Record<AgentType, { label: string; system: string }> = {
@@ -63,8 +62,7 @@ export async function runAgentWorker(input: AgentWorkerInput): Promise<void> {
   await hermesLog(
     'info',
     `${persona.label} executing: "${description.slice(0, 80)}${description.length > 80 ? '…' : ''}"`,
-    { taskId, agentId },
-    taskId
+    agentId
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -85,42 +83,25 @@ export async function runAgentWorker(input: AgentWorkerInput): Promise<void> {
       .trim();
 
     await Promise.all([
-      db.from('tasks').update({
-        status: 'completed',
-        result: { output, model: MODEL, completedAt: new Date().toISOString() },
-      }).eq('id', taskId),
-      db.from('agents').update({
-        status: 'idle',
-        current_task_id: null,
-        last_heartbeat: new Date().toISOString(),
-      }).eq('id', agentId),
+      db.from('tasks').update({ status: 'completed' }).eq('id', taskId),
+      db.from('agents').update({ status: 'idle', current_task: null }).eq('id', agentId),
     ]);
 
-    await hermesLog(
-      'success',
-      `${persona.label} task complete (${output.length} chars)`,
-      { taskId, agentId },
-      taskId
-    );
+    await hermesLog('success', `${persona.label} task complete (${output.length} chars)`, agentId);
 
-    await writeMemory(
-      `agent:${agentType}:last_output`,
-      { taskId, description, preview: output.slice(0, 400), timestamp: new Date().toISOString() },
-      { tags: [agentType, 'output', 'completed'], importance: 7, source: persona.label }
-    );
+    await writeMemory(`agent:${agentType}:last_output`, {
+      taskId,
+      description,
+      preview: output.slice(0, 400),
+      model: MODEL,
+      completedAt: new Date().toISOString(),
+    });
   } catch (err) {
     const errMsg = String(err);
     await Promise.all([
-      db.from('tasks').update({
-        status: 'failed',
-        result: { error: errMsg, failedAt: new Date().toISOString() },
-      }).eq('id', taskId),
-      db.from('agents').update({
-        status: 'error',
-        current_task_id: null,
-        last_heartbeat: new Date().toISOString(),
-      }).eq('id', agentId),
+      db.from('tasks').update({ status: 'failed' }).eq('id', taskId),
+      db.from('agents').update({ status: 'error', current_task: null }).eq('id', agentId),
     ]);
-    await hermesLog('error', `${persona.label} failed: ${errMsg.slice(0, 120)}`, { taskId, agentId }, taskId);
+    await hermesLog('error', `${persona.label} failed: ${errMsg.slice(0, 120)}`, agentId);
   }
 }

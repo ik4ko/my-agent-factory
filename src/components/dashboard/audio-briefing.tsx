@@ -8,23 +8,15 @@ import { useTTS } from '@/hooks/use-tts';
 import { cn } from '@/lib/utils';
 import type { Task } from '@/lib/types/database.types';
 
-const AGENT_CALLSIGN: Record<string, string> = {
-  coder:      'Codex',
-  researcher: 'Scout',
-  browser:    'Phantom',
-  planner:    'Architect',
-  generic:    'Hermes',
-};
-
 function buildBriefing(task: Task): string {
-  const result = task.result as Record<string, unknown> | null;
-  const agentType = (result?.agentType as string) ?? 'generic';
-  const callsign = AGENT_CALLSIGN[agentType] ?? 'Agent';
-  const preview = typeof result?.output === 'string'
-    ? result.output.slice(0, 200).replace(/```[\s\S]*?```/g, 'code block').trim()
+  const desc = task.description
+    ? task.description.slice(0, 120).replace(/```[\s\S]*?```/g, 'code').trim()
     : 'Task complete.';
 
-  return `${callsign} reporting. Mission complete. ${preview}`;
+  if (task.status === 'failed') {
+    return `Mission failed. Task: ${desc}`;
+  }
+  return `Mission complete. Task: ${desc}`;
 }
 
 interface BriefingEntry {
@@ -38,7 +30,6 @@ export function AudioBriefing() {
   const [enabled, setEnabled] = useState(false);
   const [lastBriefing, setLastBriefing] = useState<BriefingEntry | null>(null);
   const supabase = createClient();
-  // Track tasks we've already briefed to avoid duplicates on reconnect
   const briefedRef = useRef<Set<string>>(new Set());
 
   const deliverBriefing = useCallback(
@@ -70,7 +61,6 @@ export function AudioBriefing() {
     return () => { supabase.removeChannel(channel); };
   }, [supabase, deliverBriefing]);
 
-  // Auto-clear briefing banner after 8 s
   useEffect(() => {
     if (!lastBriefing) return;
     const t = setTimeout(() => setLastBriefing(null), 8000);
@@ -81,7 +71,6 @@ export function AudioBriefing() {
 
   return (
     <div className="flex items-center gap-2">
-      {/* Toggle button */}
       <button
         onClick={() => {
           if (enabled) stop();
@@ -99,7 +88,6 @@ export function AudioBriefing() {
         <span className="hidden sm:inline">{enabled ? 'AUDIO ON' : 'AUDIO'}</span>
       </button>
 
-      {/* Briefing banner */}
       <AnimatePresence>
         {lastBriefing && enabled && (
           <motion.span

@@ -6,17 +6,22 @@ import { AudioBriefing } from '@/components/dashboard/audio-briefing';
 import type { Agent, Task, Log } from '@/lib/types/database.types';
 
 async function fetchDashboardData() {
-  const supabase = await createClient();
-  const [agentsRes, tasksRes, logsRes] = await Promise.all([
-    supabase.from('agents').select('*').order('created_at', { ascending: true }),
-    supabase.from('tasks').select('*').order('created_at', { ascending: false }).limit(20),
-    supabase.from('logs').select('*').order('timestamp', { ascending: false }).limit(80),
-  ]);
-  return {
-    agents: (agentsRes.data ?? []) as Agent[],
-    tasks:  (tasksRes.data  ?? []) as Task[],
-    logs:   ((logsRes.data  ?? []) as Log[]).reverse(),
-  };
+  try {
+    const supabase = await createClient();
+    const [agentsRes, tasksRes, logsRes] = await Promise.all([
+      supabase.from('agents').select('*').order('created_at', { ascending: true }),
+      supabase.from('tasks').select('*').order('created_at', { ascending: false }).limit(20),
+      supabase.from('logs').select('*').order('timestamp', { ascending: false }).limit(80),
+    ]);
+    return {
+      agents: (agentsRes.data ?? []) as Agent[],
+      tasks:  (tasksRes.data  ?? []) as Task[],
+      logs:   ((logsRes.data  ?? []) as Log[]).reverse(),
+    };
+  } catch (err) {
+    console.error('[fetchDashboardData]', err);
+    return { agents: [] as Agent[], tasks: [] as Task[], logs: [] as Log[] };
+  }
 }
 
 function TopBar() {

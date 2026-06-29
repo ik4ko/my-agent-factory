@@ -16,27 +16,19 @@ const STATUS_VARIANT: Record<TaskStatus, 'success' | 'cyan' | 'muted' | 'error' 
   cancelled: 'muted',
 };
 
-function PriorityBar({ priority }: { priority: number }) {
-  const filled = Math.round((priority / 10) * 5);
-  return (
-    <div className="flex items-center gap-0.5" title={`Priority ${priority}/10`}>
-      {Array.from({ length: 5 }).map((_, i) => (
-        <motion.div
-          key={i}
-          initial={{ scaleY: 0 }}
-          animate={{ scaleY: 1 }}
-          transition={{ delay: i * 0.05, type: 'spring', stiffness: 300 }}
-          className={cn(
-            'h-2 w-1 rounded-sm origin-bottom',
-            i < filled ? 'bg-primary' : 'bg-surface-3'
-          )}
-        />
-      ))}
-    </div>
-  );
-}
+const STATUS_DOT: Record<TaskStatus, string> = {
+  completed: 'bg-neon-green',
+  running:   'bg-neon-cyan animate-pulse',
+  pending:   'bg-warning/60',
+  failed:    'bg-neon-red',
+  cancelled: 'bg-muted-foreground/30',
+};
 
 function TaskRow({ task, index }: { task: Task; index: number }) {
+  const ts = task.created_at
+    ? formatDistanceToNow(new Date(task.created_at), { addSuffix: true, includeSeconds: true })
+    : '—';
+
   return (
     <motion.div
       layout
@@ -50,14 +42,12 @@ function TaskRow({ task, index }: { task: Task; index: number }) {
         'transition-colors duration-150'
       )}
     >
+      <div className={cn('mt-1.5 size-1.5 shrink-0 rounded-full', STATUS_DOT[task.status])} />
       <div className="flex-1 min-w-0 space-y-1.5">
         <p className="text-xs text-foreground/85 leading-snug line-clamp-2">{task.description}</p>
         <div className="flex items-center gap-2 flex-wrap">
           <Badge variant={STATUS_VARIANT[task.status]}>{task.status}</Badge>
-          <PriorityBar priority={task.priority} />
-          <span className="font-terminal text-[10px] text-muted-foreground/40 ml-auto tabular">
-            {formatDistanceToNow(new Date(task.created_at), { addSuffix: true, includeSeconds: true })}
-          </span>
+          <span className="font-terminal text-[10px] text-muted-foreground/40 ml-auto tabular">{ts}</span>
         </div>
       </div>
     </motion.div>
@@ -74,10 +64,7 @@ function TaskSkeleton({ i }: { i: number }) {
     >
       <Skeleton className="h-3 w-full" />
       <Skeleton className="h-3 w-3/4" />
-      <div className="flex items-center gap-2">
-        <Skeleton className="h-4 w-16 rounded" />
-        <Skeleton className="h-2 w-12" />
-      </div>
+      <Skeleton className="h-4 w-16 rounded" />
     </motion.div>
   );
 }
@@ -109,7 +96,13 @@ export function TaskFeed({ initialTasks = [] }: { initialTasks?: Task[] }) {
         <div className="px-1 space-y-0.5">
           <AnimatePresence mode="popLayout" initial={false}>
             {isLoading
-              ? Array.from({ length: 5 }).map((_, i) => <TaskSkeleton key={i} i={i} />)
+              ? Array.from({ length: 4 }).map((_, i) => <TaskSkeleton key={i} i={i} />)
+              : tasks.length === 0
+              ? (
+                <div className="flex h-32 items-center justify-center">
+                  <span className="font-terminal text-xs text-muted-foreground/30">No tasks dispatched yet</span>
+                </div>
+              )
               : tasks.map((task, i) => (
                   <TaskRow key={task.id} task={task} index={i} />
                 ))}

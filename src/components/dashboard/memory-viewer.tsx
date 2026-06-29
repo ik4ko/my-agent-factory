@@ -9,32 +9,12 @@ import { cn } from '@/lib/utils';
 import type { Memory } from '@/lib/types/database.types';
 import { formatDistanceToNow } from 'date-fns';
 
-const IMPORTANCE_COLOR = (n: number) => {
-  if (n >= 8) return 'text-neon-red';
-  if (n >= 6) return 'text-neon-orange';
-  if (n >= 4) return 'text-neon-cyan';
-  return 'text-muted-foreground/40';
-};
-
-function ImportanceDots({ value }: { value: number }) {
-  return (
-    <div className="flex items-center gap-0.5" title={`Importance ${value}/10`}>
-      {Array.from({ length: 5 }).map((_, i) => (
-        <div
-          key={i}
-          className={cn(
-            'size-1.5 rounded-full',
-            i < Math.round(value / 2) ? IMPORTANCE_COLOR(value) : 'bg-surface-3'
-          )}
-        />
-      ))}
-    </div>
-  );
-}
-
 function MemoryRow({ mem }: { mem: Memory }) {
   const [expanded, setExpanded] = useState(false);
   const preview = JSON.stringify(mem.value).slice(0, 80);
+  const ts = mem.updated_at
+    ? formatDistanceToNow(new Date(mem.updated_at), { addSuffix: true })
+    : '—';
 
   return (
     <motion.div
@@ -48,37 +28,12 @@ function MemoryRow({ mem }: { mem: Memory }) {
     >
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0 space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="font-terminal text-[10px] text-primary truncate">{mem.key}</span>
-            {mem.source && (
-              <span className="font-terminal text-[9px] text-muted-foreground/30 shrink-0">
-                /{mem.source}
-              </span>
-            )}
-          </div>
+          <span className="font-terminal text-[10px] text-primary block truncate">{mem.key}</span>
           <p className="font-terminal text-[10px] text-muted-foreground/50 truncate">{preview}</p>
-          {mem.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {mem.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="font-terminal text-[9px] px-1 py-px rounded bg-surface-2 text-muted-foreground/40"
-                >
-                  #{tag}
-                </span>
-              ))}
-            </div>
-          )}
         </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <ImportanceDots value={mem.importance} />
-          <span className="font-terminal text-[9px] text-muted-foreground/25 tabular">
-            v{mem.version}
-          </span>
-        </div>
+        <span className="font-terminal text-[9px] text-muted-foreground/25 shrink-0 mt-0.5">{ts}</span>
       </div>
 
-      {/* Expanded value */}
       <AnimatePresence>
         {expanded && (
           <motion.pre
@@ -93,10 +48,6 @@ function MemoryRow({ mem }: { mem: Memory }) {
           </motion.pre>
         )}
       </AnimatePresence>
-
-      <div className="mt-1 font-terminal text-[9px] text-muted-foreground/20 text-right">
-        {formatDistanceToNow(new Date(mem.updated_at), { addSuffix: true })}
-      </div>
     </motion.div>
   );
 }
@@ -109,32 +60,34 @@ export function MemoryViewer() {
 
   const fetchMemory = useCallback(async (q: string) => {
     setLoading(true);
-    const builder = supabase
-      .from('memory')
-      .select('*')
-      .order('importance', { ascending: false })
-      .order('updated_at', { ascending: false })
-      .limit(40);
+    try {
+      const builder = supabase
+        .from('memory')
+        .select('*')
+        .order('updated_at', { ascending: false })
+        .limit(40);
 
-    const { data } = q.trim()
-      ? await builder.ilike('key', `%${q.trim()}%`)
-      : await builder;
+      const { data } = q.trim()
+        ? await builder.ilike('key', `%${q.trim()}%`)
+        : await builder;
 
-    setMemories((data ?? []) as Memory[]);
-    setLoading(false);
+      setMemories((data ?? []) as Memory[]);
+    } catch {
+      setMemories([]);
+    } finally {
+      setLoading(false);
+    }
   }, [supabase]);
 
   useEffect(() => {
     void fetchMemory('');
   }, [fetchMemory]);
 
-  // Debounced search
   useEffect(() => {
     const t = setTimeout(() => void fetchMemory(query), 300);
     return () => clearTimeout(t);
   }, [query, fetchMemory]);
 
-  // Realtime subscription
   useEffect(() => {
     const channel = supabase
       .channel('memory-viewer')
@@ -147,7 +100,6 @@ export function MemoryViewer() {
 
   return (
     <div className="flex h-full flex-col gap-3">
-      {/* Header */}
       <div className="flex items-center gap-2 shrink-0">
         <Brain className="size-3.5 text-neon-purple/70 shrink-0" />
         <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Memory</span>
@@ -164,8 +116,9 @@ export function MemoryViewer() {
         </button>
       </div>
 
-      {/* Search */}
-      <div className="flex items-center gap-2 rounded-md border border-border bg-surface-1 px-2 py-1.5 shrink-0">
+      <div className={cn(
+        'flex items-center gap-2 rounded-md border border-border bg-surface-1 px-2 py-1.5 shrink-0',
+      )}>
         <Search className="size-3 text-muted-foreground/30 shrink-0" />
         <input
           value={query}
@@ -175,10 +128,9 @@ export function MemoryViewer() {
         />
       </div>
 
-      {/* List */}
       <div className="flex-1 overflow-y-auto space-y-0.5 -mx-1 px-1">
         {loading ? (
-          Array.from({ length: 5 }).map((_, i) => (
+          Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="px-3 py-2 space-y-1.5">
               <Skeleton className="h-2 w-2/3" />
               <Skeleton className="h-2 w-full" />

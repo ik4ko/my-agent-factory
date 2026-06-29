@@ -11,6 +11,16 @@ import { cn } from '@/lib/utils';
 import type { Agent, AgentType } from '@/lib/types/database.types';
 import { formatDistanceToNow } from 'date-fns';
 
+// Infer visual type from agent name (no type column in schema)
+function inferAgentType(name: string): AgentType {
+  const n = name.toLowerCase();
+  if (n.includes('codex'))    return 'coder';
+  if (n.includes('scout'))    return 'researcher';
+  if (n.includes('phantom'))  return 'browser';
+  if (n.includes('architect')) return 'planner';
+  return 'generic';
+}
+
 const TYPE_ICON: Record<AgentType, React.ElementType> = {
   generic: Activity, coder: Code2, researcher: Search,
   browser: Globe, planner: Layers,
@@ -33,14 +43,14 @@ const STATUS_BADGE = {
 
 function AgentCard({ agent, index }: { agent: Agent; index: number }) {
   const [expanded, setExpanded] = useState(false);
-  const Icon = TYPE_ICON[agent.type];
-  const iconColor = TYPE_COLOR[agent.type];
-  const iconBg = TYPE_BG[agent.type];
+  const agentType = inferAgentType(agent.name);
+  const Icon = TYPE_ICON[agentType];
+  const iconColor = TYPE_COLOR[agentType];
+  const iconBg = TYPE_BG[agentType];
 
-  const heartbeat = formatDistanceToNow(new Date(agent.last_heartbeat), {
-    addSuffix: true,
-    includeSeconds: true,
-  });
+  const since = agent.created_at
+    ? formatDistanceToNow(new Date(agent.created_at), { addSuffix: true, includeSeconds: true })
+    : '—';
 
   return (
     <motion.div
@@ -71,7 +81,7 @@ function AgentCard({ agent, index }: { agent: Agent; index: number }) {
             </div>
             <div className="min-w-0">
               <p className="truncate text-xs font-semibold text-foreground">{agent.name}</p>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60">{agent.type}</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60">{agentType}</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -85,7 +95,7 @@ function AgentCard({ agent, index }: { agent: Agent; index: number }) {
         {/* Collapsed summary row */}
         <div className="flex items-center justify-between px-3 pb-2.5">
           <Badge variant={STATUS_BADGE[agent.status]}>{agent.status}</Badge>
-          <span className="font-terminal text-[10px] text-muted-foreground/40 tabular">{heartbeat}</span>
+          <span className="font-terminal text-[10px] text-muted-foreground/40 tabular">{since}</span>
         </div>
 
         {/* Expanded details */}
@@ -103,19 +113,11 @@ function AgentCard({ agent, index }: { agent: Agent; index: number }) {
                   <span className="text-muted-foreground/50">ID</span>
                   <span className="text-muted-foreground/70 truncate max-w-[140px]">{agent.id.slice(0, 8)}…</span>
                 </div>
-                {agent.current_task_id && (
+                {agent.current_task && (
                   <div className="flex justify-between font-terminal text-[10px]">
                     <span className="text-muted-foreground/50">Task</span>
                     <span className="text-neon-cyan truncate max-w-[140px]">
-                      {agent.current_task_id.slice(0, 8)}…
-                    </span>
-                  </div>
-                )}
-                {agent.metadata && Object.keys(agent.metadata).length > 0 && (
-                  <div className="flex justify-between font-terminal text-[10px]">
-                    <span className="text-muted-foreground/50">Version</span>
-                    <span className="text-muted-foreground/60">
-                      {String((agent.metadata as Record<string, unknown>).version ?? '—')}
+                      {agent.current_task.slice(0, 8)}…
                     </span>
                   </div>
                 )}
@@ -175,8 +177,8 @@ export function AgentFleet({ initialAgents = [] }: AgentFleetProps) {
         </div>
         {!isLoading && (
           <div className="flex items-center gap-2 font-terminal text-[10px]">
-            {(counts.busy ?? 0) > 0    && <span className="text-neon-cyan">{counts.busy} busy</span>}
-            {(counts.idle ?? 0) > 0    && <span className="text-neon-green">{counts.idle} idle</span>}
+            {(counts.busy    ?? 0) > 0 && <span className="text-neon-cyan">{counts.busy} busy</span>}
+            {(counts.idle    ?? 0) > 0 && <span className="text-neon-green">{counts.idle} idle</span>}
             {(counts.offline ?? 0) > 0 && <span className="text-muted-foreground/40">{counts.offline} offline</span>}
           </div>
         )}
@@ -186,7 +188,7 @@ export function AgentFleet({ initialAgents = [] }: AgentFleetProps) {
         <motion.div layout className="space-y-2 pr-0.5">
           <AnimatePresence mode="popLayout">
             {isLoading
-              ? Array.from({ length: 5 }).map((_, i) => <AgentSkeleton key={i} i={i} />)
+              ? Array.from({ length: 4 }).map((_, i) => <AgentSkeleton key={i} i={i} />)
               : agents.map((agent, i) => (
                   <AgentCard key={agent.id} agent={agent} index={i} />
                 ))}

@@ -15,18 +15,27 @@ import {
 import { AGENTS_KEY } from '@/hooks/use-agents-query';
 import { TASKS_KEY } from '@/hooks/use-tasks-query';
 import { LOGS_KEY } from '@/hooks/use-logs-query';
-import type { Agent } from '@/lib/types/database.types';
+import type { Agent, AgentType } from '@/lib/types/database.types';
 import { cn } from '@/lib/utils';
 
-const AGENT_ICONS: Record<string, React.ElementType> = {
+const AGENT_ICONS: Record<AgentType, React.ElementType> = {
   generic: Activity, coder: Code2, researcher: Search,
   browser: Globe, planner: Layers,
 };
 
-const AGENT_COLORS: Record<string, string> = {
+const AGENT_COLORS: Record<AgentType, string> = {
   generic: 'text-neon-green', coder: 'text-neon-cyan',
   researcher: 'text-neon-purple', browser: 'text-neon-orange', planner: 'text-primary',
 };
+
+function inferAgentType(name: string): AgentType {
+  const n = name.toLowerCase();
+  if (n.includes('codex'))     return 'coder';
+  if (n.includes('scout'))     return 'researcher';
+  if (n.includes('phantom'))   return 'browser';
+  if (n.includes('architect')) return 'planner';
+  return 'generic';
+}
 
 interface CommandPaletteProps {
   open: boolean;
@@ -92,8 +101,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                   {agents.length > 0 && (
                     <CommandGroup heading="Fleet">
                       {agents.map((agent) => {
-                        const Icon = AGENT_ICONS[agent.type] ?? Activity;
-                        const color = AGENT_COLORS[agent.type] ?? 'text-primary';
+                        const agentType = inferAgentType(agent.name);
+                        const Icon = AGENT_ICONS[agentType];
+                        const color = AGENT_COLORS[agentType];
                         return (
                           <CommandItem
                             key={agent.id}
@@ -102,7 +112,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                           >
                             <Icon className={cn('size-3.5', color)} />
                             <span>{agent.name}</span>
-                            <span className="text-xs text-muted-foreground/50">{agent.type}</span>
+                            <span className="text-xs text-muted-foreground/50">{agentType}</span>
                             <span
                               className={cn(
                                 'ml-auto font-terminal text-[10px]',
