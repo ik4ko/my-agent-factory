@@ -1,3 +1,0 @@
-module.exports=[520788,a=>{"use strict";var b=a.i(187924),c=a.i(572131),d=a.i(50944);a.s(["default",0,function(){let a=(0,d.useRouter)();return(0,c.useEffect)(()=>{a.replace("/settings/profile")},[a]),(0,b.jsx)("div",{className:"flex-1 flex items-center justify-center bg-background",children:(0,b.jsxs)("div",{className:"text-center space-y-4",children:[(0,b.jsx)("div",{className:"w-12 h-12 rounded-full border-2 border-primary border-t-transparent animate-spin mx-auto"}),(0,b.jsx)("p",{className:"text-[10px] font-black uppercase tracking-widest text-muted-foreground animate-pulse",children:"Loading Agency Workspace..."})]})})}])}];
-
-//# sourceMappingURL=src_app_settings_page_tsx_0uc27k5._.js.map

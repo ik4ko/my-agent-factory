@@ -1,3 +1,0 @@
-{
-  "/api/alerts/[alertId]/false-alarm/route": "app/api/alerts/[alertId]/false-alarm/route.js"
-}
