@@ -4,7 +4,9 @@ import { SESSION_COOKIE, verifySessionToken } from '@/lib/auth/session';
 // Auth gate for the control room. Every API route executes service-role
 // Supabase writes (and /api/hermes/command spends Anthropic tokens), so
 // nothing is reachable without a valid session cookie.
-const PUBLIC_PATHS = new Set(['/login', '/api/auth/login']);
+// /api/orchestrator/cron self-authorizes via CRON_SECRET (Vercel Cron can't
+// send the session cookie), so it's exempt from the cookie gate here.
+const PUBLIC_PATHS = new Set(['/login', '/api/auth/login', '/api/orchestrator/cron']);
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

@@ -14,11 +14,9 @@ import { WidgetErrorBoundary } from './widget-error-boundary';
 import { ConnectionBanner } from './connection-banner';
 import { CommandConsole } from './command-console';
 import { useCommandStore } from '@/lib/cli/command-store';
+import { useWorkspaceInit } from '@/hooks/use-workspace-init';
 import type { Agent, Task, Log } from '@/lib/types/database.types';
 import { useQueryClient } from '@tanstack/react-query';
-import { AGENTS_KEY } from '@/hooks/use-agents-query';
-import { TASKS_KEY } from '@/hooks/use-tasks-query';
-import { LOGS_KEY } from '@/hooks/use-logs-query';
 import { cn } from '@/lib/utils';
 
 const HANDLE_CLS = cn(
@@ -56,12 +54,9 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
   const openConsole = useCommandStore((s) => s.setOpen);
   const qc = useQueryClient();
 
-  // Pre-populate query cache from SSR data
-  useEffect(() => {
-    if (initialAgents.length > 0) qc.setQueryData(AGENTS_KEY, initialAgents);
-    if (initialTasks.length > 0) qc.setQueryData(TASKS_KEY, initialTasks);
-    if (initialLogs.length > 0) qc.setQueryData(LOGS_KEY, initialLogs);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Hydrate the workspace: synchronous SSR seed (no layout shift) + parallel
+  // reconcile fetch across all query keys, so tab re-entry is instant.
+  useWorkspaceInit({ initial: { agents: initialAgents, tasks: initialTasks, logs: initialLogs } });
 
   // Global keyboard shortcuts
   const handleKeyDown = useCallback(
