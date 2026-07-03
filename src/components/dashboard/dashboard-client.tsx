@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { AgentFleet } from './agent-fleet';
 import { TaskFeed } from './task-feed';
-import { LogTerminal } from './log-terminal';
+import { LiveTerminal } from './live-terminal';
 import { StatsBar } from './stats-bar';
+import { MetricsBar } from './metrics-bar';
 import { CommandPalette } from './command-palette';
 import { HermesInput } from './hermes-input';
 import { MemoryViewer } from './memory-viewer';
@@ -94,6 +95,11 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
         <StatsBar />
       </WidgetErrorBoundary>
 
+      {/* Ecosystem metrics — 24h token spend, est cost, Fable cap meter */}
+      <WidgetErrorBoundary name="Metrics">
+        <MetricsBar />
+      </WidgetErrorBoundary>
+
       {/* Resizable three-panel layout */}
       <PanelGroup direction="vertical" className="flex-1 overflow-hidden">
         {/* Top row: Agent Fleet + Task Feed */}
@@ -126,8 +132,8 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
           <PanelGroup direction="horizontal" className="h-full">
             <Panel defaultSize={65} minSize={35}>
               <div className="h-full overflow-hidden border-t border-border p-3">
-                <WidgetErrorBoundary name="Log Terminal">
-                  <LogTerminal initialLogs={initialLogs} />
+                <WidgetErrorBoundary name="Live Terminal">
+                  <LiveTerminal initialLogs={initialLogs} />
                 </WidgetErrorBoundary>
               </div>
             </Panel>

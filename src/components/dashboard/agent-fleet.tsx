@@ -3,12 +3,17 @@
 import { memo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Activity, Code2, Search, Globe, Layers, ChevronDown } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { useAgentsQuery } from '@/hooks/use-agents-query';
+import { TASKS_KEY } from '@/hooks/use-tasks-query';
+import { METRICS_KEY, fetchMetrics24h } from '@/hooks/use-metrics-query';
+import { createClient } from '@/lib/supabase/client';
+import { shortModel } from '@/lib/telemetry/pricing';
 import { StatusDot } from './status-dot';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import type { Agent, AgentType } from '@/lib/types/database.types';
+import type { Agent, AgentType, Metric, Task } from '@/lib/types/database.types';
 import { formatDistanceToNow } from 'date-fns';
 import { useSnapshotAt } from '@/lib/scrubber/scrubber-store';
 
@@ -43,9 +48,20 @@ const STATUS_BADGE = {
 };
 
 // Memoized: a status change on one agent must not re-render the whole fleet.
-const AgentCard = memo(function AgentCard({ agent }: { agent: Agent }) {
+export interface ModelLane {
+  transition: 'SEAT' | 'UP' | 'DOWN';
+  model: string;
+}
+
+const LANE_CLS: Record<ModelLane['transition'], string> = {
+  UP:   'border-neon-purple/40 bg-neon-purple/10 text-neon-purple',
+  DOWN: 'border-neon-orange/40 bg-neon-orange/10 text-neon-orange',
+  SEAT: 'border-neon-cyan/30 bg-neon-cyan/10 text-neon-cyan',
+};
+
+const AgentCard = memo(function AgentCard({ agent, lane }: { agent: Agent; lane: ModelLane | null }) {
   const [expanded, setExpanded] = useState(false);
-  const agentType = inferAgentType(agent.name);
+  const agentType = agent.type ?? inferAgentType(agent.name);
   const Icon = TYPE_ICON[agentType];
   const iconColor = TYPE_COLOR[agentType];
   const iconBg = TYPE_BG[agentType];
@@ -69,9 +85,12 @@ const AgentCard = memo(function AgentCard({ agent }: { agent: Agent }) {
           'group relative rounded-lg border border-border bg-surface-1',
           'cursor-pointer transition-colors duration-150',
           'hover:border-border/80 hover:bg-surface-2',
-          agent.status === 'busy'  && 'border-neon-cyan/20',
+          agent.status === 'idle' && !paused && !halted &&
+            'border-neon-green/25 [box-shadow:0_0_10px_hsl(var(--neon-green)/0.12)]',
+          agent.status === 'busy' &&
+            'border-neon-orange/30 bg-gradient-to-r from-neon-orange/[0.02] via-neon-orange/[0.09] to-neon-orange/[0.02] bg-[length:200%_100%] animate-shimmer',
           agent.status === 'error' && 'border-neon-red/20',
-          paused && 'border-neon-orange/30',
+          paused && 'border-border bg-surface-3/70 opacity-60 saturate-50',
           halted && 'border-neon-red/40 bg-neon-red/[0.05]',
           expanded && 'border-primary/25 bg-surface-2'
         )}
@@ -110,7 +129,19 @@ const AgentCard = memo(function AgentCard({ agent }: { agent: Agent }) {
           ) : (
             <Badge variant={STATUS_BADGE[agent.status]}>{agent.status}</Badge>
           )}
-          <span className="font-terminal text-[10px] text-muted-foreground/40 tabular">{since}</span>
+          <div className="flex items-center gap-1.5">
+            {lane && (
+              <span
+                className={cn(
+                  'rounded border px-1.5 py-0.5 font-terminal text-[10px] font-semibold tracking-wide',
+                  LANE_CLS[lane.transition]
+                )}
+              >
+                {lane.transition}: {shortModel(lane.model)}
+              </span>
+            )}
+            <span className="font-terminal text-[10px] text-muted-foreground/40 tabular">{since}</span>
+          </div>
         </div>
 
         {/* Expanded details */}
@@ -168,8 +199,43 @@ interface AgentFleetProps {
   initialAgents?: Agent[];
 }
 
+/** Passive cache reads — TaskFeed / MetricsBar own the realtime channels. */
+function useModelLanes(): Map<string, ModelLane> {
+  const { data: tasks = [] } = useQuery<Task[]>({
+    queryKey: TASKS_KEY,
+    queryFn: async () => {
+      const { data, error } = await createClient()
+        .from('tasks').select('*').order('created_at', { ascending: false }).limit(20);
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 30_000,
+  });
+  const { data: metrics = [] } = useQuery<Metric[]>({
+    queryKey: METRICS_KEY,
+    queryFn: fetchMetrics24h,
+    staleTime: 60_000,
+  });
+
+  // newest-first: first SEAT/UP/DOWN per task wins
+  const transitionByTask = new Map<string, ModelLane['transition']>();
+  for (const m of metrics) {
+    if ((m.event === 'SEAT' || m.event === 'UP' || m.event === 'DOWN') && m.task_id && !transitionByTask.has(m.task_id)) {
+      transitionByTask.set(m.task_id, m.event);
+    }
+  }
+
+  const lanes = new Map<string, ModelLane>();
+  for (const t of tasks) {
+    if (t.status !== 'running' || !t.agent_id || !t.model) continue;
+    lanes.set(t.agent_id, { model: t.model, transition: transitionByTask.get(t.id) ?? 'SEAT' });
+  }
+  return lanes;
+}
+
 export function AgentFleet({ initialAgents = [] }: AgentFleetProps) {
   const { data: rawAgents = [], isLoading } = useAgentsQuery(initialAgents);
+  const lanes = useModelLanes();
   const snapshotAt = useSnapshotAt();
   const historical = snapshotAt !== null;
   const agents = historical
@@ -206,7 +272,7 @@ export function AgentFleet({ initialAgents = [] }: AgentFleetProps) {
           ) : (
             <AnimatePresence mode="popLayout" initial={false}>
               {agents.map((agent) => (
-                <AgentCard key={agent.id} agent={agent} />
+                <AgentCard key={agent.id} agent={agent} lane={lanes.get(agent.id) ?? null} />
               ))}
             </AnimatePresence>
           )}
