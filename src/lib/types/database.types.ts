@@ -50,6 +50,10 @@ export type Task = {
   halted_at?: string | null;
   /** Model the orchestrator routed this task to (additive column). */
   model?: string | null;
+  /** Lane assigned by the router engine (SEAT | UP | DOWN). */
+  assigned_lane?: 'SEAT' | 'UP' | 'DOWN' | null;
+  /** Factory-built system prompt the worker executes with. */
+  system_prompt?: string | null;
 };
 
 export type Metric = {

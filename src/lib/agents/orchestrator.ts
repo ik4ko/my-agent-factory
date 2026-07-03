@@ -23,6 +23,8 @@ export interface Dispatch {
   model: string;
   transition: Transition;
   reason: string;
+  /** Factory prompt injected by the lane router (tasks.system_prompt). */
+  systemPrompt?: string;
 }
 
 export interface TriageResult {
@@ -101,7 +103,17 @@ export async function triageTick(limit = 5): Promise<TriageResult> {
       continue; // no capacity — next tick picks it up
     }
 
-    const decision = routeModel(task.description, snapshot);
+    // Pre-routed by /api/tasks/route-lane? Honor the assigned lane + injected
+    // prompt verbatim; otherwise fall back to the inline heuristic.
+    const decision =
+      task.assigned_lane && task.model
+        ? {
+            model: task.model,
+            transition: task.assigned_lane as Transition,
+            inputTokens: 0,
+            reason: 'pre-routed lane (route-lane hook)',
+          }
+        : routeModel(task.description, snapshot);
 
     try {
       await recordModelEvent({
@@ -145,6 +157,7 @@ export async function triageTick(limit = 5): Promise<TriageResult> {
         model: decision.model,
         transition: decision.transition,
         reason: decision.reason,
+        systemPrompt: task.system_prompt ?? undefined,
       });
     } catch (err) {
       const line = `[ORCH] HALT task=${task.id.slice(0, 8)} model=${decision.model}: ${String(err)

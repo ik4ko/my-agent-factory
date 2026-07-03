@@ -19,13 +19,23 @@ export async function POST(req: NextRequest) {
     const db = getAdminClient();
     const approved = decision === 'approve';
 
+    // Staged tasks (e.g. UP-lane awaiting approval) were never running —
+    // releasing them to 'pending' lets the next triage sweep dispatch them.
+    // Mid-run interventions keep the original resume semantics.
+    const { data: current, error: readErr } = await db
+      .from('tasks')
+      .select('status')
+      .eq('id', taskId)
+      .maybeSingle();
+    if (readErr) throw readErr;
+    const wasRunning = current?.status === 'running';
+
     const { error } = await db
       .from('tasks')
       .update({
         intervention_state: approved ? 'approved' : 'denied',
         intervention_feedback: feedback ?? null,
-        // Approving resumes the run; denying cancels the task.
-        status: approved ? 'running' : 'cancelled',
+        status: approved ? (wasRunning ? 'running' : 'pending') : 'cancelled',
         updated_at: new Date().toISOString(),
       })
       .eq('id', taskId);

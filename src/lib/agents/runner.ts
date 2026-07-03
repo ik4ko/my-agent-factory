@@ -12,6 +12,8 @@ export interface AgentWorkerInput {
   description: string;
   /** Model chosen by the orchestrator's router; defaults to the fast worker. */
   model?: string;
+  /** Factory-built prompt (lane × task type); overrides the static persona. */
+  systemPrompt?: string;
 }
 
 // claude-haiku-4-5: 1–3s per call — fits Vercel Hobby 10s limit.
@@ -104,7 +106,7 @@ export async function runAgentWorker(input: AgentWorkerInput): Promise<void> {
     const stream = await getAnthropic().messages.create({
       model,
       max_tokens: 2048,
-      system: persona.system,
+      system: input.systemPrompt ?? persona.system,
       messages: [{ role: 'user', content: description }],
       stream: true,
     });
