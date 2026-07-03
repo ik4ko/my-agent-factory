@@ -9,6 +9,7 @@ import { StatsBar } from './stats-bar';
 import { MetricsBar } from './metrics-bar';
 import { CommandPalette } from './command-palette';
 import { HermesInput } from './hermes-input';
+import { TaskInput } from './task-input';
 import { MemoryViewer } from './memory-viewer';
 import { WidgetErrorBoundary } from './widget-error-boundary';
 import { ConnectionBanner } from './connection-banner';
@@ -149,7 +150,8 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
       {/* Realtime degraded-state toast (overlay, non-shifting) */}
       <ConnectionBanner />
 
-      {/* Hermes command bar */}
+      {/* Command bars: raw task queue (lane-router flow) + Hermes intent dispatch */}
+      <TaskInput />
       <HermesInput />
     </>
   );
