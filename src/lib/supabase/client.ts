@@ -1,31 +1,48 @@
 import { createBrowserClient } from '@supabase/ssr';
 import type { Database } from '@/lib/types/database.types';
 
-// Placeholder used only during SSR/prerender when env vars haven't been inlined yet.
-// Effects and subscriptions never execute server-side, so this stub is never used for real calls.
+// Browser Supabase client — strictly public env only. NEXT_PUBLIC_* vars are
+// inlined at BUILD time, so if the Vercel project is missing them the browser
+// bundle compiles them to `undefined` and supabase-js throws
+// "Invalid supabaseUrl: Must be a valid HTTP or HTTPS URL". We never reference
+// the service-role key here (that would leak it into the client bundle).
+//
+// During SSR/prerender of client components, effects/subscriptions don't run,
+// so we hand back a syntactically-valid placeholder client rather than crash
+// the render; a genuinely missing/malformed var in the browser fails loudly.
 const SSR_PLACEHOLDER_URL = 'https://placeholder.supabase.co';
 const SSR_PLACEHOLDER_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiJ9.AAAAAAAAAAAAAAAAAAAAAA';
 
-export function createClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+function isValidHttpUrl(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
 
-  if (!url || !key) {
-    if (typeof window === 'undefined') {
-      // Server-side render / static prerender: NEXT_PUBLIC_ vars are inlined at build time,
-      // so this path means the Vercel project env vars are not yet configured.
-      // Return a no-op stub — React effects/subscriptions do not fire server-side.
+export function createClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const serverSide = typeof window === 'undefined';
+
+  // Treat missing OR malformed URL the same way — a blank/garbage value would
+  // otherwise reach supabase-js and produce the opaque "Invalid supabaseUrl".
+  if (!url || !key || !isValidHttpUrl(url)) {
+    if (serverSide) {
       console.warn(
-        '[supabase/client] NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY missing ' +
-          'during SSR. Configure them in Vercel project environment variables.'
+        '[supabase/client] NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY ' +
+          'missing or invalid during SSR. Set them in the Vercel project environment ' +
+          '(they are inlined at build time, so a redeploy is required after adding them).'
       );
       return createBrowserClient<Database>(SSR_PLACEHOLDER_URL, SSR_PLACEHOLDER_KEY);
     }
-    // Browser context: this is a genuine misconfiguration — fail loudly.
     throw new Error(
-      'Missing Supabase env vars: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY. ' +
-        'Set them in .env.local and restart the dev server.'
+      'Missing or invalid Supabase env vars: NEXT_PUBLIC_SUPABASE_URL must be a valid ' +
+        'http(s) URL and NEXT_PUBLIC_SUPABASE_ANON_KEY must be set. In production these ' +
+        'are inlined at build time — add them in Vercel and redeploy.'
     );
   }
 

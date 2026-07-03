@@ -50,6 +50,7 @@ export default function LoginPage() {
           placeholder="Passphrase"
           autoFocus
           autoComplete="current-password"
+          suppressHydrationWarning={true}
           className="mt-4 w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm text-foreground outline-none focus:border-primary"
         />
         {error && <p className="mt-2 text-xs text-destructive">{error}</p>}

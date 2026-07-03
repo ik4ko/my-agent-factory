@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Terminal, Loader2, CornerDownLeft } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type TraceKind = 'ok' | 'error';
@@ -12,8 +12,9 @@ interface Trace {
   id: number;
 }
 
-// Terminal command bar → queues a pending task (lane router picks it up).
-// Distinct from the Hermes intent bar: this bar does the raw insert flow.
+// Single terminal command dock. Queues a pending task via the auth-gated
+// /api/tasks/create route (tasks has RLS on with no policies → no browser
+// anon insert); the lane router + triage pick it up from there.
 export function TaskInput() {
   const [value, setValue] = useState('');
   const [pending, setPending] = useState(false);
@@ -29,7 +30,7 @@ export function TaskInput() {
   const submit = useCallback(
     async (raw: string) => {
       const prompt = raw.trim();
-      if (!prompt || pending) return; // empty inputs handled gracefully
+      if (!prompt || pending) return; // empty input → no-op
       setPending(true);
       try {
         const res = await fetch('/api/tasks/create', {
@@ -52,18 +53,21 @@ export function TaskInput() {
   );
 
   return (
-    <div className="shrink-0 border-t border-border bg-surface-1/40 px-4 py-2 space-y-1">
+    <div className="shrink-0 border-t border-border bg-[#0A0A0A] px-4 py-2.5 space-y-1">
       <div
         className={cn(
-          'flex items-center gap-2 rounded-md border px-3 py-2 bg-surface-1 transition-colors duration-150',
-          pending ? 'border-primary/50' : 'border-border hover:border-border/60 focus-within:border-primary/60'
+          'group flex items-center gap-2.5 rounded-md border border-l-2 border-border bg-[#0A0A0A]',
+          'px-3 py-2.5 transition-colors duration-150',
+          'focus-within:border-emerald-500/50 focus-within:border-l-emerald-500'
         )}
       >
+        {/* prompt glyph */}
         {pending ? (
-          <Loader2 className="size-3.5 text-primary animate-spin shrink-0" />
+          <Loader2 className="size-3.5 shrink-0 animate-spin text-emerald-500" />
         ) : (
-          <span className="font-terminal text-xs text-primary shrink-0 select-none">❯</span>
+          <span className="select-none font-terminal text-sm font-bold leading-none text-emerald-500">❯</span>
         )}
+
         <input
           ref={inputRef}
           value={value}
@@ -75,20 +79,25 @@ export function TaskInput() {
           placeholder="Queue a task for the fleet…"
           autoComplete="off"
           spellCheck={false}
+          suppressHydrationWarning={true}
           className={cn(
             'flex-1 bg-transparent font-terminal text-xs text-foreground',
             'placeholder:text-muted-foreground/25 outline-none disabled:opacity-60'
           )}
         />
+
+        {/* right-boundary tracking anchor */}
         <button
           onClick={() => void submit(value)}
           disabled={!value.trim() || pending}
           className={cn(
-            'flex items-center gap-1 font-terminal text-[10px] transition-colors duration-100 select-none',
-            value.trim() && !pending ? 'text-primary hover:text-primary/70' : 'text-muted-foreground/20 cursor-not-allowed'
+            'shrink-0 select-none font-terminal text-[10px] tracking-[0.2em] transition-colors duration-100',
+            value.trim() && !pending
+              ? 'text-emerald-500/80 hover:text-emerald-400'
+              : 'text-muted-foreground/25 cursor-not-allowed'
           )}
         >
-          <Terminal className="size-3" /> QUEUE <CornerDownLeft className="size-2.5" />
+          [ ENTER TO QUEUE ]
         </button>
       </div>
 
@@ -101,8 +110,8 @@ export function TaskInput() {
             exit={{ opacity: 0, transition: { duration: 0.3 } }}
             transition={{ duration: 0.12 }}
             className={cn(
-              'font-terminal text-[10px] px-1',
-              trace.kind === 'ok' ? 'text-neon-green' : 'text-neon-red'
+              'px-1 font-terminal text-[10px]',
+              trace.kind === 'ok' ? 'text-emerald-500' : 'text-neon-red'
             )}
           >
             {trace.kind === 'ok' ? '✓ ' : '✗ '}

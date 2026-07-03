@@ -1,17 +1,28 @@
 'use client';
 
-import { WifiOff, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { WifiOff, Loader2, X } from 'lucide-react';
 import { useConnectionStore, selectOverallStatus } from '@/lib/realtime/connection-store';
 import { cn } from '@/lib/utils';
 
 /**
- * Non-shifting realtime status toast. Fixed-positioned above the command bar
- * so it overlays rather than reflows the grid. Silent while connected or on
- * the initial connect; only surfaces degraded states.
+ * Non-shifting realtime status toast. Fixed above the command dock so it
+ * overlays rather than reflows the grid. Silent while connected/connecting;
+ * only surfaces degraded states. Dismissible on click — clearing it hides the
+ * current degraded state, and it re-arms automatically when the status
+ * transitions to a *different* state (so a new problem still notifies).
  */
 export function ConnectionBanner() {
   const status = useConnectionStore(selectOverallStatus);
+  const [dismissed, setDismissed] = useState<string | null>(null);
+
+  // Re-arm when the status changes away from the one the user dismissed.
+  useEffect(() => {
+    if (dismissed && status !== dismissed) setDismissed(null);
+  }, [status, dismissed]);
+
   if (status === 'connected' || status === 'connecting') return null;
+  if (dismissed === status) return null;
 
   const offline = status === 'offline';
 
@@ -21,7 +32,7 @@ export function ConnectionBanner() {
         role="status"
         aria-live="polite"
         className={cn(
-          'flex items-center gap-2 rounded-full border px-3 py-1.5 font-terminal text-[10px] shadow-lg backdrop-blur',
+          'pointer-events-auto flex items-center gap-2 rounded-full border px-3 py-1.5 font-terminal text-[10px] shadow-lg backdrop-blur',
           offline
             ? 'border-neon-red/30 bg-neon-red/10 text-neon-red'
             : 'border-neon-orange/30 bg-neon-orange/10 text-neon-orange'
@@ -38,6 +49,13 @@ export function ConnectionBanner() {
             Reconnecting to realtime…
           </>
         )}
+        <button
+          onClick={() => setDismissed(status)}
+          aria-label="Dismiss"
+          className="ml-1 rounded-full p-0.5 opacity-60 transition-opacity hover:opacity-100"
+        >
+          <X className="size-2.5" />
+        </button>
       </div>
     </div>
   );

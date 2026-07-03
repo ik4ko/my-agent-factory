@@ -8,7 +8,6 @@ import { LiveTerminal } from './live-terminal';
 import { StatsBar } from './stats-bar';
 import { MetricsBar } from './metrics-bar';
 import { CommandPalette } from './command-palette';
-import { HermesInput } from './hermes-input';
 import { TaskInput } from './task-input';
 import { MemoryViewer } from './memory-viewer';
 import { WidgetErrorBoundary } from './widget-error-boundary';
@@ -150,9 +149,8 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
       {/* Realtime degraded-state toast (overlay, non-shifting) */}
       <ConnectionBanner />
 
-      {/* Command bars: raw task queue (lane-router flow) + Hermes intent dispatch */}
+      {/* Single terminal command dock — queues a pending task (lane-router flow) */}
       <TaskInput />
-      <HermesInput />
     </>
   );
 }
