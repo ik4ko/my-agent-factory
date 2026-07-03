@@ -9,6 +9,10 @@ import { StatsBar } from './stats-bar';
 import { CommandPalette } from './command-palette';
 import { HermesInput } from './hermes-input';
 import { MemoryViewer } from './memory-viewer';
+import { WidgetErrorBoundary } from './widget-error-boundary';
+import { ConnectionBanner } from './connection-banner';
+import { CommandConsole } from './command-console';
+import { useCommandStore } from '@/lib/cli/command-store';
 import type { Agent, Task, Log } from '@/lib/types/database.types';
 import { useQueryClient } from '@tanstack/react-query';
 import { AGENTS_KEY } from '@/hooks/use-agents-query';
@@ -48,6 +52,7 @@ interface DashboardClientProps {
 
 export function DashboardClient({ initialAgents, initialTasks, initialLogs }: DashboardClientProps) {
   const [cmdOpen, setCmdOpen] = useState(false);
+  const openConsole = useCommandStore((s) => s.setOpen);
   const qc = useQueryClient();
 
   // Pre-populate query cache from SSR data
@@ -62,10 +67,16 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
     (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key === 'k') { e.preventDefault(); setCmdOpen((v) => !v); return; }
+      if (e.key === '/' && !mod) {
+        const el = document.activeElement;
+        const typing = el instanceof HTMLElement &&
+          (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+        if (!typing) { e.preventDefault(); openConsole(true); return; }
+      }
       if (e.key === 'Escape') { setCmdOpen(false); return; }
       if (e.key === 'r' && mod) { e.preventDefault(); qc.invalidateQueries(); return; }
     },
-    [qc]
+    [qc, openConsole]
   );
 
   useEffect(() => {
@@ -76,9 +87,12 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
   return (
     <>
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
+      <CommandConsole />
 
-      {/* Stats bar — live fleet health summary */}
-      <StatsBar />
+      {/* Stats bar - live fleet health summary */}
+      <WidgetErrorBoundary name="Stats">
+        <StatsBar />
+      </WidgetErrorBoundary>
 
       {/* Resizable three-panel layout */}
       <PanelGroup direction="vertical" className="flex-1 overflow-hidden">
@@ -86,22 +100,24 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
         <Panel defaultSize={55} minSize={25}>
           <PanelGroup direction="horizontal" className="h-full">
             <Panel defaultSize={42} minSize={22}>
-              <div className="h-full overflow-hidden border-r border-border p-4">
-                <AgentFleet initialAgents={initialAgents} />
+              <div className="h-full overflow-hidden border-r border-border p-3">
+                <WidgetErrorBoundary name="Agent Fleet">
+                  <AgentFleet initialAgents={initialAgents} />
+                </WidgetErrorBoundary>
               </div>
             </Panel>
 
             <HResizeHandle />
 
             <Panel defaultSize={58} minSize={28}>
-              <div className="h-full overflow-hidden p-4">
-                <TaskFeed initialTasks={initialTasks} />
+              <div className="h-full overflow-hidden p-3">
+                <WidgetErrorBoundary name="Task Feed">
+                  <TaskFeed initialTasks={initialTasks} />
+                </WidgetErrorBoundary>
               </div>
             </Panel>
           </PanelGroup>
         </Panel>
-
-        <VResizeHandle />
 
         <VResizeHandle />
 
@@ -109,21 +125,28 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
         <Panel defaultSize={45} minSize={20}>
           <PanelGroup direction="horizontal" className="h-full">
             <Panel defaultSize={65} minSize={35}>
-              <div className="h-full overflow-hidden border-t border-border p-4">
-                <LogTerminal initialLogs={initialLogs} />
+              <div className="h-full overflow-hidden border-t border-border p-3">
+                <WidgetErrorBoundary name="Log Terminal">
+                  <LogTerminal initialLogs={initialLogs} />
+                </WidgetErrorBoundary>
               </div>
             </Panel>
 
             <HResizeHandle />
 
             <Panel defaultSize={35} minSize={22}>
-              <div className="h-full overflow-hidden border-t border-l border-border p-4">
-                <MemoryViewer />
+              <div className="h-full overflow-hidden border-t border-l border-border p-3">
+                <WidgetErrorBoundary name="Memory">
+                  <MemoryViewer />
+                </WidgetErrorBoundary>
               </div>
             </Panel>
           </PanelGroup>
         </Panel>
       </PanelGroup>
+
+      {/* Realtime degraded-state toast (overlay, non-shifting) */}
+      <ConnectionBanner />
 
       {/* Hermes command bar */}
       <HermesInput />

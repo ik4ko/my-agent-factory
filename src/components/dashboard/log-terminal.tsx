@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { memo, useEffect, useRef, useState } from 'react';
 import { useLogsQuery } from '@/hooks/use-logs-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import type { Log, LogLevel } from '@/lib/types/database.types';
 import { format } from 'date-fns';
+import { useSnapshotAt } from '@/lib/scrubber/scrubber-store';
 
 const LEVEL_STYLE: Record<LogLevel, string> = {
   debug:   'text-muted-foreground/40',
@@ -27,6 +27,10 @@ const LEVEL_MSG_STYLE: Record<LogLevel, string> = {
 };
 
 const ALL_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error', 'success'];
+
+// Windowing constants — ROW_H MUST match the rendered row height (h-5 = 20px).
+const ROW_H = 20;
+const OVERSCAN = 12;
 
 function LevelToggle({
   level,
@@ -60,42 +64,64 @@ function LevelToggle({
   );
 }
 
-function LogLine({ log }: { log: Log }) {
-  const ts = format(new Date(log.timestamp), 'HH:mm:ss');
+// Memoized, fixed-height, single-line row. Logs are immutable by id, so the
+// default shallow prop check makes re-renders essentially free while scrolling.
+const LogLine = memo(function LogLine({ log }: { log: Log }) {
   return (
-    <motion.div
-      layout="position"
-      initial={{ opacity: 0, x: -6 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.12 }}
-      className="flex items-start gap-2 hover:bg-surface-2/50 px-1 rounded-sm py-px"
+    <div
+      className="flex h-5 items-center gap-2 rounded-sm px-1 leading-5 hover:bg-surface-2/50"
+      title={log.message}
     >
-      <span className="shrink-0 text-muted-foreground/25 tabular">{ts}</span>
-      <span className={cn('shrink-0 font-bold tabular w-7', LEVEL_STYLE[log.level])}>
+      <span className="shrink-0 text-muted-foreground/25 tabular">
+        {format(new Date(log.timestamp), 'HH:mm:ss')}
+      </span>
+      <span className={cn('w-7 shrink-0 font-bold tabular', LEVEL_STYLE[log.level])}>
         {LEVEL_PREFIX[log.level]}
       </span>
-      <span className={cn('break-words leading-relaxed', LEVEL_MSG_STYLE[log.level])}>
-        {log.message}
-      </span>
-    </motion.div>
+      <span className={cn('truncate', LEVEL_MSG_STYLE[log.level])}>{log.message}</span>
+    </div>
   );
-}
+});
 
 export function LogTerminal({ initialLogs = [] }: { initialLogs?: Log[] }) {
-  const { data: allLogs = [], isLoading } = useLogsQuery(initialLogs);
+  const { data: rawLogs = [], isLoading } = useLogsQuery(initialLogs);
+  const snapshotAt = useSnapshotAt();
+  // Historical snapshot: logs are append-only + timestamped, so reconstruction is exact.
+  const allLogs = snapshotAt === null
+    ? rawLogs
+    : rawLogs.filter((l) => new Date(l.timestamp).getTime() <= snapshotAt);
   const [activeLevel, setActiveLevel] = useState<LogLevel | 'all'>('all');
-  const bottomRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewH, setViewH] = useState(0);
 
   const logs = activeLevel === 'all'
     ? allLogs
     : allLogs.filter((l) => l.level === activeLevel);
+  const total = logs.length;
 
+  // Track viewport height for the windowing math.
   useEffect(() => {
-    if (autoScroll && bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [logs.length, autoScroll]);
+    const el = scrollRef.current;
+    if (!el) return;
+    const measure = () => setViewH(el.clientHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Pin to newest when the user is at the bottom.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (autoScroll && snapshotAt === null && el) el.scrollTop = el.scrollHeight;
+  }, [total, autoScroll, snapshotAt]);
+
+  const startIdx = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN);
+  const endIdx = Math.min(total, Math.ceil((scrollTop + viewH) / ROW_H) + OVERSCAN);
+  const visible = logs.slice(startIdx, endIdx);
 
   const levelCounts = ALL_LEVELS.reduce((acc, lvl) => {
     acc[lvl] = allLogs.filter((l) => l.level === lvl).length;
@@ -132,7 +158,12 @@ export function LogTerminal({ initialLogs = [] }: { initialLogs?: Log[] }) {
 
         <div className="ml-auto flex items-center gap-2">
           <button
-            onClick={() => setAutoScroll((v) => !v)}
+            onClick={() => {
+              const el = scrollRef.current;
+              const next = !autoScroll;
+              setAutoScroll(next);
+              if (next && el) el.scrollTop = el.scrollHeight;
+            }}
             className={cn(
               'font-terminal text-[10px] transition-colors duration-100',
               autoScroll ? 'text-neon-green animate-glow-pulse' : 'text-muted-foreground/30'
@@ -143,13 +174,14 @@ export function LogTerminal({ initialLogs = [] }: { initialLogs?: Log[] }) {
         </div>
       </div>
 
-      {/* Log output */}
+      {/* Windowed log output */}
       <div
-        className="font-terminal flex-1 overflow-y-auto pr-1 relative"
+        ref={scrollRef}
+        className="font-terminal relative flex-1 overflow-y-auto pr-1"
         onScroll={(e) => {
           const el = e.currentTarget;
-          const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-          setAutoScroll(atBottom);
+          setScrollTop(el.scrollTop);
+          setAutoScroll(el.scrollHeight - el.scrollTop - el.clientHeight < 40);
         }}
       >
         {isLoading ? (
@@ -158,20 +190,21 @@ export function LogTerminal({ initialLogs = [] }: { initialLogs?: Log[] }) {
               <Skeleton key={i} className="h-3" style={{ width: `${60 + (i * 13) % 35}%` }} />
             ))}
           </div>
-        ) : logs.length === 0 ? (
+        ) : total === 0 ? (
           <div className="flex h-full items-center justify-center">
             <span className="font-terminal text-xs text-muted-foreground/30">
               No {activeLevel !== 'all' ? activeLevel : ''} logs yet
             </span>
           </div>
         ) : (
-          <AnimatePresence initial={false} mode="popLayout">
-            {logs.map((log) => (
-              <LogLine key={log.id} log={log} />
-            ))}
-          </AnimatePresence>
+          <div style={{ height: total * ROW_H }} className="relative">
+            <div style={{ transform: `translateY(${startIdx * ROW_H}px)` }}>
+              {visible.map((log) => (
+                <LogLine key={log.id} log={log} />
+              ))}
+            </div>
+          </div>
         )}
-        <div ref={bottomRef} />
       </div>
     </div>
   );

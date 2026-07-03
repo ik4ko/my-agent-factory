@@ -52,7 +52,7 @@ export async function assignAgentToTask(agentId: string, taskId: string): Promis
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = getAdminClient() as any;
   await Promise.all([
-    db.from('agents').update({ status: 'busy', current_task: taskId }).eq('id', agentId),
+    db.from('agents').update({ status: 'busy', current_task_id: taskId }).eq('id', agentId),
     db.from('tasks').update({ status: 'running' }).eq('id', taskId),
   ]);
 }

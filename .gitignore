@@ -1,3 +1,25 @@
-.vercel
+# dependencies
 node_modules/
+
+# next.js
+.next/
+out/
+build/
+
+# production / deploy
+.vercel
+
+# env
 .env*
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
+
+# claude local settings
+.claude/settings.local.json

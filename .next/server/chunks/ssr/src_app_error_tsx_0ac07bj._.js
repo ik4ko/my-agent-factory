@@ -1,7 +1,0 @@
-module.exports=[23953,a=>{"use strict";var b=a.i(87924),c=a.i(80826);a.s(["default",0,function({error:a,reset:d}){return(0,c.useEffect)(()=>{console.error("[FACTORY ERROR]",a)},[a]),(0,b.jsx)("html",{lang:"en",children:(0,b.jsxs)("body",{className:"flex min-h-screen flex-col items-center justify-center bg-background px-6 text-center font-sans antialiased",children:[(0,b.jsx)("p",{className:"font-terminal text-[10px] uppercase tracking-[0.4em] text-neon-red/80 mb-4",children:"✗ System Failure"}),(0,b.jsx)("h1",{className:"font-display text-3xl font-black text-foreground mb-2",children:"Unhandled Exception"}),(0,b.jsx)("p",{className:"font-terminal text-xs text-muted-foreground/50 max-w-sm mb-6",children:a.message||"An unexpected error occurred in the agent factory."}),a.digest&&(0,b.jsxs)("p",{className:"font-terminal text-[10px] text-muted-foreground/25 mb-6",children:["digest: ",a.digest]}),(0,b.jsx)("pre",{className:"font-terminal text-[10px] text-neon-red/20 mb-8 select-none",children:`┌──────────────────────────────┐
-│  STATUS: UNRECOVERABLE       │
-│  CORE: EXCEPTION_THROWN      │
-│  ACTION: RESTART_REQUIRED    │
-└──────────────────────────────┘`}),(0,b.jsx)("button",{onClick:d,className:"inline-flex items-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-5 py-2.5 font-terminal text-xs text-primary transition-colors hover:bg-primary/20 hover:border-primary/70",children:"↺ Restart System"})]})})}])}];
-
-//# sourceMappingURL=src_app_error_tsx_0ac07bj._.js.map

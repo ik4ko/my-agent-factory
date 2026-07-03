@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { memo, useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Brain, RefreshCw } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import type { Memory } from '@/lib/types/database.types';
 import { formatDistanceToNow } from 'date-fns';
 
-function MemoryRow({ mem }: { mem: Memory }) {
+const MemoryRow = memo(function MemoryRow({ mem }: { mem: Memory }) {
   const [expanded, setExpanded] = useState(false);
   const preview = JSON.stringify(mem.value).slice(0, 80);
   const ts = mem.updated_at
@@ -50,7 +50,7 @@ function MemoryRow({ mem }: { mem: Memory }) {
       </AnimatePresence>
     </motion.div>
   );
-}
+});
 
 export function MemoryViewer() {
   const [memories, setMemories] = useState<Memory[]>([]);

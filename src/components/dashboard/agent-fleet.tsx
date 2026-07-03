@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Activity, Code2, Search, Globe, Layers, ChevronDown } from 'lucide-react';
 import { useAgentsQuery } from '@/hooks/use-agents-query';
@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import type { Agent, AgentType } from '@/lib/types/database.types';
 import { formatDistanceToNow } from 'date-fns';
+import { useSnapshotAt } from '@/lib/scrubber/scrubber-store';
 
 // Infer visual type from agent name (no type column in schema)
 function inferAgentType(name: string): AgentType {
@@ -41,7 +42,8 @@ const STATUS_BADGE = {
   offline: 'muted'   as const,
 };
 
-function AgentCard({ agent, index }: { agent: Agent; index: number }) {
+// Memoized: a status change on one agent must not re-render the whole fleet.
+const AgentCard = memo(function AgentCard({ agent }: { agent: Agent }) {
   const [expanded, setExpanded] = useState(false);
   const agentType = inferAgentType(agent.name);
   const Icon = TYPE_ICON[agentType];
@@ -51,14 +53,16 @@ function AgentCard({ agent, index }: { agent: Agent; index: number }) {
   const since = agent.created_at
     ? formatDistanceToNow(new Date(agent.created_at), { addSuffix: true, includeSeconds: true })
     : '—';
+  const halted = Boolean(agent.halted_at);
+  const paused = Boolean(agent.paused) && !halted;
 
   return (
     <motion.div
-      layout
+      layout="position"
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96 }}
-      transition={{ type: 'spring', stiffness: 350, damping: 28, delay: index * 0.04 }}
+      transition={{ duration: 0.18 }}
     >
       <div
         className={cn(
@@ -67,6 +71,8 @@ function AgentCard({ agent, index }: { agent: Agent; index: number }) {
           'hover:border-border/80 hover:bg-surface-2',
           agent.status === 'busy'  && 'border-neon-cyan/20',
           agent.status === 'error' && 'border-neon-red/20',
+          paused && 'border-neon-orange/30',
+          halted && 'border-neon-red/40 bg-neon-red/[0.05]',
           expanded && 'border-primary/25 bg-surface-2'
         )}
         onClick={() => setExpanded((v) => !v)}
@@ -74,7 +80,7 @@ function AgentCard({ agent, index }: { agent: Agent; index: number }) {
         tabIndex={0}
         onKeyDown={(e) => e.key === 'Enter' && setExpanded((v) => !v)}
       >
-        <div className="flex items-start justify-between gap-2 p-3">
+        <div className="flex items-start justify-between gap-2 p-2.5">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg border border-border', iconBg, iconColor)}>
               <Icon className="size-3.5" />
@@ -86,20 +92,29 @@ function AgentCard({ agent, index }: { agent: Agent; index: number }) {
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <StatusDot status={agent.status} size="md" />
-            <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
-              <ChevronDown className="size-3 text-muted-foreground/40" />
-            </motion.div>
+            <ChevronDown
+              className={cn(
+                'size-3 text-muted-foreground/40 transition-transform duration-200',
+                expanded && 'rotate-180'
+              )}
+            />
           </div>
         </div>
 
         {/* Collapsed summary row */}
-        <div className="flex items-center justify-between px-3 pb-2.5">
-          <Badge variant={STATUS_BADGE[agent.status]}>{agent.status}</Badge>
+        <div className="flex items-center justify-between px-2.5 pb-2">
+          {halted ? (
+            <Badge variant="error">halted</Badge>
+          ) : paused ? (
+            <Badge variant="warning">paused</Badge>
+          ) : (
+            <Badge variant={STATUS_BADGE[agent.status]}>{agent.status}</Badge>
+          )}
           <span className="font-terminal text-[10px] text-muted-foreground/40 tabular">{since}</span>
         </div>
 
         {/* Expanded details */}
-        <AnimatePresence>
+        <AnimatePresence initial={false}>
           {expanded && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
@@ -108,16 +123,16 @@ function AgentCard({ agent, index }: { agent: Agent; index: number }) {
               transition={{ duration: 0.2, ease: 'easeInOut' }}
               className="overflow-hidden"
             >
-              <div className="border-t border-border/60 px-3 py-2.5 space-y-1.5">
+              <div className="border-t border-border/60 px-2.5 py-2 space-y-1.5">
                 <div className="flex justify-between font-terminal text-[10px]">
                   <span className="text-muted-foreground/50">ID</span>
                   <span className="text-muted-foreground/70 truncate max-w-[140px]">{agent.id.slice(0, 8)}…</span>
                 </div>
-                {agent.current_task && (
+                {agent.current_task_id && (
                   <div className="flex justify-between font-terminal text-[10px]">
                     <span className="text-muted-foreground/50">Task</span>
                     <span className="text-neon-cyan truncate max-w-[140px]">
-                      {agent.current_task.slice(0, 8)}…
+                      {agent.current_task_id.slice(0, 8)}…
                     </span>
                   </div>
                 )}
@@ -128,16 +143,11 @@ function AgentCard({ agent, index }: { agent: Agent; index: number }) {
       </div>
     </motion.div>
   );
-}
+});
 
-function AgentSkeleton({ i }: { i: number }) {
+function AgentSkeleton() {
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: i * 0.06 }}
-      className="rounded-lg border border-border bg-surface-1 p-3 space-y-2.5"
-    >
+    <div className="rounded-lg border border-border bg-surface-1 p-2.5 space-y-2.5">
       <div className="flex items-center gap-2.5">
         <Skeleton className="size-8 rounded-lg shrink-0" />
         <div className="flex-1 space-y-1.5">
@@ -150,7 +160,7 @@ function AgentSkeleton({ i }: { i: number }) {
         <Skeleton className="h-4 w-14 rounded" />
         <Skeleton className="h-2 w-16" />
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -159,7 +169,12 @@ interface AgentFleetProps {
 }
 
 export function AgentFleet({ initialAgents = [] }: AgentFleetProps) {
-  const { data: agents = [], isLoading } = useAgentsQuery(initialAgents);
+  const { data: rawAgents = [], isLoading } = useAgentsQuery(initialAgents);
+  const snapshotAt = useSnapshotAt();
+  const historical = snapshotAt !== null;
+  const agents = historical
+    ? rawAgents.filter((a) => new Date(a.created_at).getTime() <= snapshotAt)
+    : rawAgents;
 
   const counts = agents.reduce((acc, a) => {
     acc[a.status] = (acc[a.status] ?? 0) + 1;
@@ -167,7 +182,7 @@ export function AgentFleet({ initialAgents = [] }: AgentFleetProps) {
   }, {} as Record<string, number>);
 
   return (
-    <div className="flex h-full flex-col gap-3">
+    <div className={cn('flex h-full flex-col gap-2.5', historical && 'opacity-90 saturate-[0.6]')}>
       <div className="flex items-center justify-between shrink-0">
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Fleet</span>
@@ -185,15 +200,17 @@ export function AgentFleet({ initialAgents = [] }: AgentFleetProps) {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <motion.div layout className="space-y-2 pr-0.5">
-          <AnimatePresence mode="popLayout">
-            {isLoading
-              ? Array.from({ length: 4 }).map((_, i) => <AgentSkeleton key={i} i={i} />)
-              : agents.map((agent, i) => (
-                  <AgentCard key={agent.id} agent={agent} index={i} />
-                ))}
-          </AnimatePresence>
-        </motion.div>
+        <div className="space-y-1.5 pr-0.5">
+          {isLoading ? (
+            Array.from({ length: 4 }).map((_, i) => <AgentSkeleton key={i} />)
+          ) : (
+            <AnimatePresence mode="popLayout" initial={false}>
+              {agents.map((agent) => (
+                <AgentCard key={agent.id} agent={agent} />
+              ))}
+            </AnimatePresence>
+          )}
+        </div>
       </div>
     </div>
   );

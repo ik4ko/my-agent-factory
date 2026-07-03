@@ -1,11 +1,14 @@
 // Dashboard uses cookies() for Supabase SSR auth — must never be statically rendered.
 export const dynamic = 'force-dynamic';
 
-import { Cpu, Wifi, Terminal } from 'lucide-react';
+import { Cpu, Terminal } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { DashboardClient } from '@/components/dashboard/dashboard-client';
 import { LiveClock } from '@/components/dashboard/live-clock';
-import { AudioBriefing } from '@/components/dashboard/audio-briefing';
+import { ConnectionIndicator } from '@/components/dashboard/connection-indicator';
+import { EmergencyStop } from '@/components/dashboard/emergency-stop';
+import { TimelineScrubber } from '@/components/dashboard/timeline-scrubber';
+import AudioBriefing from '@/components/dashboard/client-audio-briefing';
 import type { Agent, Task, Log } from '@/lib/types/database.types';
 
 async function fetchDashboardData() {
@@ -41,13 +44,12 @@ function TopBar() {
       </div>
       <div className="flex items-center gap-3">
         <span className="hidden font-terminal text-[10px] text-muted-foreground/40 sm:flex items-center gap-1">
-          <Terminal className="size-2.5" /> ⌘K to command
+          <Terminal className="size-2.5" /> ⌘K · / console
         </span>
+        <TimelineScrubber />
         <AudioBriefing />
-        <div className="flex items-center gap-1.5 font-terminal text-[10px] text-neon-green animate-glow-pulse">
-          <Wifi className="size-3" />
-          <span>LIVE</span>
-        </div>
+        <EmergencyStop />
+        <ConnectionIndicator />
         <LiveClock />
       </div>
     </header>

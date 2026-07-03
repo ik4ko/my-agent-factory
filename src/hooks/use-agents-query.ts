@@ -3,40 +3,45 @@
 import { useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
+import { subscribeWithReconnect } from '@/lib/supabase/realtime';
+import { useConnectionStore } from '@/lib/realtime/connection-store';
 import type { Agent } from '@/lib/types/database.types';
 
 export const AGENTS_KEY = ['agents'] as const;
+const CHANNEL = 'agents-changes';
 
 export function useAgentsQuery(initialData: Agent[] = []) {
   const supabase = useMemo(() => createClient(), []);
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const channel = supabase
-      .channel('agents-q')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'agents' }, (payload) => {
-        queryClient.setQueryData<Agent[]>(AGENTS_KEY, (prev = []) => {
-          if (payload.eventType === 'INSERT') {
-            return [...prev, payload.new as Agent];
-          }
-          if (payload.eventType === 'UPDATE') {
-            return prev.map((a) => (a.id === payload.new.id ? (payload.new as Agent) : a));
-          }
-          if (payload.eventType === 'DELETE') {
-            return prev.filter((a) => a.id !== (payload.old as Agent).id);
-          }
-          return prev;
-        });
-      })
-      .subscribe((status, err) => {
-        if (status === 'CHANNEL_ERROR') {
-          console.error('[Realtime:agents-q] channel error', err);
-        } else if (status === 'TIMED_OUT') {
-          console.warn('[Realtime:agents-q] subscription timed out');
-        }
-      });
+    const { setChannelStatus, clearChannel } = useConnectionStore.getState();
 
-    return () => { supabase.removeChannel(channel); };
+    const dispose = subscribeWithReconnect({
+      client: supabase,
+      name: CHANNEL,
+      onStatusChange: (s) => setChannelStatus(CHANNEL, s),
+      build: (channel) =>
+        channel.on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'agents' },
+          (payload) => {
+            queryClient.setQueryData<Agent[]>(AGENTS_KEY, (prev = []) => {
+              if (payload.eventType === 'INSERT') return [...prev, payload.new as Agent];
+              if (payload.eventType === 'UPDATE')
+                return prev.map((a) => (a.id === payload.new.id ? (payload.new as Agent) : a));
+              if (payload.eventType === 'DELETE')
+                return prev.filter((a) => a.id !== (payload.old as Agent).id);
+              return prev;
+            });
+          }
+        ),
+    });
+
+    return () => {
+      dispose();
+      clearChannel(CHANNEL);
+    };
   }, [queryClient, supabase]);
 
   return useQuery<Agent[]>({

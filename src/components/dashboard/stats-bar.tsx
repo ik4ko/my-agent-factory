@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { Activity, CheckCircle2, Clock, Zap } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -9,6 +9,7 @@ import { TASKS_KEY } from '@/hooks/use-tasks-query';
 import { LOGS_KEY } from '@/hooks/use-logs-query';
 import type { Agent, Task, Log } from '@/lib/types/database.types';
 import { cn } from '@/lib/utils';
+import { useSnapshotAt } from '@/lib/scrubber/scrubber-store';
 
 function AnimatedNumber({ value }: { value: number }) {
   const mv = useMotionValue(value);
@@ -28,7 +29,7 @@ interface StatItemProps {
   highlight?: boolean;
 }
 
-function StatItem({ icon: Icon, label, value, color, highlight }: StatItemProps) {
+const StatItem = memo(function StatItem({ icon: Icon, label, value, color, highlight }: StatItemProps) {
   return (
     <motion.div
       layout
@@ -47,7 +48,7 @@ function StatItem({ icon: Icon, label, value, color, highlight }: StatItemProps)
       </span>
     </motion.div>
   );
-}
+});
 
 function LogRate({ logs }: { logs: Log[] }) {
   const [rate, setRate] = useState(0);
@@ -76,9 +77,14 @@ function LogRate({ logs }: { logs: Log[] }) {
 
 export function StatsBar() {
   const qc = useQueryClient();
-  const agents = qc.getQueryData<Agent[]>(AGENTS_KEY) ?? [];
-  const tasks  = qc.getQueryData<Task[]>(TASKS_KEY)   ?? [];
-  const logs   = qc.getQueryData<Log[]>(LOGS_KEY)     ?? [];
+  const snapshotAt = useSnapshotAt();
+  const rawAgents = qc.getQueryData<Agent[]>(AGENTS_KEY) ?? [];
+  const rawTasks  = qc.getQueryData<Task[]>(TASKS_KEY)   ?? [];
+  const rawLogs   = qc.getQueryData<Log[]>(LOGS_KEY)     ?? [];
+  // Snapshot mode: derive metrics from entities that existed at the chosen instant.
+  const agents = snapshotAt === null ? rawAgents : rawAgents.filter((a) => new Date(a.created_at).getTime() <= snapshotAt);
+  const tasks  = snapshotAt === null ? rawTasks  : rawTasks.filter((t) => new Date(t.created_at).getTime() <= snapshotAt);
+  const logs   = snapshotAt === null ? rawLogs   : rawLogs.filter((l) => new Date(l.timestamp).getTime() <= snapshotAt);
 
   const [, forceRender] = useState(0);
   useEffect(() => {
@@ -101,7 +107,10 @@ export function StatsBar() {
   return (
     <motion.div
       layout
-      className="flex h-9 shrink-0 items-center gap-1 border-b border-border px-3 overflow-x-auto"
+      className={cn(
+        'flex h-8 shrink-0 items-center gap-1 border-b border-border px-3 overflow-x-auto',
+        snapshotAt !== null && 'border-neon-purple/30 bg-neon-purple/[0.04]'
+      )}
     >
       <StatItem icon={Activity}      label="idle"      value={idle}      color="text-neon-green"  highlight />
       <StatItem icon={Zap}           label="busy"      value={busy}      color="text-neon-cyan"   highlight />
