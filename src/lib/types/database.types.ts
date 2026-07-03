@@ -75,6 +75,8 @@ export type Log = {
   level: LogLevel;
   timestamp: string;
   metadata?: Record<string, unknown>;
+  // Present in DB; set by the sandbox runner so tool output ties to its task.
+  task_id?: string | null;
 };
 
 export type Memory = {

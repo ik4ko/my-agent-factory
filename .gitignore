@@ -23,3 +23,6 @@ npm-debug.log*
 
 # claude local settings
 .claude/settings.local.json
+
+# sandbox tool-runner scratch dir
+.sandbox/

@@ -25,6 +25,8 @@ export interface Dispatch {
   reason: string;
   /** Factory prompt injected by the lane router (tasks.system_prompt). */
   systemPrompt?: string;
+  /** Lane label forwarded to the worker's tool gate. */
+  lane?: 'SEAT' | 'UP' | 'DOWN';
 }
 
 export interface TriageResult {
@@ -158,6 +160,7 @@ export async function triageTick(limit = 5): Promise<TriageResult> {
         transition: decision.transition,
         reason: decision.reason,
         systemPrompt: task.system_prompt ?? undefined,
+        lane: decision.transition,
       });
     } catch (err) {
       const line = `[ORCH] HALT task=${task.id.slice(0, 8)} model=${decision.model}: ${String(err)

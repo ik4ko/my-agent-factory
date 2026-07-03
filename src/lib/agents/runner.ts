@@ -3,6 +3,8 @@ import { getAdminClient } from '@/lib/supabase/admin';
 import { hermesLog } from '@/lib/hermes/hermes-logger';
 import { writeMemory } from '@/lib/hermes/memory-service';
 import { recordModelEvent } from '@/lib/telemetry/token-ledger';
+import { parseToolCalls } from '@/lib/sandbox/parser';
+import { executeToolCalls } from '@/lib/sandbox/runner';
 import type { AgentType } from '@/lib/types/database.types';
 
 export interface AgentWorkerInput {
@@ -14,6 +16,8 @@ export interface AgentWorkerInput {
   model?: string;
   /** Factory-built prompt (lane × task type); overrides the static persona. */
   systemPrompt?: string;
+  /** Router lane; UP/DOWN tasks may drive the sandbox tool runner. */
+  lane?: 'SEAT' | 'UP' | 'DOWN';
 }
 
 // claude-haiku-4-5: 1–3s per call — fits Vercel Hobby 10s limit.
@@ -144,6 +148,19 @@ export async function runAgentWorker(input: AgentWorkerInput): Promise<void> {
       model,
       completedAt: new Date().toISOString(),
     });
+
+    // Tool gate — UP/DOWN lanes may act on their own output. One bounded
+    // sandbox pass (allowlisted commands, confined FS); results stream to the
+    // logs table. A full react-loop would re-invoke the model with the
+    // formatted feedback; kept single-pass here to stay inside the serverless
+    // wall-clock budget.
+    if ((input.lane === 'UP' || input.lane === 'DOWN')) {
+      const { calls } = parseToolCalls(output);
+      if (calls.length > 0) {
+        await hermesLog('info', `${persona.label} tool pass: ${calls.length} call(s)`, agentId);
+        await executeToolCalls(taskId, calls);
+      }
+    }
   } catch (err) {
     const line = String(err).replace(/\s+/g, ' ').slice(0, 200);
     await Promise.all([
