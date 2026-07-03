@@ -8,8 +8,9 @@ export type InterventionState = 'pending_approval' | 'approved' | 'denied';
 
 // Orchestrator telemetry events (metrics.event).
 // SEAT: routed to default worker · UP: escalated to Fable 5 · DOWN: forced
-// Opus fallback · USAGE: post-completion token report · HALT: terminal failure.
-export type ModelEvent = 'SEAT' | 'UP' | 'DOWN' | 'USAGE' | 'HALT';
+// Opus fallback · USAGE: post-completion token report · HALT: terminal failure
+// · REAP: stale running-lock recycled to pending by the reaper.
+export type ModelEvent = 'SEAT' | 'UP' | 'DOWN' | 'USAGE' | 'HALT' | 'REAP';
 
 // NOTE: these are `type` aliases (not interfaces) on purpose — supabase-js's
 // GenericSchema requires Row/Insert/Update to satisfy Record<string, unknown>,

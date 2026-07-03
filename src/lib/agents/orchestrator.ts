@@ -11,6 +11,7 @@ import { hermesLog } from '@/lib/hermes/hermes-logger';
 import { findIdleAgent } from '@/lib/hermes/task-router';
 import { runAgentWorker } from '@/lib/agents/runner';
 import { routeModel, type Transition } from '@/lib/agents/model-router';
+import { clearStaleLocks } from '@/lib/agents/reaper';
 import { getSpendSnapshot, recordModelEvent } from '@/lib/telemetry/token-ledger';
 import type { Agent, AgentType, Task } from '@/lib/types/database.types';
 
@@ -57,6 +58,10 @@ async function resolveAgent(task: Task): Promise<Agent | null> {
 export async function triageTick(limit = 5): Promise<TriageResult> {
   const db = getAdminClient();
   const result: TriageResult = { scanned: 0, locked: 0, skipped: 0, halted: false, dispatches: [] };
+
+  // Self-healing pass: recycle stale running-locks (dead workers) back to
+  // pending so this very sweep can re-dispatch them. Never blocks triage.
+  await clearStaleLocks().catch(() => {});
 
   let snapshot;
   try {
