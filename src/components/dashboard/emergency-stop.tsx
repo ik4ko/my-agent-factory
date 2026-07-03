@@ -36,6 +36,7 @@ export function EmergencyStop() {
     <>
       <button
         onClick={openModal}
+        suppressHydrationWarning={true}
         title="Emergency Stop — halt all active agents & tasks"
         className={cn(
           'flex items-center gap-1.5 rounded-md border px-2 py-1 font-terminal text-[10px] font-bold uppercase tracking-wider',

@@ -28,6 +28,7 @@ export function TimelineScrubber() {
     return (
       <button
         onClick={() => setActive(true)}
+        suppressHydrationWarning={true}
         title="Open the timeline scrubber"
         className="flex items-center gap-1.5 font-terminal text-[10px] text-muted-foreground/40 transition-colors hover:text-muted-foreground/70"
       >
@@ -53,6 +54,7 @@ export function TimelineScrubber() {
         step={1000}
         value={value}
         disabled={max === min}
+        suppressHydrationWarning={true}
         onChange={(e) => {
           const t = Number(e.target.value);
           setSnapshot(t >= max ? null : t);
@@ -66,6 +68,7 @@ export function TimelineScrubber() {
 
       <button
         onClick={() => { setSnapshot(null); setActive(false); }}
+        suppressHydrationWarning={true}
         className="text-muted-foreground/40 hover:text-muted-foreground"
         title="Exit historical mode"
       >
