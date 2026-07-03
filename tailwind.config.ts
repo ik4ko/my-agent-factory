@@ -142,6 +142,11 @@ export default {
           '0%':   { backgroundPosition: '-200% 0' },
           '100%': { backgroundPosition:  '200% 0' },
         },
+        /* Live audio-analyzer bars — scaleY dance for the voice HUD. */
+        waveform: {
+          '0%, 100%': { transform: 'scaleY(0.3)' },
+          '50%':      { transform: 'scaleY(1)' },
+        },
       },
       animation: {
         'accordion-down':   'accordion-down 0.2s ease-out',
@@ -152,6 +157,7 @@ export default {
         'fade-in-up':       'fade-in-up 0.3s ease-out both',
         'slide-in-right':   'slide-in-right 0.25s ease-out both',
         shimmer:            'shimmer 2s linear infinite',
+        waveform:           'waveform 0.9s ease-in-out infinite',
       },
     },
   },

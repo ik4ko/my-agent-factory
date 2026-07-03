@@ -14,11 +14,11 @@ interface Trace {
 
 type VoiceState = 'idle' | 'listening' | 'processing';
 
-// Web Speech API is not in every lib.dom version — loose typing, SSR-guarded.
+// Web Speech API is not in every lib.dom version - loose typing, SSR-guarded.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecognition = any;
 function getSpeechRecognitionCtor(): AnyRecognition | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === 'undefined') return null; // hard SSR boundary
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const w = window as any;
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
@@ -33,9 +33,42 @@ const VOICE_LABEL: Record<VoiceState, string> = {
   processing: '[ PROCESSING ]',
 };
 
-// Single terminal command dock + "Hey Hermes" wake-word voice engine. Queues a
-// pending task via the auth-gated /api/tasks/create route (tasks has RLS on
-// with no policies → no browser anon insert); lane router + triage take over.
+// Staggered analyzer bars - inline animationDelay so each bar dances offbeat.
+const BAR_DELAYS = ['0ms', '120ms', '240ms', '360ms', '180ms'];
+
+function SoundWaveform() {
+  return (
+    <span className="flex items-end gap-[2px] h-3.5" aria-hidden="true">
+      {BAR_DELAYS.map((delay, i) => (
+        <span
+          key={i}
+          className="w-[2px] h-full origin-bottom rounded-full bg-amber-400 animate-waveform"
+          style={{ animationDelay: delay }}
+        />
+      ))}
+    </span>
+  );
+}
+
+function ProcessingRing() {
+  return (
+    <span className="relative inline-flex size-3.5" aria-hidden="true">
+      <span className="absolute inset-0 rounded-full border border-cyan-400/25" />
+      <span className="absolute inset-0 rounded-full border-t border-r border-cyan-400 animate-spin" />
+    </span>
+  );
+}
+
+function DotMatrix() {
+  return (
+    <span className="flex items-center gap-[3px]" aria-hidden="true">
+      {[0, 1, 2].map((i) => (
+        <span key={i} className="size-[3px] rounded-full bg-emerald-500/40" />
+      ))}
+    </span>
+  );
+}
+
 export function TaskInput() {
   const [value, setValue] = useState('');
   const [pending, setPending] = useState(false);
@@ -67,7 +100,7 @@ export function TaskInput() {
 
   const submit = useCallback(async (raw: string) => {
     const prompt = raw.trim();
-    if (!prompt || pendingRef.current) return; // empty input → no-op
+    if (!prompt || pendingRef.current) return;
     pendingRef.current = true;
     setPending(true);
     setVoiceState((s) => (armedRef.current ? 'processing' : s));
@@ -79,8 +112,8 @@ export function TaskInput() {
       });
       const data = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
       if (!res.ok || !data.id) throw new Error(data.error ?? `failed (${res.status})`);
-      setValue(''); // clear instantly on success
-      setTrace({ kind: 'ok', text: `queued ${data.id.slice(0, 8)} — pending`, id: Date.now() });
+      setValue('');
+      setTrace({ kind: 'ok', text: `queued ${data.id.slice(0, 8)} - pending`, id: Date.now() });
     } catch (err) {
       setTrace({ kind: 'error', text: err instanceof Error ? err.message : 'queue failed', id: Date.now() });
     } finally {
@@ -98,7 +131,6 @@ export function TaskInput() {
     }
   };
 
-  // Auto-dispatch after a silence gap once a wake-word capture is in flight.
   const armSilenceDispatch = useCallback(() => {
     clearSilence();
     silenceRef.current = setTimeout(() => {
@@ -125,7 +157,7 @@ export function TaskInput() {
 
   const startVoice = useCallback(() => {
     const Ctor = getSpeechRecognitionCtor();
-    if (!Ctor) return; // unsupported → text-only, no throw
+    if (!Ctor) return;
 
     let recog: AnyRecognition;
     try {
@@ -147,7 +179,7 @@ export function TaskInput() {
       const match = WAKE.exec(combined);
       if (!capturingRef.current && match) {
         capturingRef.current = true;
-        setWakeGlow(true); // amber pulse on wake
+        setWakeGlow(true);
       }
       if (capturingRef.current) {
         const after = combined.slice((match?.index ?? 0) + (match?.[0].length ?? 0));
@@ -157,7 +189,6 @@ export function TaskInput() {
     };
 
     recog.onend = () => {
-      // Browsers stop continuous sessions periodically; restart while armed.
       if (armedRef.current) {
         try {
           recog.start();
@@ -168,11 +199,10 @@ export function TaskInput() {
     };
 
     recog.onerror = (ev: AnyRecognition) => {
-      // no-speech / aborted are benign; permission denials disarm cleanly.
       if (ev?.error === 'not-allowed' || ev?.error === 'service-not-allowed') {
         stopVoice();
         setVoiceSupported(false);
-        setTrace({ kind: 'error', text: 'microphone permission blocked — text mode', id: Date.now() });
+        setTrace({ kind: 'error', text: 'microphone permission blocked - text mode', id: Date.now() });
       }
     };
 
@@ -186,6 +216,16 @@ export function TaskInput() {
       /* start() throws if already started; safe to ignore */
     }
   }, [armSilenceDispatch, stopVoice]);
+
+  const onToggleVoice = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (armedRef.current) stopVoice();
+      else startVoice();
+    },
+    [startVoice, stopVoice]
+  );
 
   useEffect(() => {
     return () => {
@@ -203,16 +243,24 @@ export function TaskInput() {
     <div className="shrink-0 border-t border-border bg-[#0A0A0A] px-4 py-2.5 space-y-1">
       <div
         className={cn(
-          'group flex items-center gap-2.5 rounded-md border border-l-2 border-border bg-[#0A0A0A]',
-          'px-3 py-2.5 transition-colors duration-150',
+          'group relative flex items-center gap-2.5 rounded-md border border-l-2 border-border bg-[#0A0A0A]',
+          'px-3 py-2.5 transition-all duration-300',
           'focus-within:border-emerald-500/50 focus-within:border-l-emerald-500',
-          wakeGlow && 'border-amber-500/60 border-l-amber-500 animate-glow-pulse shadow-[0_0_12px_rgba(245,158,11,0.18)]'
+          armed && 'border-amber-500 border-l-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.4)]',
+          wakeGlow && 'animate-glow-pulse'
         )}
       >
         {pending ? (
-          <Loader2 className="size-3.5 shrink-0 animate-spin text-emerald-500" />
+          <Loader2 className="size-3.5 shrink-0 animate-spin text-cyan-400" />
         ) : (
-          <span className={cn('select-none font-terminal text-sm font-bold leading-none', wakeGlow ? 'text-amber-500' : 'text-emerald-500')}>❯</span>
+          <span
+            className={cn(
+              'select-none font-terminal text-sm font-bold leading-none',
+              wakeGlow ? 'text-amber-500' : 'text-emerald-500'
+            )}
+          >
+            {'>'}
+          </span>
         )}
 
         <input
@@ -223,7 +271,7 @@ export function TaskInput() {
             if (e.key === 'Enter') void submit(value);
           }}
           disabled={pending}
-          placeholder={armed ? 'Say “Hey Hermes …” or type…' : 'Queue a task for the fleet…'}
+          placeholder={armed ? 'Say Hey Hermes or type...' : 'Queue a task for the fleet...'}
           autoComplete="off"
           spellCheck={false}
           suppressHydrationWarning={true}
@@ -233,42 +281,60 @@ export function TaskInput() {
           )}
         />
 
-        {/* voice status anchor */}
         {voiceSupported && (
-          <span
-            className={cn(
-              'select-none font-terminal text-[10px] tracking-[0.15em]',
-              voiceState === 'listening' && 'text-amber-500/80',
-              voiceState === 'processing' && 'text-neon-cyan/80',
-              voiceState === 'idle' && 'text-muted-foreground/30'
-            )}
-          >
-            {VOICE_LABEL[voiceState]}
-          </span>
-        )}
-
-        {/* mic arm/disarm */}
-        {voiceSupported && (
-          <button
-            onClick={() => (armed ? stopVoice() : startVoice())}
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={onToggleVoice}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') onToggleVoice(e as unknown as React.MouseEvent);
+            }}
             suppressHydrationWarning={true}
-            title={armed ? 'Disarm voice' : 'Arm “Hey Hermes” voice'}
-            className={cn(
-              'shrink-0 rounded p-0.5 transition-colors duration-100',
-              armed ? 'text-amber-500 hover:text-amber-400' : 'text-muted-foreground/30 hover:text-muted-foreground/60'
-            )}
+            title={armed ? 'Disarm voice' : 'Arm Hey Hermes voice'}
+            className="relative z-50 flex shrink-0 cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 pointer-events-auto hover:bg-white/[0.03]"
           >
-            {armed ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
-          </button>
+            <span
+              suppressHydrationWarning={true}
+              className={cn(
+                'select-none font-terminal text-[10px] tracking-[0.18em] transition-colors duration-300',
+                voiceState === 'idle' &&
+                  'text-emerald-400 animate-pulse [text-shadow:0_0_15px_rgba(16,185,129,0.2)]',
+                voiceState === 'listening' && 'text-amber-400',
+                voiceState === 'processing' && 'text-cyan-400'
+              )}
+            >
+              {VOICE_LABEL[voiceState]}
+            </span>
+
+            <span suppressHydrationWarning={true} className="flex items-center">
+              {voiceState === 'idle' && <DotMatrix />}
+              {voiceState === 'listening' && <SoundWaveform />}
+              {voiceState === 'processing' && <ProcessingRing />}
+            </span>
+
+            <button
+              type="button"
+              onClick={onToggleVoice}
+              suppressHydrationWarning={true}
+              tabIndex={-1}
+              aria-label={armed ? 'Disarm voice' : 'Arm voice'}
+              className={cn(
+                'pointer-events-auto shrink-0 rounded p-0.5 transition-colors duration-150',
+                armed ? 'text-amber-400 hover:text-amber-300' : 'text-emerald-500/70 hover:text-emerald-400'
+              )}
+            >
+              {armed ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
+            </button>
+          </div>
         )}
 
-        {/* right-boundary tracking anchor */}
         <button
+          type="button"
           onClick={() => void submit(value)}
           disabled={!value.trim() || pending}
           suppressHydrationWarning={true}
           className={cn(
-            'shrink-0 select-none font-terminal text-[10px] tracking-[0.2em] transition-colors duration-100',
+            'relative z-50 shrink-0 select-none font-terminal text-[10px] tracking-[0.2em] transition-colors duration-100',
             value.trim() && !pending ? 'text-emerald-500/80 hover:text-emerald-400' : 'text-muted-foreground/25 cursor-not-allowed'
           )}
         >
@@ -286,7 +352,7 @@ export function TaskInput() {
             transition={{ duration: 0.12 }}
             className={cn('px-1 font-terminal text-[10px]', trace.kind === 'ok' ? 'text-emerald-500' : 'text-neon-red')}
           >
-            {trace.kind === 'ok' ? '✓ ' : '✗ '}
+            {trace.kind === 'ok' ? 'OK ' : 'X '}
             {trace.text}
           </motion.p>
         )}
