@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Wifi, WifiOff, Loader2 } from 'lucide-react';
 import {
   useConnectionStore,
@@ -13,18 +13,32 @@ const PRESENTATION: Record<
   OverallStatus,
   { label: string; dot: string; text: string; pulse: boolean; icon: 'wifi' | 'off' | 'spin' }
 > = {
-  connected:    { label: 'LIVE',         dot: 'bg-neon-green',  text: 'text-neon-green',          pulse: true,  icon: 'wifi' },
-  connecting:   { label: 'CONNECTING',   dot: 'bg-neon-cyan',   text: 'text-neon-cyan',           pulse: true,  icon: 'spin' },
-  reconnecting: { label: 'RECONNECTING', dot: 'bg-neon-orange', text: 'text-neon-orange',         pulse: true,  icon: 'spin' },
-  offline:      { label: 'OFFLINE',      dot: 'bg-neon-red',    text: 'text-neon-red',            pulse: false, icon: 'off'  },
+  connected:    { label: 'LIVE',         dot: 'bg-neon-green',  text: 'text-neon-green',  pulse: true,  icon: 'wifi' },
+  connecting:   { label: 'CONNECTING',   dot: 'bg-neon-cyan',   text: 'text-neon-cyan',   pulse: true,  icon: 'spin' },
+  reconnecting: { label: 'RECONNECTING', dot: 'bg-neon-orange', text: 'text-neon-orange', pulse: true,  icon: 'spin' },
+  offline:      { label: 'OFFLINE',      dot: 'bg-neon-red',    text: 'text-neon-red',    pulse: false, icon: 'off'  },
 };
 
 export function ConnectionIndicator() {
   const status = useConnectionStore(selectOverallStatus);
   const setOnline = useConnectionStore((s) => s.setOnline);
 
-  // Reflect browser network reachability into the store.
+  // Mount guard: the overall status derives from Zustand state that only
+  // becomes meaningful in the browser (navigator.onLine at module load, plus
+  // channel subscriptions that mutate the store synchronously on mount). The
+  // server and the first client paint would therefore disagree. We render a
+  // fixed, browser-independent placeholder for SSR + first paint, then swap to
+  // the live indicator once mounted — eliminating the hydration mismatch and
+  // keeping the node safe for Vercel's static optimization pass.
+  const [isMounted, setIsMounted] = useState(false);
+
   useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Reflect browser network reachability into the store (client only).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
     const update = () => setOnline(navigator.onLine);
     update();
     window.addEventListener('online', update);
@@ -34,6 +48,21 @@ export function ConnectionIndicator() {
       window.removeEventListener('offline', update);
     };
   }, [setOnline]);
+
+  // Deterministic SSR / first-paint placeholder — no store-derived classes.
+  if (!isMounted) {
+    return (
+      <div
+        className="flex items-center gap-1.5 font-terminal text-[10px] text-muted-foreground/50"
+        role="status"
+        aria-live="polite"
+        suppressHydrationWarning
+      >
+        <Loader2 className="size-3 animate-spin" />
+        <span>CONNECTING</span>
+      </div>
+    );
+  }
 
   const p = PRESENTATION[status];
 
