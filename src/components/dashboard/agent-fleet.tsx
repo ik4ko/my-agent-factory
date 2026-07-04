@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Activity, Code2, Search, Globe, Layers, ChevronDown } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -16,6 +16,44 @@ import { cn } from '@/lib/utils';
 import type { Agent, AgentType, Metric, Task } from '@/lib/types/database.types';
 import { formatDistanceToNow } from 'date-fns';
 import { useSnapshotAt } from '@/lib/scrubber/scrubber-store';
+import { useCoreFxStore } from '@/lib/fx/core-store';
+
+/**
+ * Hover producer for the CinematicCore beam. rAF-debounced: rapid
+ * enter/leave sweeps across the fleet coalesce into at most one
+ * getBoundingClientRect + store write per frame (no layout thrashing,
+ * no hover-flicker).
+ */
+function useHoverFocus(agentId: string) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const setFocusTarget = useCoreFxStore((s) => s.setFocusTarget);
+  const rafRef = useRef(0);
+
+  const onMouseEnter = useCallback(() => {
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      const el = cardRef.current;
+      if (el) setFocusTarget(agentId, el.getBoundingClientRect());
+    });
+  }, [agentId, setFocusTarget]);
+
+  const onMouseLeave = useCallback(() => {
+    cancelAnimationFrame(rafRef.current);
+    setFocusTarget(null, null);
+  }, [setFocusTarget]);
+
+  // If a focused card unmounts (agent removed while hovered), release the
+  // beam — but never clobber focus that already moved to another card.
+  useEffect(() => {
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      const store = useCoreFxStore.getState();
+      if (store.focusedAgentId === agentId) store.setFocusTarget(null, null);
+    };
+  }, [agentId]);
+
+  return { cardRef, onMouseEnter, onMouseLeave };
+}
 
 // Infer visual type from agent name (no type column in schema)
 function inferAgentType(name: string): AgentType {
@@ -61,6 +99,7 @@ const LANE_CLS: Record<ModelLane['transition'], string> = {
 
 const AgentCard = memo(function AgentCard({ agent, lane }: { agent: Agent; lane: ModelLane | null }) {
   const [expanded, setExpanded] = useState(false);
+  const { cardRef, onMouseEnter, onMouseLeave } = useHoverFocus(agent.id);
   const agentType = agent.type ?? inferAgentType(agent.name);
   const Icon = TYPE_ICON[agentType];
   const iconColor = TYPE_COLOR[agentType];
@@ -81,6 +120,9 @@ const AgentCard = memo(function AgentCard({ agent, lane }: { agent: Agent; lane:
       transition={{ duration: 0.18 }}
     >
       <div
+        ref={cardRef}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
         className={cn(
           'group relative rounded-lg border border-border bg-surface-1',
           'cursor-pointer transition-colors duration-150',

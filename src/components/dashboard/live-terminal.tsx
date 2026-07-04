@@ -5,10 +5,12 @@ import { useQuery } from '@tanstack/react-query';
 import { Terminal, ChevronsDown } from 'lucide-react';
 import { useLogsQuery } from '@/hooks/use-logs-query';
 import { TASKS_KEY } from '@/hooks/use-tasks-query';
+import { AGENTS_KEY } from '@/hooks/use-agents-query';
 import { createClient } from '@/lib/supabase/client';
 import { shortModel } from '@/lib/telemetry/pricing';
 import { cn } from '@/lib/utils';
-import type { Log, LogLevel, Task } from '@/lib/types/database.types';
+import { useSystemFeed, type FeedChannel, type SystemFeedEntry } from '@/lib/fx/system-feed';
+import type { Agent, Log, LogLevel, Task } from '@/lib/types/database.types';
 
 const LEVEL_CLS: Record<LogLevel, string> = {
   debug: 'text-muted-foreground/50',
@@ -31,6 +33,29 @@ interface StreamPreview {
   preview?: string;
   model?: string;
 }
+
+const CHANNEL_CLS: Record<FeedChannel, string> = {
+  SYSTEM: 'text-neon-cyan',
+  NETWORK: 'text-neon-purple',
+  DISPATCH: 'text-primary',
+  VOICE: 'text-neon-orange',
+};
+
+function hhmmss(iso: string): string {
+  const t = new Date(iso);
+  return `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}:${String(t.getSeconds()).padStart(2, '0')}`;
+}
+
+/** Client-side diagnostics line: "[09:35:02] SYSTEM: Synchronizing…" */
+const SysLine = memo(function SysLine({ entry }: { entry: SystemFeedEntry }) {
+  return (
+    <div className="flex gap-2 whitespace-pre-wrap break-words leading-relaxed animate-fade-in-up">
+      <span className="shrink-0 text-muted-foreground/30 tabular">[{hhmmss(entry.timestamp)}]</span>
+      <span className={cn('shrink-0 font-semibold', CHANNEL_CLS[entry.channel])}>{entry.channel}:</span>
+      <span className="min-w-0 text-foreground/70">{entry.message}</span>
+    </div>
+  );
+});
 
 const LogLine = memo(function LogLine({ log }: { log: Log }) {
   const t = new Date(log.timestamp);
@@ -94,6 +119,20 @@ export function LiveTerminal({ initialLogs = [] }: LiveTerminalProps) {
     staleTime: 30_000,
   });
 
+  // Passive cache read — AgentFleet's subscription keeps this hot too.
+  const { data: agents = [] } = useQuery<Agent[]>({
+    queryKey: AGENTS_KEY,
+    queryFn: async () => {
+      const { data, error } = await createClient()
+        .from('agents')
+        .select('*')
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 30_000,
+  });
+
   const streaming = useMemo(
     () =>
       tasks.filter(
@@ -102,8 +141,42 @@ export function LiveTerminal({ initialLogs = [] }: LiveTerminalProps) {
     [tasks]
   );
 
-  // Oldest-first for terminal reading order (hook returns newest-first).
-  const lines = useMemo(() => [...logs].reverse(), [logs]);
+  // Diagnostics producer: diff agent statuses as realtime pushes them into
+  // the shared cache and emit a transition line. First pass only seeds the
+  // baseline — no spam on initial load.
+  const pushFeed = useSystemFeed((s) => s.push);
+  const prevStatusRef = useRef<Map<string, string> | null>(null);
+  useEffect(() => {
+    if (agents.length === 0) return;
+    const prev = prevStatusRef.current;
+    if (prev) {
+      for (const a of agents) {
+        const was = prev.get(a.id);
+        if (was && was !== a.status) {
+          pushFeed(
+            'SYSTEM',
+            `${a.name} core state transition ${was.toUpperCase()} → ${a.status.toUpperCase()}`,
+          );
+        }
+      }
+    }
+    prevStatusRef.current = new Map(agents.map((a) => [a.id, a.status]));
+  }, [agents, pushFeed]);
+
+  // Merge persisted DB logs with client diagnostics, oldest-first by
+  // timestamp for terminal reading order (logs hook returns newest-first).
+  const feed = useSystemFeed((s) => s.entries);
+  const lines = useMemo(() => {
+    const merged: Array<
+      | { kind: 'db'; key: string; ts: number; log: Log }
+      | { kind: 'sys'; key: string; ts: number; entry: SystemFeedEntry }
+    > = [
+      ...logs.map((log) => ({ kind: 'db' as const, key: log.id, ts: Date.parse(log.timestamp), log })),
+      ...feed.map((entry) => ({ kind: 'sys' as const, key: entry.id, ts: Date.parse(entry.timestamp), entry })),
+    ];
+    merged.sort((a, b) => a.ts - b.ts);
+    return merged;
+  }, [logs, feed]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pinned, setPinned] = useState(true);
@@ -131,7 +204,7 @@ export function LiveTerminal({ initialLogs = [] }: LiveTerminalProps) {
           {streaming.length > 0 && (
             <span className="text-primary animate-glow-pulse">{streaming.length} streaming</span>
           )}
-          <span className="text-muted-foreground/40">{logs.length} lines</span>
+          <span className="text-muted-foreground/40">{lines.length} lines</span>
         </div>
       </div>
 
@@ -144,9 +217,13 @@ export function LiveTerminal({ initialLogs = [] }: LiveTerminalProps) {
           <p className="text-muted-foreground/40">— no activity yet —</p>
         ) : (
           <>
-            {lines.map((log) => (
-              <LogLine key={log.id} log={log} />
-            ))}
+            {lines.map((row) =>
+              row.kind === 'db' ? (
+                <LogLine key={row.key} log={row.log} />
+              ) : (
+                <SysLine key={row.key} entry={row.entry} />
+              ),
+            )}
             {streaming.map((task) => (
               <StreamBlock key={task.id} task={task} />
             ))}

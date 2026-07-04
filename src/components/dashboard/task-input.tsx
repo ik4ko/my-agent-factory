@@ -4,6 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, Mic, MicOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useCoreFxStore } from '@/lib/fx/core-store';
+import type { HermesResult } from '@/lib/hermes/types';
+import { pushSystemFeed } from '@/lib/fx/system-feed';
 
 type TraceKind = 'ok' | 'error';
 interface Trace {
@@ -92,6 +95,26 @@ export function TaskInput() {
     setVoiceSupported(getSpeechRecognitionCtor() !== null);
   }, []);
 
+  // Producer: mirror live voice state into the CinematicCore FX bridge so
+  // the particle sphere warps into the waveform while listening, and emit
+  // terminal diagnostics on arm/disarm transitions only (not every render).
+  const setCoreListening = useCoreFxStore((s) => s.setIsListening);
+  const prevListeningRef = useRef(false);
+  useEffect(() => {
+    const listening = voiceState === 'listening';
+    setCoreListening(listening);
+    if (listening !== prevListeningRef.current) {
+      prevListeningRef.current = listening;
+      pushSystemFeed(
+        'VOICE',
+        listening
+          ? 'Microphone armed — frequency waveform capture live'
+          : 'Microphone released — core re-forming idle sphere',
+      );
+    }
+    return () => setCoreListening(false);
+  }, [voiceState, setCoreListening]);
+
   useEffect(() => {
     if (!trace) return;
     const t = setTimeout(() => setTrace(null), 5000);
@@ -104,18 +127,42 @@ export function TaskInput() {
     pendingRef.current = true;
     setPending(true);
     setVoiceState((s) => (armedRef.current ? 'processing' : s));
+    const t0 = performance.now();
+    pushSystemFeed('DISPATCH', `Command accepted — routing "${prompt.slice(0, 48)}${prompt.length > 48 ? '…' : ''}" to intent parser`);
     try {
-      const res = await fetch('/api/tasks/create', {
+      // Route through the Hermes orchestration layer: intent parsing →
+      // idle-agent lookup → task creation → worker dispatch. Status flips
+      // and log output flow back via the existing Supabase realtime
+      // channels (agents/tasks/logs) — no polling needed here.
+      const res = await fetch('/api/hermes/command', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({
+          command: prompt,
+          issuedAt: new Date().toISOString(),
+          target: { status: 'idle' },
+        }),
       });
-      const data = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
-      if (!res.ok || !data.id) throw new Error(data.error ?? `failed (${res.status})`);
+      const data = (await res.json().catch(() => ({}))) as Partial<HermesResult> & {
+        error?: string;
+      };
+      if (!res.ok) throw new Error(data.error ?? `command failed (${res.status})`);
+      if (data.status !== 'dispatched' || !data.taskId) {
+        throw new Error(data.message ?? 'dispatch failed');
+      }
       setValue('');
-      setTrace({ kind: 'ok', text: `queued ${data.id.slice(0, 8)} - pending`, id: Date.now() });
+      const agentLabel = data.agentName ?? data.agentId?.slice(0, 8) ?? 'agent';
+      pushSystemFeed('NETWORK', `Telemetry pipeline established (latency: ${Math.round(performance.now() - t0)}ms)`);
+      pushSystemFeed('SYSTEM', `Synchronizing task matrix — ${agentLabel} assigned task ${data.taskId.slice(0, 8)}`);
+      setTrace({
+        kind: 'ok',
+        text: `dispatched to ${agentLabel} - task ${data.taskId.slice(0, 8)}`,
+        id: Date.now(),
+      });
     } catch (err) {
-      setTrace({ kind: 'error', text: err instanceof Error ? err.message : 'queue failed', id: Date.now() });
+      const reason = err instanceof Error ? err.message : 'queue failed';
+      pushSystemFeed('SYSTEM', `Dispatch rejected — ${reason}`);
+      setTrace({ kind: 'error', text: reason, id: Date.now() });
     } finally {
       pendingRef.current = false;
       setPending(false);

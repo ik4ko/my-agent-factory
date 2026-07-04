@@ -19,6 +19,7 @@ import type { Agent, Task, Log } from '@/lib/types/database.types';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { CinematicCore } from './cinematic-core';
+import { useCoreFxStore } from '@/lib/fx/core-store';
 
 const HANDLE_CLS = cn(
   'relative flex items-center justify-center',
@@ -55,6 +56,11 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
   const openConsole = useCommandStore((s) => s.setOpen);
   const qc = useQueryClient();
 
+  // Atomic selectors — each subscribes to exactly one slice, so a beam
+  // retarget never re-renders on voice-state flips and vice versa.
+  const isListening = useCoreFxStore((state) => state.isListening);
+  const focusTarget = useCoreFxStore((state) => state.focusTarget);
+
   // Hydrate the workspace: synchronous SSR seed (no layout shift) + parallel
   // reconcile fetch across all query keys, so tab re-entry is instant.
   useWorkspaceInit({ initial: { agents: initialAgents, tasks: initialTasks, logs: initialLogs } });
@@ -86,7 +92,7 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
       {/* Neural power-grid background — sits behind all panels (-z-10 inside
           the page's `isolate` context), never intercepts pointer events. */}
       <div className="pointer-events-none absolute inset-0 -z-10 opacity-50" aria-hidden="true">
-        <CinematicCore isListening={false} focusTarget={null} intensity={1} />
+        <CinematicCore isListening={isListening} focusTarget={focusTarget} intensity={1} />
       </div>
 
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
