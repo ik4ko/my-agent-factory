@@ -1,5 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { getAdminClient } from '@/lib/supabase/admin';
+import { resolveAgent } from '@/lib/agents/registry';
+import { publishBusEvent } from '@/lib/bus/system-bus';
 import { hermesLog } from '@/lib/hermes/hermes-logger';
 import { writeMemory } from '@/lib/hermes/memory-service';
 import { recordModelEvent } from '@/lib/telemetry/token-ledger';
@@ -22,9 +23,6 @@ export interface AgentWorkerInput {
    *  the density directive in their prompts can actually be honored. */
   maxTokens?: number;
 }
-
-// claude-haiku-4-5: 1–3s per call — fits Vercel Hobby 10s limit.
-const MODEL = 'claude-haiku-4-5';
 
 // Throttle for incremental Supabase flushes while streaming (tasks/agents are
 // in the realtime publication, so each flush renders live on the dashboard).
@@ -66,20 +64,17 @@ Structure: OBJECTIVE | PHASES (numbered steps) | TIMELINE | SUCCESS CRITERIA`,
   },
 };
 
-let _anthropic: Anthropic | null = null;
-function getAnthropic() {
-  if (!_anthropic) _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  return _anthropic;
-}
-
 /**
- * Streaming worker. Consumes the Anthropic SSE stream and flushes incremental
- * progress (rolling output preview, char count, heartbeat) to Supabase every
- * ~1.5s so the dashboard terminal renders agent activity in real time.
+ * Streaming worker. Routes the LLM call through the Federated Brain Network
+ * (AgentRegistry) and flushes incremental progress (rolling output preview,
+ * char count, heartbeat) to Supabase every ~1.5s so the dashboard terminal
+ * renders agent activity in real time. Final thoughts are published to the
+ * system_bus with provider/model/latency provenance.
  */
 export async function runAgentWorker(input: AgentWorkerInput): Promise<void> {
   const { taskId, agentId, agentType, description } = input;
-  const model = input.model ?? MODEL;
+  const brain = resolveAgent(agentType, input.model);
+  const model = brain.model;
   const persona = PERSONAS[agentType] ?? PERSONAS.generic;
 
   await hermesLog(
@@ -110,36 +105,57 @@ export async function runAgentWorker(input: AgentWorkerInput): Promise<void> {
   };
 
   try {
-    const stream = await getAnthropic().messages.create({
-      model,
-      max_tokens: input.maxTokens ?? 2048,
-      system: input.systemPrompt ?? persona.system,
-      messages: [{ role: 'user', content: description }],
-      stream: true,
-    });
-
+    // Federated think(): the registry owns the provider call; deltas stream
+    // back through onDelta and the flush cadence is preserved (fire-and-
+    // forget with an overlap guard — deltas must never await DB writes).
     let lastFlush = Date.now();
-    for await (const event of stream) {
-      if (event.type === 'message_start') {
-        inputTokens = event.message.usage?.input_tokens ?? 0;
-      } else if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-        output += event.delta.text;
-      } else if (event.type === 'message_delta') {
-        outputTokens = event.usage?.output_tokens ?? outputTokens; // cumulative
-      }
-      if (Date.now() - lastFlush >= FLUSH_INTERVAL_MS) {
-        lastFlush = Date.now();
-        await flush(false);
-      }
-    }
-    output = output.trim();
+    let flushInFlight = false;
+    const maybeFlush = () => {
+      if (flushInFlight || Date.now() - lastFlush < FLUSH_INTERVAL_MS) return;
+      flushInFlight = true;
+      lastFlush = Date.now();
+      void flush(false)
+        .catch(() => { /* transient flush failure — next delta retries */ })
+        .finally(() => { flushInFlight = false; });
+    };
+
+    const thought = await brain.think({
+      system: input.systemPrompt ?? persona.system,
+      prompt: description,
+      maxTokens: input.maxTokens,
+      onDelta: (delta) => {
+        output += delta;
+        maybeFlush();
+      },
+    });
+    output = thought.text;
+    inputTokens = thought.inputTokens;
+    outputTokens = thought.outputTokens;
 
     await flush(true);
+
+    // Publish the final thought to the federated room (audit provenance:
+    // which brain, which provider/model actually ran, how long it took).
+    await publishBusEvent({
+      topic: 'agent.thought',
+      agent: persona.label,
+      taskId,
+      payload: {
+        preview: output.slice(0, 400),
+        chars: output.length,
+        provider: thought.provider,
+        model: thought.model,
+        latencyMs: thought.latencyMs,
+        inputTokens,
+        outputTokens,
+      },
+    });
     await Promise.all([
       db.from('tasks').update({ status: 'completed' }).eq('id', taskId),
       db.from('agents').update({ status: 'idle', current_task_id: null }).eq('id', agentId),
       // Token spend increment — feeds the 24h snapshot the router reads.
-      recordModelEvent({ model, event: 'USAGE', taskId, agentId, inputTokens, outputTokens }),
+      // thought.model = what ACTUALLY ran (fallbacks report themselves).
+      recordModelEvent({ model: thought.model, event: 'USAGE', taskId, agentId, inputTokens, outputTokens }),
     ]);
 
     await hermesLog('success', `${persona.label} task complete (${output.length} chars)`, agentId);

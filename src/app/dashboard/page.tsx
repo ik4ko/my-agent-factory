@@ -8,6 +8,7 @@ import { LiveClock } from '@/components/dashboard/live-clock';
 import { ConnectionIndicator } from '@/components/dashboard/connection-indicator';
 import { EmergencyStop } from '@/components/dashboard/emergency-stop';
 import { TimelineScrubber } from '@/components/dashboard/timeline-scrubber';
+import { SystemHealthPill } from '@/components/dashboard/system-health-pill';
 import AudioBriefing from '@/components/dashboard/client-audio-briefing';
 import type { Agent, Task, Log } from '@/lib/types/database.types';
 
@@ -46,6 +47,7 @@ function TopBar() {
         <span className="hidden font-terminal text-[10px] text-muted-foreground/40 sm:flex items-center gap-1">
           <Terminal className="size-2.5" /> ⌘K · / console
         </span>
+        <SystemHealthPill />
         <TimelineScrubber />
         <AudioBriefing />
         <EmergencyStop />

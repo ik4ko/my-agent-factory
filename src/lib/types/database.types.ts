@@ -116,6 +116,19 @@ export type StagedOrderRow = {
   created_at: string;
 };
 
+// Phase 9 — federated room event log. Dashboard reads; system writes.
+export type SystemBusRow = {
+  id: string;
+  topic: 'pipeline.step.completed' | 'pipeline.completed' | 'agent.thought';
+  agent: string | null;
+  pipeline_id: string | null;
+  task_id: string | null;
+  payload: Record<string, unknown>;
+  status: 'pending' | 'consumed' | 'failed';
+  created_at: string;
+  consumed_at: string | null;
+};
+
 // Phase 8.2 — sweep-orchestrator watchlist (service-role access only).
 export type TickerWatchlistRow = {
   symbol: string;
@@ -165,6 +178,12 @@ export type Database = {
         Row: Metric;
         Insert: Omit<Metric, 'id' | 'created_at'> & { id?: string; created_at?: string };
         Update: Partial<Omit<Metric, 'id'>>;
+        Relationships: [];
+      };
+      system_bus: {
+        Row: SystemBusRow;
+        Insert: Omit<SystemBusRow, 'id' | 'created_at'> & { id?: string; created_at?: string };
+        Update: Partial<Pick<SystemBusRow, 'status' | 'consumed_at'>>;
         Relationships: [];
       };
       ticker_watchlist: {

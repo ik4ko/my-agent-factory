@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { AgentRegistry } from '@/lib/agents/registry';
 import type { AgentType } from '@/lib/types/database.types';
 import type { ParsedIntent } from './types';
 
@@ -11,12 +11,6 @@ const RULES: RulePattern[] = [
   { pattern: /(plan|decompose|break down|organize|schedule|prioritize)/i, agentType: 'planner', priority: 6 },
 ];
 
-let _anthropic: Anthropic | null = null;
-function getAnthropic() {
-  if (!_anthropic) _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  return _anthropic;
-}
-
 function applyRules(command: string): ParsedIntent | null {
   for (const { pattern, agentType, priority } of RULES) {
     if (pattern.test(command)) {
@@ -27,21 +21,15 @@ function applyRules(command: string): ParsedIntent | null {
 }
 
 async function llmFallback(command: string): Promise<ParsedIntent> {
-  const client = getAnthropic();
-  const msg = await client.messages.create({
-    model: 'claude-haiku-4-5',
-    max_tokens: 128,
-    messages: [
-      {
-        role: 'user',
-        content: `Classify this command for an AI agent factory. Reply with JSON only — no explanation:\n{"agentType":"coder"|"researcher"|"browser"|"planner"|"generic","priority":1-10}\n\nCommand: ${command}`,
-      },
-    ],
+  // Federated route: Hermes's brain classifies (registry decides the model).
+  const result = await AgentRegistry.HERMES.think({
+    system: 'You classify operator commands for an AI agent factory. Reply with JSON only — no explanation.',
+    prompt: `{"agentType":"coder"|"researcher"|"browser"|"planner"|"generic","priority":1-10}\n\nCommand: ${command}`,
+    maxTokens: 128,
   });
 
   try {
-    const text = msg.content[0].type === 'text' ? msg.content[0].text : '{}';
-    const json = text.match(/\{[\s\S]*\}/)?.[0] ?? '{}';
+    const json = result.text.match(/\{[\s\S]*\}/)?.[0] ?? '{}';
     const parsed = JSON.parse(json) as { agentType?: string; priority?: number };
     return {
       agentType: (parsed.agentType ?? 'generic') as AgentType,

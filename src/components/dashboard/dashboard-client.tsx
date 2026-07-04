@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { CinematicCore } from './cinematic-core';
 import { useCoreFxStore } from '@/lib/fx/core-store';
 import { StagedOrders } from './staged-orders';
+import { AgentActivity } from './agent-activity';
 
 const HANDLE_CLS = cn(
   'relative flex items-center justify-center',
@@ -162,6 +163,9 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
 
       {/* Realtime degraded-state toast (overlay, non-shifting) */}
       <ConnectionBanner />
+
+      {/* Federated brain observer — thinking states + last thoughts + provider badges */}
+      <AgentActivity />
 
       {/* Human-in-the-loop approval track — renders only when orders are staged */}
       <StagedOrders />

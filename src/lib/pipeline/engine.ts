@@ -1,6 +1,12 @@
 import { randomUUID } from 'crypto';
 import { getAdminClient } from '@/lib/supabase/admin';
 import { hermesLog } from '@/lib/hermes/hermes-logger';
+import {
+  publishBusEvent,
+  fetchPendingHandOffs,
+  claimBusEvent,
+  markBusEventFailed,
+} from '@/lib/bus/system-bus';
 import { findIdleAgent } from '@/lib/hermes/task-router';
 import { runAgentWorker } from '@/lib/agents/runner';
 import { PLAYBOOKS, MARKET_STRATEGY_PLAYBOOK } from './playbook';
@@ -284,6 +290,13 @@ export async function advancePipelineAfterTask(taskId: string, output: string): 
 
   const nextIndex = context.step + 1;
   if (nextIndex >= playbook.steps.length) {
+    await publishBusEvent({
+      topic: 'pipeline.completed',
+      agent: context.role,
+      pipelineId: context.id,
+      taskId,
+      payload: { objective: context.objective, stages: playbook.steps.length, simulate: context.simulate },
+    });
     await hermesLog(
       'success',
       `Pipeline ${context.id.slice(0, 8)} complete — strategy generated (${playbook.steps.length} stages${context.simulate ? ', SANDBOX' : ''})`,
@@ -291,16 +304,62 @@ export async function advancePipelineAfterTask(taskId: string, output: string): 
     return;
   }
 
+  // Federated room: PUBLISH the hand-off (full output rides in the payload,
+  // durably — an invocation death between publish and pump loses nothing),
+  // then pump. The pump is also invocable from cron to recover orphans.
   const nextContext: PipelineContext = {
     ...context,
     step: nextIndex,
     role: playbook.steps[nextIndex].role,
   };
+  await publishBusEvent({
+    topic: 'pipeline.step.completed',
+    agent: context.role,
+    pipelineId: context.id,
+    taskId,
+    payload: { nextContext, output },
+  });
   await hermesLog(
     'info',
-    `Hand-off: ${context.role} → ${nextContext.role} (${output.length} chars forwarded)`,
+    `Hand-off published to system_bus: ${context.role} → ${nextContext.role} (${output.length} chars)`,
   );
 
-  const nextDispatch = await buildDispatch(nextContext, output);
-  await executeStep(nextDispatch);
+  await pumpSystemBus();
+}
+
+/**
+ * The federated room's subscriber side: claim pending hand-off events
+ * (atomic compare-and-set — concurrent pumps can't double-process) and
+ * execute the next step for each. Returns the number processed. Safe to
+ * call from anywhere, including a recovery cron.
+ */
+export async function pumpSystemBus(limit = 5): Promise<number> {
+  let events;
+  try {
+    events = await fetchPendingHandOffs(limit);
+  } catch (err) {
+    await hermesLog('error', `Bus pump: fetch failed — ${String(err).slice(0, 120)}`);
+    return 0;
+  }
+
+  let processed = 0;
+  for (const event of events) {
+    if (!(await claimBusEvent(event.id))) continue; // another pump won the race
+    try {
+      const parsedContext = PipelineContextSchema.safeParse(event.payload.nextContext);
+      const output = typeof event.payload.output === 'string' ? event.payload.output : null;
+      if (!parsedContext.success) {
+        await markBusEventFailed(event.id);
+        await hermesLog('error', `Bus pump: event ${event.id.slice(0, 8)} carries an invalid context — marked failed`);
+        continue;
+      }
+      const dispatch = await buildDispatch(parsedContext.data, output);
+      await executeStep(dispatch);
+      processed += 1;
+    } catch (err) {
+      await markBusEventFailed(event.id);
+      await hermesLog('error', `Bus pump: event ${event.id.slice(0, 8)} failed — ${String(err).slice(0, 120)}`);
+    }
+  }
+  return processed;
 }
