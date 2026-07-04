@@ -132,10 +132,18 @@ export function TaskInput() {
     // "/run <objective>" launches the LIVE multi-agent pipeline;
     // "/sim <objective>" launches the sandbox chain. Everything else falls
     // through to the standard single-task Hermes dispatcher below.
-    const pipelineMatch = prompt.match(/^\/(run|sim)(?:\s+(.*))?$/is);
-    if (pipelineMatch) {
-      const simulate = pipelineMatch[1].toLowerCase() === 'sim';
-      const objective = (pipelineMatch[2] ?? '').trim();
+    // Plain string checks — no dotAll regex, so this compiles cleanly under
+    // the ES2017 target and handles multi-line objectives.
+    const lower = prompt.toLowerCase();
+    const pipelineMode: 'run' | 'sim' | null =
+      lower === '/run' || lower.startsWith('/run ')
+        ? 'run'
+        : lower === '/sim' || lower.startsWith('/sim ')
+          ? 'sim'
+          : null;
+    if (pipelineMode) {
+      const simulate = pipelineMode === 'sim';
+      const objective = prompt.slice(4).trim(); // both prefixes are 4 chars
       try {
         if (!objective) {
           throw new Error('usage: /run <objective> (live) or /sim <objective> (sandbox)');
