@@ -22,10 +22,14 @@ type VoiceState = 'idle' | 'listening' | 'processing';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecognition = any;
 function getSpeechRecognitionCtor(): AnyRecognition | null {
-  if (typeof window === 'undefined') return null; // hard SSR boundary
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const w = window as any;
-  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+  // Strict runtime guard — hard SSR boundary plus `in` checks so we never
+  // touch window properties that don't exist in this browser.
+  if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w = window as any;
+    return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+  }
+  return null;
 }
 
 const WAKE = /\bhey\s+hermes\b|\bhermes\b/i;

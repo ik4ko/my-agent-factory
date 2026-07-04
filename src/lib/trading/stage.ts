@@ -6,11 +6,11 @@ import {
   computeExpectancy,
   kellyFraction,
   clampPositionFraction,
-  DEFAULT_PAPER_EQUITY_USD,
   type TradeParams,
   type RobinhoodStagedOrder,
   type OrderSource,
 } from '@/lib/types/trading.types';
+import { getActivePortfolioBalance } from '@/lib/market/portfolio';
 import type { PipelineContext } from '@/lib/pipeline/types';
 
 /**
@@ -23,11 +23,6 @@ import type { PipelineContext } from '@/lib/pipeline/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = () => getAdminClient() as any;
-
-function paperEquityUsd(): number {
-  const env = Number(process.env.PAPER_EQUITY_USD);
-  return Number.isFinite(env) && env > 0 ? env : DEFAULT_PAPER_EQUITY_USD;
-}
 
 /**
  * Extract trade parameters from analysis text.
@@ -79,11 +74,16 @@ export interface StageResult {
   reason?: string;
 }
 
-/** Pure assembly: params → sized, PENDING order. Exported for the API route. */
+/** Pure assembly: params + live equity → sized, PENDING order. Equity is an
+ *  explicit required input (no hidden static default in this module) so every
+ *  caller consciously sources it from getActivePortfolioBalance. */
 export function buildStagedOrder(
   params: TradeParams,
-  options: { pipelineId: string | null; source: OrderSource },
+  options: { pipelineId: string | null; source: OrderSource; equityUsd: number },
 ): StageResult {
+  if (!Number.isFinite(options.equityUsd) || options.equityUsd <= 0) {
+    return { staged: null, reason: `invalid equity base ${options.equityUsd} — sizing refused` };
+  }
   const expectancy = computeExpectancy(params.win_rate, params.r_multiple);
   if (expectancy <= 0) {
     return {
@@ -107,7 +107,7 @@ export function buildStagedOrder(
       expiration: params.expiration,
       execution_type: 'LIMIT',
       limit_price: params.max_entry_debit,
-      calculated_position_size_usd: Math.round(paperEquityUsd() * fraction * 100) / 100,
+      calculated_position_size_usd: Math.round(options.equityUsd * fraction * 100) / 100,
       human_approval_status: 'PENDING', // constraint 3: staged, never executed
       pipeline_id: options.pipelineId,
       kelly_fraction: Math.round(fraction * 10_000) / 10_000,
@@ -152,9 +152,14 @@ export async function stageOrderFromAnalysis(
       return { staged: null, reason: 'no extractable trade parameters' };
     }
 
+    // Live portfolio balance — the 2% cap now allocates against real liquid
+    // cash, not a static constant (adapter guarantees a positive number).
+    const equityUsd = await getActivePortfolioBalance();
+
     const result = buildStagedOrder(params, {
       pipelineId: context.id,
       source: context.simulate ? 'SANDBOX' : 'LIVE',
+      equityUsd,
     });
     if (!result.staged) {
       await hermesLog('warn', `Executor scan: ${result.reason}`, agentId);

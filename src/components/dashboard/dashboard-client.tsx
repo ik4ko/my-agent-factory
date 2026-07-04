@@ -20,6 +20,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { CinematicCore } from './cinematic-core';
 import { useCoreFxStore } from '@/lib/fx/core-store';
+import { StagedOrders } from './staged-orders';
 
 const HANDLE_CLS = cn(
   'relative flex items-center justify-center',
@@ -161,6 +162,9 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
 
       {/* Realtime degraded-state toast (overlay, non-shifting) */}
       <ConnectionBanner />
+
+      {/* Human-in-the-loop approval track — renders only when orders are staged */}
+      <StagedOrders />
 
       {/* Single terminal command dock — queues a pending task (lane-router flow) */}
       <TaskInput />

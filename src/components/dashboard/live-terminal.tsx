@@ -44,6 +44,7 @@ const CHANNEL_CLS: Record<FeedChannel, string> = {
   VOICE: 'text-neon-orange',
   COGNITION: 'text-foreground/50 italic',
   STRATEGY: 'text-neon-green',
+  CRITICAL: 'text-neon-red font-semibold',
 };
 
 const STAGED_ORDERS_CHANNEL = 'staged-orders-stream';
@@ -153,6 +154,7 @@ export function LiveTerminal({ initialLogs = [] }: LiveTerminalProps) {
   // baseline — no spam on initial load.
   const pushFeed = useSystemFeed((s) => s.push);
   const prevStatusRef = useRef<Map<string, string> | null>(null);
+  const prevHaltRef = useRef<Map<string, boolean>>(new Map());
   useEffect(() => {
     if (agents.length === 0) return;
     const prev = prevStatusRef.current;
@@ -165,10 +167,41 @@ export function LiveTerminal({ initialLogs = [] }: LiveTerminalProps) {
             `${a.name} core state transition ${was.toUpperCase()} → ${a.status.toUpperCase()}`,
           );
         }
+        // Autonomous kill-switch halt: surfaces the CRITICAL ring-buffer line
+        // when the runner flips halted_at with the critical_halt marker.
+        const haltedNow = Boolean(a.halted_at);
+        const haltedBefore = prevHaltRef.current.get(a.id) ?? false;
+        if (haltedNow && !haltedBefore && a.metadata?.critical_halt) {
+          pushFeed(
+            'CRITICAL',
+            'Autonomous trade velocity ceiling reached. Activation paused for risk mitigation.',
+          );
+        }
       }
     }
     prevStatusRef.current = new Map(agents.map((a) => [a.id, a.status]));
+    prevHaltRef.current = new Map(agents.map((a) => [a.id, Boolean(a.halted_at)]));
   }, [agents, pushFeed]);
+
+  // NETWORK telemetry producer: the market fetcher logs its pull server-side;
+  // mirror newly arrived pull lines into the ring buffer as NETWORK entries.
+  // Cursor starts at the newest historical log so page load never replays.
+  const telemetryCursorRef = useRef<number>(0);
+  useEffect(() => {
+    if (logs.length === 0) return;
+    const newestTs = logs.reduce((max, l) => Math.max(max, Date.parse(l.timestamp)), 0);
+    if (telemetryCursorRef.current === 0) {
+      telemetryCursorRef.current = newestTs;
+      return;
+    }
+    for (const log of logs) {
+      const ts = Date.parse(log.timestamp);
+      if (ts > telemetryCursorRef.current && log.message.startsWith('Pulled live telemetry')) {
+        pushFeed('NETWORK', log.message);
+      }
+    }
+    telemetryCursorRef.current = Math.max(telemetryCursorRef.current, newestTs);
+  }, [logs, pushFeed]);
 
   // Cognition producer: forward newly generated characters from live model
   // streams (workers flush rolling previews to tasks.result every ~1.5s and

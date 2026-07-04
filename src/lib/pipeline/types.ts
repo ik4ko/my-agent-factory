@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { AgentType } from '@/lib/types/database.types';
+import type { MarketContext } from '@/lib/market/fetcher';
 
 /**
  * Multi-agent pipeline domain types.
@@ -24,6 +25,10 @@ export const PipelineContextSchema = z.object({
   objective: z.string().min(1),
   /** Sandbox mode: no model calls, no external APIs — full trace only. */
   simulate: z.boolean(),
+  /** Provenance: who initiated the run. The autonomous kill switch counts
+   *  'autonomous' step-0 tasks per calendar day. Optional for back-compat
+   *  with pre-Phase-6 rows; absent means 'manual'. */
+  trigger: z.enum(['manual', 'autonomous']).optional(),
 });
 export type PipelineContext = z.infer<typeof PipelineContextSchema>;
 
@@ -35,8 +40,14 @@ export interface PlaybookStep {
   nameHint: string;
   /** Short human description shown as the task description in the feed. */
   describe: (objective: string) => string;
-  /** System prompt for the live worker. `priorOutput` is the previous step's full text. */
-  buildSystemPrompt: (objective: string, priorOutput: string | null) => string;
+  /** System prompt for the live worker. `priorOutput` is the previous step's
+   *  full text; `market` is live telemetry (RESEARCH stage only), injected
+   *  server-side so neither the operator nor the model can override it. */
+  buildSystemPrompt: (
+    objective: string,
+    priorOutput: string | null,
+    market?: MarketContext | null,
+  ) => string;
   /** Deterministic output for sandbox simulation runs (no model, no broker). */
   simulateOutput: (objective: string, priorOutput: string | null) => string;
 }

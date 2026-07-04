@@ -19,7 +19,14 @@
 
 import { create } from 'zustand';
 
-export type FeedChannel = 'SYSTEM' | 'NETWORK' | 'DISPATCH' | 'VOICE' | 'COGNITION' | 'STRATEGY';
+export type FeedChannel =
+  | 'SYSTEM'
+  | 'NETWORK'
+  | 'DISPATCH'
+  | 'VOICE'
+  | 'COGNITION'
+  | 'STRATEGY'
+  | 'CRITICAL';
 
 export interface SystemFeedEntry {
   id: string;

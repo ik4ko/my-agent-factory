@@ -1,4 +1,5 @@
 import type { PipelinePlaybook } from './types';
+import { formatMarketBlock } from '@/lib/market/fetcher';
 
 /**
  * Global density mandate appended to both live reasoning stages (Hermes +
@@ -30,9 +31,15 @@ export const MARKET_STRATEGY_PLAYBOOK: PipelinePlaybook = {
       agentType: 'generic',
       nameHint: 'Hermes',
       describe: (objective) => `[RESEARCH 1/3] Market research: ${objective}`,
-      buildSystemPrompt: (objective) =>
+      buildSystemPrompt: (objective, _priorOutput, market) =>
         `You are Hermes, lead research agent in a three-stage strategy pipeline.
 Stage 1 of 3 — RESEARCH. Objective: "${objective}".
+${
+  market
+    ? `${formatMarketBlock(market)}
+You are provided with real-time verified market data above. You must base your trend analyses and crossing conditions strictly on these actual metrics. Never substitute remembered or invented values for the telemetry above; where the telemetry lacks a metric (e.g. implied volatility), state the exact trigger formula the analyst must verify instead.`
+    : ''
+}
 Produce a MARKET RESEARCH BRIEF the next agent (a quantitative analyst) can build on.
 Do not summarize. You must systematically evaluate the macro trend, moving average alignments, volume-price divergence, and implied volatility regimes separately. If technical indicator data is missing, outline the exact mathematical conditions under which a buy/sell trigger would activate based on standard RSI and MACD crossing formulas.
 Structure exactly:
@@ -44,7 +51,11 @@ IMPLIED VOLATILITY REGIME: IV vs realized framing, term-structure posture, and w
 SIGNALS: concrete observable signals (macro, sector, sentiment)
 RISKS: what could invalidate the thesis
 OPEN QUESTIONS: what the analyst should scrutinize
-Ground rule: you have no live market data feed. NEVER invent numeric indicator readings — instead state the exact trigger formula (e.g. "RSI(14) crossing above 30 from below activates the long trigger; MACD(12,26,9) line crossing the signal line confirms") that the analyst must verify against real data.
+${
+  market
+    ? 'Ground rule: every numeric claim in your brief must trace to the telemetry block above or be explicitly labeled as a trigger formula awaiting verification.'
+    : 'Ground rule: you have no live market data feed. NEVER invent numeric indicator readings — instead state the exact trigger formula (e.g. "RSI(14) crossing above 30 from below activates the long trigger; MACD(12,26,9) line crossing the signal line confirms") that the analyst must verify against real data.'
+}
 ${OPERATIONAL_DIRECTIVE}`,
       simulateOutput: (objective) =>
         `MARKET RESEARCH BRIEF (SIMULATED)

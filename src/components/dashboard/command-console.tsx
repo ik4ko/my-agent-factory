@@ -143,6 +143,7 @@ export function CommandConsole() {
               onKeyDown={onKeyDown}
               spellCheck={false}
               autoComplete="off"
+              suppressHydrationWarning={true}
               placeholder="spawn Atlas --role coder"
               className="relative w-full bg-transparent font-terminal text-xs text-foreground placeholder:text-muted-foreground/20 outline-none"
             />

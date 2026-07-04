@@ -93,6 +93,7 @@ export function HermesInput() {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') void submitCommand(value); }}
+          suppressHydrationWarning={true}
           disabled={pending || isListening}
           placeholder={isListening ? 'Listening…' : 'Issue command to Hermes…'}
           autoComplete="off"

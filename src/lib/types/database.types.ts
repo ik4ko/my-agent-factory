@@ -93,6 +93,43 @@ export type EmergencyStopResult = {
   halted_at: string;
 };
 
+// Phase 5/6 — staged (never executed) order proposals awaiting human review.
+// Structurally identical to RobinhoodStagedOrder in trading.types.ts;
+// redeclared as a type alias so Database Row typing stays supabase-js
+// compatible (see NOTE on type aliases above).
+export type StagedOrderRow = {
+  id: string;
+  underlying: string;
+  option_type: 'CALL' | 'PUT';
+  strike: number;
+  expiration: string;
+  execution_type: 'LIMIT';
+  limit_price: number;
+  calculated_position_size_usd: number;
+  human_approval_status: 'PENDING' | 'APPROVED' | 'DENIED';
+  pipeline_id: string | null;
+  kelly_fraction: number;
+  expectancy: number;
+  win_rate: number;
+  r_multiple: number;
+  source: 'SANDBOX' | 'LIVE';
+  created_at: string;
+};
+
+// Phase 8.2 — sweep-orchestrator watchlist (service-role access only).
+export type TickerWatchlistRow = {
+  symbol: string;
+  is_active: boolean;
+  updated_at: string;
+};
+
+// Phase 8 — singleton liquid-cash state (service-role access only).
+export type PortfolioStateRow = {
+  id: string;
+  total_liquid_cash: number;
+  updated_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -128,6 +165,28 @@ export type Database = {
         Row: Metric;
         Insert: Omit<Metric, 'id' | 'created_at'> & { id?: string; created_at?: string };
         Update: Partial<Omit<Metric, 'id'>>;
+        Relationships: [];
+      };
+      ticker_watchlist: {
+        Row: TickerWatchlistRow;
+        Insert: Omit<TickerWatchlistRow, 'is_active' | 'updated_at'> & {
+          is_active?: boolean;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<TickerWatchlistRow, 'symbol'>>;
+        Relationships: [];
+      };
+      portfolio_state: {
+        Row: PortfolioStateRow;
+        Insert: Omit<PortfolioStateRow, 'id' | 'updated_at'> & { id?: string; updated_at?: string };
+        Update: Partial<Omit<PortfolioStateRow, 'id'>>;
+        Relationships: [];
+      };
+      staged_orders: {
+        Row: StagedOrderRow;
+        Insert: Omit<StagedOrderRow, 'created_at'> & { created_at?: string };
+        // Only the human decision is mutable — everything else is immutable.
+        Update: Partial<Pick<StagedOrderRow, 'human_approval_status'>>;
         Relationships: [];
       };
     };

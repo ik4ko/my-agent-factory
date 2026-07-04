@@ -131,7 +131,7 @@ async function buildDispatch(
  *  Call `executeStep` with the result (typically inside `after()`). */
 export async function startPipeline(
   objective: string,
-  options: { simulate?: boolean; playbook?: string } = {},
+  options: { simulate?: boolean; playbook?: string; trigger?: 'manual' | 'autonomous' } = {},
 ): Promise<StepDispatch> {
   const playbook = getPlaybook(options.playbook ?? MARKET_STRATEGY_PLAYBOOK.name);
   const context: PipelineContext = {
@@ -141,6 +141,7 @@ export async function startPipeline(
     role: playbook.steps[0].role,
     objective,
     simulate: options.simulate ?? true,
+    trigger: options.trigger ?? 'manual',
   };
   await hermesLog(
     'info',
@@ -183,6 +184,30 @@ export async function executeStep(dispatch: StepDispatch): Promise<void> {
     return;
   }
 
+  // Live telemetry injection (Phase 7): RESEARCH pulls real market context
+  // and it lands in the system prompt server-side — un-overrideable by the
+  // operator's objective text or any model output. Sandbox runs never touch
+  // the network; a failed pull degrades to the formula-only prompt.
+  let market: import('@/lib/market/fetcher').MarketContext | null = null;
+  if (step.role === 'RESEARCH') {
+    try {
+      const { getMarketContext, extractTickerFromObjective } = await import('@/lib/market/fetcher');
+      market = await getMarketContext(extractTickerFromObjective(context.objective));
+      await hermesLog(
+        'info',
+        `Pulled live telemetry for ${market.ticker} (Price: $${market.price.toFixed(2)}, RSI: ${market.rsi14.toFixed(1)}). Forwarding payload to Hermes Core...`,
+        agentId,
+      );
+    } catch (err) {
+      market = null;
+      await hermesLog(
+        'warn',
+        `Telemetry pull failed — Hermes runs formula-only: ${String(err).slice(0, 100)}`,
+        agentId,
+      );
+    }
+  }
+
   // Bridge for the runner's completion hook (same invocation).
   pendingHandOffs.set(taskId, { context, priorOutput });
   await runAgentWorker({
@@ -190,7 +215,7 @@ export async function executeStep(dispatch: StepDispatch): Promise<void> {
     agentId,
     agentType: step.agentType,
     description,
-    systemPrompt: step.buildSystemPrompt(context.objective, priorOutput),
+    systemPrompt: step.buildSystemPrompt(context.objective, priorOutput, market),
     // Expanded budget: the playbook's density directive asks for exhaustive
     // institutional briefings; the default 2048 would truncate them and feed
     // a clipped brief to the next stage.

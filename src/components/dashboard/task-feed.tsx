@@ -71,6 +71,7 @@ const ApprovalIntercept = memo(function ApprovalIntercept({ task }: { task: Task
       <input
         value={feedback}
         onChange={(e) => setFeedback(e.target.value)}
+        suppressHydrationWarning={true}
         placeholder="Optional feedback / instruction…"
         className="mt-2 w-full rounded border border-border bg-surface-1 px-2 py-1 font-terminal text-[10px] text-foreground placeholder:text-muted-foreground/25 outline-none focus:border-neon-orange/40"
       />

@@ -124,6 +124,7 @@ export function MemoryViewer() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          suppressHydrationWarning={true}
           placeholder="Search memory keys…"
           className="flex-1 bg-transparent font-terminal text-[10px] text-foreground placeholder:text-muted-foreground/20 outline-none"
         />

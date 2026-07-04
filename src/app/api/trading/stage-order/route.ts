@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { StageOrderInputSchema } from '@/lib/types/trading.types';
 import { buildStagedOrder, persistStagedOrder } from '@/lib/trading/stage';
+import { getActivePortfolioBalance } from '@/lib/market/portfolio';
 
 /**
  * POST /api/trading/stage-order — stage (never execute) an options order.
@@ -29,9 +30,13 @@ export async function POST(req: NextRequest) {
   }
 
   const { pipeline_id, source, ...params } = parsed.data;
+  // Sizing allocates against the live portfolio balance — clients cannot
+  // supply an equity base any more than they can supply a size.
+  const equityUsd = await getActivePortfolioBalance();
   const result = buildStagedOrder(params, {
     pipelineId: pipeline_id ?? null,
     source: source ?? 'LIVE',
+    equityUsd,
   });
 
   if (!result.staged) {
