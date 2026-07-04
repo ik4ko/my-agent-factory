@@ -18,6 +18,9 @@ export interface AgentWorkerInput {
   systemPrompt?: string;
   /** Router lane; UP/DOWN tasks may drive the sandbox tool runner. */
   lane?: 'SEAT' | 'UP' | 'DOWN';
+  /** Output budget override — pipeline stages request an expanded budget so
+   *  the density directive in their prompts can actually be honored. */
+  maxTokens?: number;
 }
 
 // claude-haiku-4-5: 1–3s per call — fits Vercel Hobby 10s limit.
@@ -109,7 +112,7 @@ export async function runAgentWorker(input: AgentWorkerInput): Promise<void> {
   try {
     const stream = await getAnthropic().messages.create({
       model,
-      max_tokens: 2048,
+      max_tokens: input.maxTokens ?? 2048,
       system: input.systemPrompt ?? persona.system,
       messages: [{ role: 'user', content: description }],
       stream: true,
@@ -148,6 +151,20 @@ export async function runAgentWorker(input: AgentWorkerInput): Promise<void> {
       model,
       completedAt: new Date().toISOString(),
     });
+
+    // Pipeline hand-off — no-op unless this task was dispatched by the
+    // pipeline engine. Receives the FULL output (tasks.result only holds a
+    // preview). Dynamic import breaks the runner ↔ engine module cycle.
+    try {
+      const { advancePipelineAfterTask } = await import('@/lib/pipeline/engine');
+      await advancePipelineAfterTask(taskId, output);
+    } catch (pipelineErr) {
+      await hermesLog(
+        'warn',
+        `Pipeline hand-off error: ${String(pipelineErr).replace(/\s+/g, ' ').slice(0, 120)}`,
+        agentId
+      );
+    }
 
     // Tool gate — UP/DOWN lanes may act on their own output. One bounded
     // sandbox pass (allowlisted commands, confined FS); results stream to the

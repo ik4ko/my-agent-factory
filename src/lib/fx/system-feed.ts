@@ -13,11 +13,13 @@
  *  - task-input.tsx    → DISPATCH / NETWORK / SYSTEM lines on command lifecycle
  *  - task-input.tsx    → VOICE lines on mic arm/disarm
  *  - live-terminal.tsx → SYSTEM lines on agent status transitions
+ *  - live-terminal.tsx → COGNITION lines forwarding live LLM stream deltas
+ *  - live-terminal.tsx → STRATEGY lines on staged_orders realtime INSERTs
  */
 
 import { create } from 'zustand';
 
-export type FeedChannel = 'SYSTEM' | 'NETWORK' | 'DISPATCH' | 'VOICE';
+export type FeedChannel = 'SYSTEM' | 'NETWORK' | 'DISPATCH' | 'VOICE' | 'COGNITION' | 'STRATEGY';
 
 export interface SystemFeedEntry {
   id: string;
@@ -27,8 +29,9 @@ export interface SystemFeedEntry {
   message: string;
 }
 
-/** Ring-buffer cap — keeps long sessions from growing the merge unbounded. */
-const CAP = 60;
+/** Ring-buffer cap — COGNITION streams are chatty, so the buffer is sized to
+ *  hold a full multi-stage pipeline run without evicting lifecycle lines. */
+const CAP = 120;
 
 let seq = 0;
 

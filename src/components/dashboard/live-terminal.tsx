@@ -7,7 +7,10 @@ import { useLogsQuery } from '@/hooks/use-logs-query';
 import { TASKS_KEY } from '@/hooks/use-tasks-query';
 import { AGENTS_KEY } from '@/hooks/use-agents-query';
 import { createClient } from '@/lib/supabase/client';
+import { subscribeWithReconnect } from '@/lib/supabase/realtime';
+import { useConnectionStore } from '@/lib/realtime/connection-store';
 import { shortModel } from '@/lib/telemetry/pricing';
+import type { RobinhoodStagedOrder } from '@/lib/types/trading.types';
 import { cn } from '@/lib/utils';
 import { useSystemFeed, type FeedChannel, type SystemFeedEntry } from '@/lib/fx/system-feed';
 import type { Agent, Log, LogLevel, Task } from '@/lib/types/database.types';
@@ -39,7 +42,11 @@ const CHANNEL_CLS: Record<FeedChannel, string> = {
   NETWORK: 'text-neon-purple',
   DISPATCH: 'text-primary',
   VOICE: 'text-neon-orange',
+  COGNITION: 'text-foreground/50 italic',
+  STRATEGY: 'text-neon-green',
 };
+
+const STAGED_ORDERS_CHANNEL = 'staged-orders-stream';
 
 function hhmmss(iso: string): string {
   const t = new Date(iso);
@@ -162,6 +169,70 @@ export function LiveTerminal({ initialLogs = [] }: LiveTerminalProps) {
     }
     prevStatusRef.current = new Map(agents.map((a) => [a.id, a.status]));
   }, [agents, pushFeed]);
+
+  // Cognition producer: forward newly generated characters from live model
+  // streams (workers flush rolling previews to tasks.result every ~1.5s and
+  // realtime pushes them here) into the diagnostics feed, so the terminal
+  // shows the agents "thinking" line by line. Delta extraction is
+  // approximate (previews are rolling 400-char windows) and throttled to
+  // ≥48 new chars per line to avoid ring-buffer churn.
+  const streamProgressRef = useRef<Map<string, number>>(new Map());
+  useEffect(() => {
+    const seen = streamProgressRef.current;
+    for (const task of streaming) {
+      const r = (task.result ?? {}) as StreamPreview;
+      const chars = r.chars ?? 0;
+      if (!seen.has(task.id)) {
+        seen.set(task.id, 0);
+        pushFeed(
+          'COGNITION',
+          `${task.id.slice(0, 8)} cognition stream opened${r.model ? ` · ${shortModel(r.model)}` : ''}`,
+        );
+      }
+      const prev = seen.get(task.id) ?? 0;
+      if (chars - prev >= 48 && r.preview) {
+        const delta = r.preview
+          .slice(-Math.min(chars - prev, 240))
+          .replace(/\s+/g, ' ')
+          .trim();
+        if (delta) pushFeed('COGNITION', `${task.id.slice(0, 8)} ▸ ${delta}`);
+        seen.set(task.id, chars);
+      }
+    }
+    // Prune finished streams so the map never grows unbounded.
+    const active = new Set(streaming.map((t) => t.id));
+    for (const id of seen.keys()) if (!active.has(id)) seen.delete(id);
+  }, [streaming, pushFeed]);
+
+  // STRATEGY producer: staged_orders INSERTs (order proposals awaiting human
+  // approval) stream in over realtime and land as STRATEGY feed lines.
+  useEffect(() => {
+    const supabase = createClient();
+    const { setChannelStatus, clearChannel } = useConnectionStore.getState();
+    const dispose = subscribeWithReconnect({
+      client: supabase,
+      name: STAGED_ORDERS_CHANNEL,
+      onStatusChange: (s) => setChannelStatus(STAGED_ORDERS_CHANNEL, s),
+      build: (channel) =>
+        channel.on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'staged_orders' },
+          (payload) => {
+            const order = payload.new as RobinhoodStagedOrder;
+            useSystemFeed
+              .getState()
+              .push(
+                'STRATEGY',
+                `Order staged for underlying ${order.underlying}. Kelly allocation: ${(order.kelly_fraction * 100).toFixed(2)}%. Awaiting manual verification.`,
+              );
+          },
+        ),
+    });
+    return () => {
+      dispose();
+      clearChannel(STAGED_ORDERS_CHANNEL);
+    };
+  }, []);
 
   // Merge persisted DB logs with client diagnostics, oldest-first by
   // timestamp for terminal reading order (logs hook returns newest-first).

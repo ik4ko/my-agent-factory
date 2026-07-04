@@ -6,6 +6,7 @@ import { Loader2, Mic, MicOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCoreFxStore } from '@/lib/fx/core-store';
 import type { HermesResult } from '@/lib/hermes/types';
+import type { PipelineRunResponse } from '@/lib/pipeline/types';
 import { pushSystemFeed } from '@/lib/fx/system-feed';
 
 type TraceKind = 'ok' | 'error';
@@ -127,6 +128,56 @@ export function TaskInput() {
     pendingRef.current = true;
     setPending(true);
     setVoiceState((s) => (armedRef.current ? 'processing' : s));
+
+    // "/run <objective>" launches the LIVE multi-agent pipeline;
+    // "/sim <objective>" launches the sandbox chain. Everything else falls
+    // through to the standard single-task Hermes dispatcher below.
+    const pipelineMatch = prompt.match(/^\/(run|sim)(?:\s+(.*))?$/is);
+    if (pipelineMatch) {
+      const simulate = pipelineMatch[1].toLowerCase() === 'sim';
+      const objective = (pipelineMatch[2] ?? '').trim();
+      try {
+        if (!objective) {
+          throw new Error('usage: /run <objective> (live) or /sim <objective> (sandbox)');
+        }
+        pushSystemFeed(
+          'DISPATCH',
+          `Pipeline launch — ${simulate ? 'SANDBOX' : 'LIVE'} chain: "${objective.slice(0, 48)}${objective.length > 48 ? '…' : ''}"`,
+        );
+        const res = await fetch('/api/pipeline/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ objective, simulate }),
+        });
+        const data = (await res.json().catch(() => ({}))) as Partial<PipelineRunResponse> & {
+          error?: string;
+        };
+        if (!res.ok || !data.pipelineId || !data.firstStage) {
+          throw new Error(data.error ?? `pipeline failed (${res.status})`);
+        }
+        setValue('');
+        pushSystemFeed(
+          'SYSTEM',
+          `Pipeline ${data.pipelineId.slice(0, 8)} online — stage 1 ${data.firstStage.role} → ${data.firstStage.agent}`,
+        );
+        setTrace({
+          kind: 'ok',
+          text: `pipeline ${data.pipelineId.slice(0, 8)} started - ${data.firstStage.role} → ${data.firstStage.agent}`,
+          id: Date.now(),
+        });
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : 'pipeline launch failed';
+        pushSystemFeed('SYSTEM', `Pipeline launch rejected — ${reason}`);
+        setTrace({ kind: 'error', text: reason, id: Date.now() });
+      } finally {
+        pendingRef.current = false;
+        setPending(false);
+        if (armedRef.current) setVoiceState('listening');
+        inputRef.current?.focus();
+      }
+      return;
+    }
+
     const t0 = performance.now();
     pushSystemFeed('DISPATCH', `Command accepted — routing "${prompt.slice(0, 48)}${prompt.length > 48 ? '…' : ''}" to intent parser`);
     try {
@@ -357,7 +408,7 @@ export function TaskInput() {
             if (e.key === 'Enter') void submit(value);
           }}
           disabled={pending}
-          placeholder={armed ? 'Say Hey Hermes or type...' : 'Queue a task for the fleet...'}
+          placeholder={armed ? 'Say Hey Hermes or type...' : 'Queue a task for the fleet... (/run <objective> = live pipeline)'}
           autoComplete="off"
           spellCheck={false}
           suppressHydrationWarning={true}
