@@ -324,8 +324,10 @@ export function CinematicCore({
       rotX: 0,
       rotY: 0,
       lookAt: new THREE.Vector3(),
-      focusPoint: new THREE.Vector3(),
+      focusPoint: new THREE.Vector3(), // raw unprojected target (this frame)
+      beamPoint: new THREE.Vector3(), // eased beam endpoint (lerped toward focusPoint)
     };
+    let hadFocus = false;
 
     const reducedMotion =
       typeof window.matchMedia === 'function' &&
@@ -410,15 +412,24 @@ export function CinematicCore({
       rig.rotation.y = t * 0.08 + smooth.rotY;
       rig.rotation.x = smooth.rotX;
 
-      // Focus beam + interpolated camera attention.
+      // Focus beam: endpoint travels, never teleports. τ ≈ 111ms — the beam
+      // covers ~95% of the distance in 6–8 frames at 60fps, both when a new
+      // card is acquired and when focus hops between cards.
       if (live.focusTarget) {
         focusWorldPoint(live.focusTarget, smooth.focusPoint);
-        uniforms.uFocusDir.value.copy(smooth.focusPoint).normalize();
+        if (!hadFocus) {
+          hadFocus = true;
+          smooth.beamPoint.set(0, 0, 0); // beam is born at the core, grows outward
+        }
+        smooth.beamPoint.lerp(smooth.focusPoint, 1 - Math.exp(-9 * dt));
+        uniforms.uFocusDir.value.copy(smooth.beamPoint).normalize();
 
         const positions = beam.line.geometry.attributes.position;
-        positions.setXYZ(1, smooth.focusPoint.x, smooth.focusPoint.y, smooth.focusPoint.z);
+        positions.setXYZ(1, smooth.beamPoint.x, smooth.beamPoint.y, smooth.beamPoint.z);
         positions.needsUpdate = true;
-        beam.pulse.position.copy(smooth.focusPoint);
+        beam.pulse.position.copy(smooth.beamPoint);
+      } else {
+        hadFocus = false;
       }
       beam.lineMaterial.opacity = smooth.focus * 0.55;
       beam.pulseMaterial.opacity = smooth.focus * (0.6 + 0.3 * Math.sin(t * 6));
@@ -426,7 +437,7 @@ export function CinematicCore({
 
       // Interpolated camera attention — zero per-frame allocations.
       if (live.focusTarget) {
-        _lookTarget.copy(smooth.focusPoint).multiplyScalar(0.22);
+        _lookTarget.copy(smooth.beamPoint).multiplyScalar(0.22);
       } else {
         _lookTarget.set(0, 0, 0);
       }

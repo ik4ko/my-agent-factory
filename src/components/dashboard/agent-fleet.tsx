@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Activity, Code2, Search, Globe, Layers, ChevronDown } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -16,6 +16,50 @@ import { cn } from '@/lib/utils';
 import type { Agent, AgentType, Metric, Task } from '@/lib/types/database.types';
 import { formatDistanceToNow } from 'date-fns';
 import { useSnapshotAt } from '@/lib/scrubber/scrubber-store';
+import { useCoreFxStore } from '@/lib/fx/core-store';
+import { useAgentTelemetryStore, EMPTY_TELEMETRY } from '@/lib/fx/agent-telemetry';
+
+function formatLatency(ms: number | null): string {
+  if (ms == null) return '—';
+  return ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`;
+}
+
+/**
+ * Hover producer for the CinematicCore beam. rAF-debounced: rapid
+ * enter/leave sweeps across the fleet coalesce into at most one
+ * getBoundingClientRect + store write per frame (no layout thrashing,
+ * no hover-flicker).
+ */
+function useHoverFocus(agentId: string) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const setFocusTarget = useCoreFxStore((s) => s.setFocusTarget);
+  const rafRef = useRef(0);
+
+  const onMouseEnter = useCallback(() => {
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      const el = cardRef.current;
+      if (el) setFocusTarget(agentId, el.getBoundingClientRect());
+    });
+  }, [agentId, setFocusTarget]);
+
+  const onMouseLeave = useCallback(() => {
+    cancelAnimationFrame(rafRef.current);
+    setFocusTarget(null, null);
+  }, [setFocusTarget]);
+
+  // If a focused card unmounts (agent removed while hovered), release the
+  // beam — but never clobber focus that already moved to another card.
+  useEffect(() => {
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      const store = useCoreFxStore.getState();
+      if (store.focusedAgentId === agentId) store.setFocusTarget(null, null);
+    };
+  }, [agentId]);
+
+  return { cardRef, onMouseEnter, onMouseLeave };
+}
 
 // Infer visual type from agent name (no type column in schema)
 function inferAgentType(name: string): AgentType {
@@ -61,6 +105,10 @@ const LANE_CLS: Record<ModelLane['transition'], string> = {
 
 const AgentCard = memo(function AgentCard({ agent, lane }: { agent: Agent; lane: ModelLane | null }) {
   const [expanded, setExpanded] = useState(false);
+  const { cardRef, onMouseEnter, onMouseLeave } = useHoverFocus(agent.id);
+  // Atomic slice subscription: this card re-renders only when ITS telemetry
+  // object is replaced (the store patches per-agent, preserving other refs).
+  const telemetry = useAgentTelemetryStore((s) => s.byAgent[agent.id]) ?? EMPTY_TELEMETRY;
   const agentType = agent.type ?? inferAgentType(agent.name);
   const Icon = TYPE_ICON[agentType];
   const iconColor = TYPE_COLOR[agentType];
@@ -81,6 +129,9 @@ const AgentCard = memo(function AgentCard({ agent, lane }: { agent: Agent; lane:
       transition={{ duration: 0.18 }}
     >
       <div
+        ref={cardRef}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
         className={cn(
           'group relative rounded-lg border border-border bg-surface-1',
           'cursor-pointer transition-colors duration-150',
@@ -144,6 +195,26 @@ const AgentCard = memo(function AgentCard({ agent, lane }: { agent: Agent; lane:
           </div>
         </div>
 
+        {/* Telemetry strip — session compute diagnostics (BRAIN / LAT / OPS) */}
+        <div className="flex items-center justify-between border-t border-border/40 px-2.5 py-1 font-terminal text-[9px] leading-none">
+          <span className="flex items-center gap-1">
+            <span className="uppercase tracking-wider text-muted-foreground/30">Brain</span>
+            <span className={telemetry.model ? 'text-neon-cyan/80' : 'text-muted-foreground/40'}>
+              {telemetry.model ? shortModel(telemetry.model) : '—'}
+            </span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="uppercase tracking-wider text-muted-foreground/30">Lat</span>
+            <span className={cn('tabular', telemetry.lastLatencyMs != null ? 'text-neon-green/80' : 'text-muted-foreground/40')}>
+              {formatLatency(telemetry.lastLatencyMs)}
+            </span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="uppercase tracking-wider text-muted-foreground/30">Ops</span>
+            <span className="tabular text-neon-purple/80">{telemetry.opsCompleted}</span>
+          </span>
+        </div>
+
         {/* Expanded details */}
         <AnimatePresence initial={false}>
           {expanded && (
@@ -200,7 +271,7 @@ interface AgentFleetProps {
 }
 
 /** Passive cache reads — TaskFeed / MetricsBar own the realtime channels. */
-function useModelLanes(): Map<string, ModelLane> {
+function useModelLanes(): { lanes: Map<string, ModelLane>; tasks: Task[] } {
   const { data: tasks = [] } = useQuery<Task[]>({
     queryKey: TASKS_KEY,
     queryFn: async () => {
@@ -230,13 +301,62 @@ function useModelLanes(): Map<string, ModelLane> {
     if (t.status !== 'running' || !t.agent_id || !t.model) continue;
     lanes.set(t.agent_id, { model: t.model, transition: transitionByTask.get(t.id) ?? 'SEAT' });
   }
-  return lanes;
+  return { lanes, tasks };
 }
 
 export function AgentFleet({ initialAgents = [] }: AgentFleetProps) {
   const { data: rawAgents = [], isLoading } = useAgentsQuery(initialAgents);
-  const lanes = useModelLanes();
+  const { lanes, tasks } = useModelLanes();
   const snapshotAt = useSnapshotAt();
+
+  // ---- Telemetry producers -------------------------------------------------
+  // AgentFleet already re-renders on agents/tasks cache updates; these diffs
+  // funnel only MEANINGFUL transitions into the telemetry store, where each
+  // memoized card subscribes to its own slice (no fleet-wide re-renders).
+
+  // Busy→idle latency measurement from live status transitions.
+  const prevAgentStatusRef = useRef<Map<string, string>>(new Map());
+  useEffect(() => {
+    const now = Date.now();
+    const store = useAgentTelemetryStore.getState();
+    const prev = prevAgentStatusRef.current;
+    for (const a of rawAgents) {
+      const was = prev.get(a.id);
+      if (was === a.status) continue;
+      if (a.status === 'busy') store.markBusy(a.id, now);
+      else if (was === 'busy') store.markIdle(a.id, now);
+    }
+    prevAgentStatusRef.current = new Map(rawAgents.map((a) => [a.id, a.status]));
+  }, [rawAgents]);
+
+  // Op counter + model badge from task completions; first pass seeds a
+  // historical baseline (model + updated_at−created_at fallback latency)
+  // without inflating the session counter.
+  const prevTaskStatusRef = useRef<Map<string, string> | null>(null);
+  useEffect(() => {
+    if (tasks.length === 0) return;
+    const store = useAgentTelemetryStore.getState();
+    const prev = prevTaskStatusRef.current;
+    if (prev === null) {
+      const seeded = new Set<string>();
+      for (const t of tasks) {
+        // hook returns newest-first: first completed task per agent wins
+        if (t.status !== 'completed' || !t.agent_id || seeded.has(t.agent_id)) continue;
+        seeded.add(t.agent_id);
+        const span = t.updated_at ? Date.parse(t.updated_at) - Date.parse(t.created_at) : NaN;
+        store.seed(t.agent_id, t.model ?? null, Number.isFinite(span) && span > 0 ? span : null);
+      }
+    } else {
+      for (const t of tasks) {
+        const was = prev.get(t.id);
+        if (was && was !== 'completed' && t.status === 'completed' && t.agent_id) {
+          store.recordCompletion(t.agent_id, t.model ?? null);
+        }
+      }
+    }
+    prevTaskStatusRef.current = new Map(tasks.map((t) => [t.id, t.status]));
+  }, [tasks]);
+
   const historical = snapshotAt !== null;
   const agents = historical
     ? rawAgents.filter((a) => new Date(a.created_at).getTime() <= snapshotAt)

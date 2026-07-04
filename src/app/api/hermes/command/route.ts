@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { z } from 'zod';
 import { runHermesCommand } from '@/lib/hermes';
+import { hermesLog } from '@/lib/hermes/hermes-logger';
 import { runAgentWorker } from '@/lib/agents/runner';
 
 const CommandSchema = z.object({
   command: z.string().min(1, 'Command cannot be empty').max(1000, 'Command too long'),
+  /** Client-side submit timestamp (ISO 8601) — used for transport-latency telemetry. */
+  issuedAt: z.string().datetime({ offset: true }).optional(),
+  /** Dispatch contract: Hermes only routes to idle agents; anything else is rejected. */
+  target: z.object({ status: z.literal('idle') }).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -21,6 +26,15 @@ export async function POST(req: NextRequest) {
       { error: 'Validation failed', details: parsed.error.flatten() },
       { status: 400 }
     );
+  }
+
+  // Transport-latency telemetry: how long the command spent between the
+  // dashboard submit and reaching the orchestration layer.
+  if (parsed.data.issuedAt) {
+    const latencyMs = Date.now() - Date.parse(parsed.data.issuedAt);
+    if (Number.isFinite(latencyMs) && latencyMs >= 0 && latencyMs < 60_000) {
+      await hermesLog('debug', `Command transport latency ${latencyMs}ms`);
+    }
   }
 
   const result = await runHermesCommand(parsed.data.command);
