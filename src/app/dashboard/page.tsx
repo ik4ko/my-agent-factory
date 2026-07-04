@@ -60,7 +60,7 @@ export default async function DashboardPage() {
   const { agents, tasks, logs } = await fetchDashboardData();
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="relative isolate flex h-full flex-col overflow-hidden">
       <TopBar />
       <DashboardClient
         initialAgents={agents}

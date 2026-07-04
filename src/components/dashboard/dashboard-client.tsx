@@ -18,6 +18,7 @@ import { useWorkspaceInit } from '@/hooks/use-workspace-init';
 import type { Agent, Task, Log } from '@/lib/types/database.types';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
+import { CinematicCore } from './cinematic-core';
 
 const HANDLE_CLS = cn(
   'relative flex items-center justify-center',
@@ -82,6 +83,12 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
 
   return (
     <>
+      {/* Neural power-grid background — sits behind all panels (-z-10 inside
+          the page's `isolate` context), never intercepts pointer events. */}
+      <div className="pointer-events-none absolute inset-0 -z-10 opacity-50" aria-hidden="true">
+        <CinematicCore isListening={false} focusTarget={null} intensity={1} />
+      </div>
+
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
       <CommandConsole />
 

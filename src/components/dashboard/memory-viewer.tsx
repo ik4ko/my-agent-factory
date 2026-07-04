@@ -110,6 +110,7 @@ export function MemoryViewer() {
         )}
         <button
           onClick={() => void fetchMemory(query)}
+          suppressHydrationWarning={true}
           className="ml-auto text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors"
         >
           <RefreshCw className="size-3" />

@@ -76,6 +76,7 @@
     "stripe": "^22.1.1",
     "tailwind-merge": "^3.0.1",
     "tailwindcss-animate": "^1.0.7",
+    "three": "^0.185.1",
     "xlsx": "^0.18.5",
     "zod": "^3.24.2",
     "zustand": "^5.0.12"
@@ -85,6 +86,7 @@
     "@types/node": "^20",
     "@types/react": "^19.2.1",
     "@types/react-dom": "^19.2.1",
+    "@types/three": "^0.185.0",
     "cross-env": "^10.1.0",
     "genkit-cli": "^1.28.0",
     "jest": "^30.4.2",

@@ -155,9 +155,29 @@ export function TaskInput() {
     }
   }, []);
 
-  const startVoice = useCallback(() => {
+  const startVoice = useCallback(async () => {
     const Ctor = getSpeechRecognitionCtor();
     if (!Ctor) return;
+
+    // Preflight: force the browser's mic permission prompt and surface the
+    // real reason on failure (SpeechRecognition alone can fail silently).
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop()); // permission only; recognition owns the mic
+    } catch (err) {
+      const name = err instanceof DOMException ? err.name : 'unknown';
+      setTrace({
+        kind: 'error',
+        text:
+          name === 'NotAllowedError'
+            ? 'mic denied for localhost:9002 - icon left of URL > Site settings > Microphone > Allow, then reload'
+            : name === 'NotFoundError'
+              ? 'no microphone device found'
+              : `mic unavailable (${name}) - text mode`,
+        id: Date.now(),
+      });
+      return;
+    }
 
     let recog: AnyRecognition;
     try {
@@ -199,11 +219,30 @@ export function TaskInput() {
     };
 
     recog.onerror = (ev: AnyRecognition) => {
-      if (ev?.error === 'not-allowed' || ev?.error === 'service-not-allowed') {
+      const code = ev?.error as string | undefined;
+      if (code === 'not-allowed') {
         stopVoice();
-        setVoiceSupported(false);
-        setTrace({ kind: 'error', text: 'microphone permission blocked - text mode', id: Date.now() });
+        setTrace({
+          kind: 'error',
+          text: 'mic blocked for this site - click the icon left of the URL > Site settings > Microphone > Allow, then reload',
+          id: Date.now(),
+        });
+      } else if (code === 'service-not-allowed') {
+        stopVoice();
+        setTrace({
+          kind: 'error',
+          text: 'speech service unavailable in this browser - text mode',
+          id: Date.now(),
+        });
+      } else if (code === 'network') {
+        stopVoice();
+        setTrace({
+          kind: 'error',
+          text: 'speech service unreachable (Chrome speech uses a network service) - text mode',
+          id: Date.now(),
+        });
       }
+      // 'no-speech' / 'aborted' are benign - onend handles restart while armed.
     };
 
     recogRef.current = recog;
@@ -222,7 +261,7 @@ export function TaskInput() {
       e.preventDefault();
       e.stopPropagation();
       if (armedRef.current) stopVoice();
-      else startVoice();
+      else void startVoice();
     },
     [startVoice, stopVoice]
   );
