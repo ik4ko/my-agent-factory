@@ -3,37 +3,32 @@ import type { AgentProvider, FederatedAgent, ThinkInput, ThinkResult } from './t
 import type { AgentType } from '@/lib/types/database.types';
 
 /**
- * AgentRegistry — the Federated Brain Network (Phase 9, OpenRouter unified).
+ * AgentRegistry — the Federated Brain Network.
  *
- * All three brains route through OpenRouter's OpenAI-compatible API with a
- * single OPENROUTER_API_KEY; the model ID selects which upstream brain
- * OpenRouter spins up:
- *   HERMES  → anthropic/claude-3.5-sonnet
- *   CODEX   → openai/gpt-4o-mini
- *   BUILDER → nousresearch/hermes-3-llama-3.1-70b
+ * Three GENUINELY DISTINCT brains, each a different upstream model, routed
+ * through OpenRouter's OpenAI-compatible API with a single OPENROUTER_API_KEY:
  *
- * Degradation contract: if OPENROUTER_API_KEY is absent or a call fails,
- * the agent FALLS BACK to the direct Anthropic SDK adapter and says so in
- * the ThinkResult (provider/model report what actually ran). The system
- * never silently pretends a brain it can't reach produced an answer.
+ *   CLAUDE  (CEO)     → anthropic/claude-3.5-sonnet   — the boss; triages
+ *                       intent and delegates to the helpers.
+ *   CODEX   (helper)  → openai/gpt-4o-mini            — code / quant analysis.
+ *   HERMES  (helper)  → nousresearch/hermes-3-llama-3.1-70b — research / recon.
  *
- * Lane-router model overrides (Anthropic model IDs like 'claude-haiku-4-5')
- * still bind directly to the Anthropic SDK adapter — those IDs are not
- * OpenRouter slugs.
+ * Degradation contract: if OPENROUTER_API_KEY is absent or a call fails, the
+ * brain FALLS BACK to the direct Anthropic SDK adapter and reports that in the
+ * ThinkResult (provider/model say what actually ran). Note: with no OpenRouter
+ * key, all three collapse to the Anthropic fallback and behave IDENTICALLY —
+ * set OPENROUTER_API_KEY to make them truly independent.
+ *
+ * Lane-router overrides (Anthropic model IDs like 'claude-haiku-4-5') bind
+ * directly to the Anthropic adapter — those IDs are not OpenRouter slugs.
  */
 
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 const OPENROUTER_HEADERS: Record<string, string> = {
-  // OpenRouter attribution/tracking. 'X-Title' is the documented header;
-  // 'X-OpenRouter-Title' is sent alongside per project convention.
-  'HTTP-Referer': 'http://localhost:3000',
+  'HTTP-Referer': 'http://localhost:9002',
   'X-Title': 'My Agent Factory',
   'X-OpenRouter-Title': 'My Agent Factory',
 };
-
-// ---------------------------------------------------------------------------
-// Anthropic adapter (streaming — reuses the existing SDK)
-// ---------------------------------------------------------------------------
 
 let _anthropic: Anthropic | null = null;
 function getAnthropic(): Anthropic {
@@ -66,19 +61,8 @@ async function anthropicThink(model: string, input: ThinkInput): Promise<ThinkRe
     }
   }
 
-  return {
-    text: text.trim(),
-    model,
-    provider: 'anthropic',
-    inputTokens,
-    outputTokens,
-    latencyMs: Date.now() - started,
-  };
+  return { text: text.trim(), model, provider: 'anthropic', inputTokens, outputTokens, latencyMs: Date.now() - started };
 }
-
-// ---------------------------------------------------------------------------
-// OpenAI-compatible adapter (OpenAI + Nous share the chat/completions shape)
-// ---------------------------------------------------------------------------
 
 interface OpenAICompatibleConfig {
   provider: Exclude<AgentProvider, 'anthropic'>;
@@ -88,23 +72,14 @@ interface OpenAICompatibleConfig {
   headers?: Record<string, string>;
 }
 
-async function openAICompatibleThink(
-  cfg: OpenAICompatibleConfig,
-  input: ThinkInput,
-): Promise<ThinkResult> {
+async function openAICompatibleThink(cfg: OpenAICompatibleConfig, input: ThinkInput): Promise<ThinkResult> {
   const started = Date.now();
   const key = process.env[cfg.keyEnv]?.trim();
-  if (!key) {
-    throw new Error(`${cfg.keyEnv} not configured`);
-  }
+  if (!key) throw new Error(`${cfg.keyEnv} not configured`);
 
   const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${key}`,
-      ...(cfg.headers ?? {}),
-    },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}`, ...(cfg.headers ?? {}) },
     signal: AbortSignal.timeout(120_000),
     body: JSON.stringify({
       model: cfg.model,
@@ -115,19 +90,15 @@ async function openAICompatibleThink(
       ],
     }),
   });
-  if (!res.ok) {
-    throw new Error(`${cfg.provider} responded ${res.status}: ${(await res.text()).slice(0, 120)}`);
-  }
+  if (!res.ok) throw new Error(`${cfg.provider} responded ${res.status}: ${(await res.text()).slice(0, 120)}`);
 
   const json: unknown = await res.json();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const j = json as any;
-  const text: string = typeof j?.choices?.[0]?.message?.content === 'string'
-    ? j.choices[0].message.content.trim()
-    : '';
+  const text: string = typeof j?.choices?.[0]?.message?.content === 'string' ? j.choices[0].message.content.trim() : '';
   if (!text) throw new Error(`${cfg.provider} returned an empty completion`);
 
-  input.onDelta?.(text); // non-streaming providers deliver one full delta
+  input.onDelta?.(text);
 
   return {
     text,
@@ -139,30 +110,18 @@ async function openAICompatibleThink(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Agent construction
-// ---------------------------------------------------------------------------
-
 const ANTHROPIC_FALLBACK_MODEL = 'claude-haiku-4-5';
 
-function buildAgent(
-  name: string,
-  provider: AgentProvider,
-  model: string,
-  openAICfg?: OpenAICompatibleConfig,
-): FederatedAgent {
+function buildAgent(name: string, provider: AgentProvider, model: string, openAICfg?: OpenAICompatibleConfig): FederatedAgent {
   return {
     name,
     provider,
     model,
     async think(input: ThinkInput): Promise<ThinkResult> {
-      if (provider === 'anthropic' || !openAICfg) {
-        return anthropicThink(model, input);
-      }
+      if (provider === 'anthropic' || !openAICfg) return anthropicThink(model, input);
       try {
         return await openAICompatibleThink(openAICfg, input);
       } catch (err) {
-        // Explicit, observable degradation — never a silent impersonation.
         console.warn(
           `[registry] ${name} (${provider}) unavailable — falling back to anthropic/${ANTHROPIC_FALLBACK_MODEL}: ${String(err).slice(0, 120)}`,
         );
@@ -173,50 +132,34 @@ function buildAgent(
 }
 
 function openRouterConfig(model: string): OpenAICompatibleConfig {
-  return {
-    provider: 'openrouter',
-    baseUrl: OPENROUTER_BASE_URL,
-    keyEnv: 'OPENROUTER_API_KEY',
-    model,
-    headers: OPENROUTER_HEADERS,
-  };
+  return { provider: 'openrouter', baseUrl: OPENROUTER_BASE_URL, keyEnv: 'OPENROUTER_API_KEY', model, headers: OPENROUTER_HEADERS };
 }
 
 export const AgentRegistry = {
-  HERMES: buildAgent(
-    'Hermes',
-    'openrouter',
-    'anthropic/claude-3.5-sonnet',
-    openRouterConfig('anthropic/claude-3.5-sonnet'),
-  ),
-  CODEX: buildAgent(
-    'Codex',
-    'openrouter',
-    'openai/gpt-4o-mini',
-    openRouterConfig('openai/gpt-4o-mini'),
-  ),
-  BUILDER: buildAgent(
-    'Builder',
-    'openrouter',
-    'nousresearch/hermes-3-llama-3.1-70b',
-    openRouterConfig('nousresearch/hermes-3-llama-3.1-70b'),
-  ),
+  // CEO — the boss. Triages intent and delegates to the helpers.
+  CLAUDE: buildAgent('Claude', 'openrouter', 'anthropic/claude-3.5-sonnet', openRouterConfig('anthropic/claude-3.5-sonnet')),
+  // Helper — code + quantitative analysis.
+  CODEX: buildAgent('Codex', 'openrouter', 'openai/gpt-4o-mini', openRouterConfig('openai/gpt-4o-mini')),
+  // Helper — research + reconnaissance (the literal "Hermes" model).
+  HERMES: buildAgent('Hermes', 'openrouter', 'nousresearch/hermes-3-llama-3.1-70b', openRouterConfig('nousresearch/hermes-3-llama-3.1-70b')),
 } as const;
 
-/** Route a persona/agent type to its federated brain. A `modelOverride`
- *  (the lane router's SEAT/UP/DOWN escalations pass Anthropic model IDs)
- *  binds an anthropic brain to that exact model — lane routing keeps
- *  working unchanged through the registry. */
+/**
+ * Route an agent type to its federated brain. A `modelOverride` (the lane
+ * router's SEAT/UP/DOWN escalations pass Anthropic model IDs) binds an
+ * anthropic brain to that exact model. Matrix lanes map across all three
+ * distinct brains: generic→CLAUDE, coder→CODEX, researcher→HERMES.
+ */
 export function resolveAgent(agentType: AgentType, modelOverride?: string): FederatedAgent {
-  if (modelOverride) {
-    return buildAgent(`ModelRouted(${modelOverride})`, 'anthropic', modelOverride);
-  }
+  if (modelOverride) return buildAgent(`ModelRouted(${modelOverride})`, 'anthropic', modelOverride);
   switch (agentType) {
     case 'coder':
       return AgentRegistry.CODEX;
-    case 'planner':
-      return AgentRegistry.BUILDER;
-    default:
+    case 'researcher':
+    case 'browser':
       return AgentRegistry.HERMES;
+    case 'planner':
+    default:
+      return AgentRegistry.CLAUDE;
   }
 }

@@ -8,6 +8,7 @@ import { useCoreFxStore } from '@/lib/fx/core-store';
 import type { HermesResult } from '@/lib/hermes/types';
 import type { PipelineRunResponse } from '@/lib/pipeline/types';
 import { pushSystemFeed } from '@/lib/fx/system-feed';
+import { useConverse } from '@/hooks/use-converse';
 
 type TraceKind = 'ok' | 'error';
 interface Trace {
@@ -32,7 +33,6 @@ function getSpeechRecognitionCtor(): AnyRecognition | null {
   return null;
 }
 
-const WAKE = /\bhey\s+hermes\b|\bhermes\b/i;
 const SILENCE_MS = 2500;
 
 const VOICE_LABEL: Record<VoiceState, string> = {
@@ -95,6 +95,7 @@ export function TaskInput() {
   const valueRef = useRef('');
   valueRef.current = value;
   const pendingRef = useRef(false);
+  const converse = useConverse(); // Claude-CEO conversation loop (voice → spoken reply)
 
   useEffect(() => {
     setVoiceSupported(getSpeechRecognitionCtor() !== null);
@@ -247,9 +248,26 @@ export function TaskInput() {
       const payload = valueRef.current.trim();
       capturingRef.current = false;
       setWakeGlow(false);
-      if (payload) void submit(payload);
+      if (!payload) return;
+      // Voice talks to the Claude-CEO conversation loop (spoken reply +
+      // delegation to Codex/Hermes) — not the task queue. Typed input still
+      // queues tasks via submit().
+      setValue('');
+      setVoiceState('processing');
+      pushSystemFeed('VOICE', `You: "${payload.slice(0, 60)}${payload.length > 60 ? '…' : ''}"`);
+      void converse.send(payload).then((r) => {
+        if (r?.reply) {
+          pushSystemFeed('SYSTEM', `Claude: ${r.reply.slice(0, 80)}${r.reply.length > 80 ? '…' : ''}`);
+          setTrace({
+            kind: 'ok',
+            text: `Claude replied${r.delegations && r.delegations.length ? ` — delegated ${r.delegations.length}` : ''}`,
+            id: Date.now(),
+          });
+        }
+        if (armedRef.current) setVoiceState('listening');
+      });
     }, SILENCE_MS);
-  }, [submit]);
+  }, [converse]);
 
   const stopVoice = useCallback(() => {
     armedRef.current = false;
@@ -306,16 +324,14 @@ export function TaskInput() {
       for (let i = e.resultIndex; i < e.results.length; i++) {
         combined += e.results[i][0].transcript as string;
       }
-      const match = WAKE.exec(combined);
-      if (!capturingRef.current && match) {
+      // Wake-word-free: while the mic is armed, capture everything spoken and
+      // auto-dispatch to Claude after a silence gap — no "Hey Hermes" needed.
+      if (!capturingRef.current) {
         capturingRef.current = true;
         setWakeGlow(true);
       }
-      if (capturingRef.current) {
-        const after = combined.slice((match?.index ?? 0) + (match?.[0].length ?? 0));
-        setValue(after.replace(/^[\s,.:;-]+/, ''));
-        armSilenceDispatch();
-      }
+      setValue(combined.replace(/^[\s,.:;-]+/, ''));
+      armSilenceDispatch();
     };
 
     recog.onend = () => {

@@ -21,8 +21,8 @@ function applyRules(command: string): ParsedIntent | null {
 }
 
 async function llmFallback(command: string): Promise<ParsedIntent> {
-  // Federated route: Hermes's brain classifies (registry decides the model).
-  const result = await AgentRegistry.HERMES.think({
+  // Federated route: Claude (CEO) classifies the command (registry picks the model).
+  const result = await AgentRegistry.CLAUDE.think({
     system: 'You classify operator commands for an AI agent factory. Reply with JSON only — no explanation.',
     prompt: `{"agentType":"coder"|"researcher"|"browser"|"planner"|"generic","priority":1-10}\n\nCommand: ${command}`,
     maxTokens: 128,

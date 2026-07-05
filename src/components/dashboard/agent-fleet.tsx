@@ -149,6 +149,7 @@ const AgentCard = memo(function AgentCard({ agent, lane }: { agent: Agent; lane:
         role="button"
         tabIndex={0}
         onKeyDown={(e) => e.key === 'Enter' && setExpanded((v) => !v)}
+        suppressHydrationWarning
       >
         <div className="flex items-start justify-between gap-2 p-2.5">
           <div className="flex items-center gap-2.5 min-w-0">
