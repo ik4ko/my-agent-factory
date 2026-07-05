@@ -52,6 +52,10 @@ interface AgentTelemetryState {
   recordCompletion: (agentId: string, model: string | null) => void;
   /** One-time baseline from pre-session history; never overwrites live data. */
   seed: (agentId: string, model: string | null, latencyMs: number | null) => void;
+  /** Provenance from a system_bus agent.thought event: the model that
+   *  ACTUALLY ran (OpenRouter slug or fallback) + true provider latency.
+   *  Richer than the busy→idle wall-clock, so it overwrites both. */
+  noteThought: (agentId: string, model: string | null, latencyMs: number | null) => void;
 }
 
 export const useAgentTelemetryStore = create<AgentTelemetryState>()((set) => ({
@@ -80,6 +84,17 @@ export const useAgentTelemetryStore = create<AgentTelemetryState>()((set) => ({
         byAgent: patch(state.byAgent, agentId, {
           opsCompleted: current.opsCompleted + 1,
           model: model ?? current.model,
+        }),
+      };
+    }),
+
+  noteThought: (agentId, model, latencyMs) =>
+    set((state) => {
+      const current = state.byAgent[agentId] ?? EMPTY_TELEMETRY;
+      return {
+        byAgent: patch(state.byAgent, agentId, {
+          model: model ?? current.model,
+          lastLatencyMs: latencyMs ?? current.lastLatencyMs,
         }),
       };
     }),

@@ -17,7 +17,14 @@ interface ConnectionStore {
 
 export const useConnectionStore = create<ConnectionStore>((set) => ({
   channels: {},
-  online: typeof navigator === 'undefined' ? true : navigator.onLine,
+  // HYDRATION DETERMINISM: always initialize `true` on BOTH server and
+  // client. Reading navigator.onLine at module load made the client's first
+  // render diverge from server HTML whenever the browser reported offline
+  // at boot (VPN blips, captive portals, Chrome's unreliable flag) — a
+  // fatal hydration mismatch at the ConnectionBanner. The REAL reachability
+  // arrives one effect-tick later via ConnectionIndicator's mount sync +
+  // online/offline listeners (setOnline below).
+  online: true,
   setChannelStatus: (name, status) =>
     set((s) =>
       s.channels[name] === status ? s : { channels: { ...s.channels, [name]: status } }

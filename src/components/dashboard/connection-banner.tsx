@@ -16,11 +16,22 @@ export function ConnectionBanner() {
   const status = useConnectionStore(selectOverallStatus);
   const [dismissed, setDismissed] = useState<string | null>(null);
 
+  // Hydration gate: the banner's visibility derives from client-only signals
+  // (channel sockets, navigator.onLine). Server HTML and the client's first
+  // paint therefore ALWAYS render null; degraded states may only surface
+  // post-mount. This structurally prevents server/client tree divergence at
+  // this node (which React reports against the adjacent sibling).
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   // Re-arm when the status changes away from the one the user dismissed.
   useEffect(() => {
     if (dismissed && status !== dismissed) setDismissed(null);
   }, [status, dismissed]);
 
+  if (!isMounted) return null;
   if (status === 'connected' || status === 'connecting') return null;
   if (dismissed === status) return null;
 

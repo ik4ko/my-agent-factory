@@ -7,6 +7,9 @@ interface Props {
   /** Human-readable widget name surfaced in the fallback. */
   name: string;
   children: ReactNode;
+  /** Inline chip fallback for small chrome (pills, strips) instead of the
+   *  panel-sized fallback — a crashed pill must not distort the TopBar. */
+  compact?: boolean;
 }
 
 interface State {
@@ -34,6 +37,18 @@ export class WidgetErrorBoundary extends Component<Props, State> {
   render() {
     const { error } = this.state;
     if (!error) return this.props.children;
+
+    if (this.props.compact) {
+      return (
+        <button
+          onClick={this.reset}
+          title={`${this.props.name} crashed: ${error.message || 'unknown error'} — click to retry`}
+          className="flex items-center gap-1 rounded-full border border-neon-red/30 bg-neon-red/10 px-2 py-0.5 font-terminal text-[9px] tracking-widest text-neon-red/80 hover:bg-neon-red/20"
+        >
+          <AlertTriangle className="size-2.5" /> {this.props.name.toUpperCase()} ✕
+        </button>
+      );
+    }
 
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 rounded-lg border border-neon-red/25 bg-neon-red/[0.04] p-4 text-center">

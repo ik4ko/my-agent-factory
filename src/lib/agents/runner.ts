@@ -22,6 +22,9 @@ export interface AgentWorkerInput {
   /** Output budget override — pipeline stages request an expanded budget so
    *  the density directive in their prompts can actually be honored. */
   maxTokens?: number;
+  /** Persistent tag merged into every result flush (e.g. { matrix: {id,role} })
+   *  so grouping metadata survives the streaming overwrite of tasks.result. */
+  resultTag?: Record<string, unknown>;
 }
 
 // Throttle for incremental Supabase flushes while streaming (tasks/agents are
@@ -96,7 +99,7 @@ export async function runAgentWorker(input: AgentWorkerInput): Promise<void> {
       db
         .from('tasks')
         .update({
-          result: { streaming: !final, chars: output.length, preview: output.slice(-PREVIEW_CHARS), model },
+          result: { ...(input.resultTag ?? {}), streaming: !final, chars: output.length, preview: output.slice(-PREVIEW_CHARS), model },
           updated_at: now,
         })
         .eq('id', taskId),

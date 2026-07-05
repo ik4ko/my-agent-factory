@@ -14,7 +14,9 @@ import { useBusThoughts, readProvenance } from './agent-activity';
 const RECENT_WINDOW = 5;
 
 export function SystemHealthPill() {
-  const thoughts = useBusThoughts('bus-observer-health');
+  // Cache-only consumer: AgentActivity owns the single bus channel; the pill
+  // re-renders through the shared query cache. One socket, two observers.
+  const thoughts = useBusThoughts(null);
 
   const health = useMemo(() => {
     const recent = thoughts.slice(0, RECENT_WINDOW).map(readProvenance);

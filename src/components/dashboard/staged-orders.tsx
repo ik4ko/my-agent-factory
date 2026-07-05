@@ -23,6 +23,7 @@ export function StagedOrders() {
   const supabase = useMemo(() => createClient(), []);
   const qc = useQueryClient();
   const [actingId, setActingId] = useState<string | null>(null);
+  const [collidedId, setCollidedId] = useState<string | null>(null);
 
   // Realtime: INSERTs (new proposals) and UPDATEs (decisions from any
   // session) both refresh the pending list.
@@ -70,6 +71,20 @@ export function StagedOrders() {
         body: JSON.stringify({ id: order.id, action }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (res.status === 409) {
+        // CAS collision: another session/agent decided this order first.
+        // Badge briefly, then evict the stale row from the client cache —
+        // the realtime UPDATE will confirm, but the user shouldn't wait.
+        setCollidedId(order.id);
+        pushSystemFeed('SYSTEM', `Action collision avoided — ${order.underlying} ${order.option_type} ${order.strike} was already decided by another session`);
+        setTimeout(() => {
+          setCollidedId(null);
+          qc.setQueryData<StagedOrderRow[]>(STAGED_ORDERS_KEY, (prev = []) =>
+            prev.filter((o) => o.id !== order.id),
+          );
+        }, 1_200);
+        return;
+      }
       if (!res.ok) throw new Error(data.error ?? `action failed (${res.status})`);
       pushSystemFeed(
         'STRATEGY',
@@ -131,9 +146,14 @@ export function StagedOrders() {
             </span>
 
             <span className="ml-auto flex items-center gap-1.5">
+              {collidedId === order.id && (
+                <span className="rounded border border-neon-orange/50 bg-neon-orange/10 px-1.5 py-px text-[8px] tracking-wider text-neon-orange animate-fade-in-up">
+                  ACTION COLLISION AVOIDED
+                </span>
+              )}
               <button
                 type="button"
-                disabled={actingId !== null}
+                disabled={actingId !== null || collidedId === order.id}
                 onClick={() => void act(order, 'APPROVED')}
                 className="flex items-center gap-1 rounded border border-neon-green/40 bg-neon-green/10 px-2 py-1 text-[9px] font-semibold tracking-wider text-neon-green transition-colors hover:bg-neon-green/20 disabled:opacity-40"
               >
@@ -141,7 +161,7 @@ export function StagedOrders() {
               </button>
               <button
                 type="button"
-                disabled={actingId !== null}
+                disabled={actingId !== null || collidedId === order.id}
                 onClick={() => void act(order, 'DENIED')}
                 className="flex items-center gap-1 rounded border border-neon-red/40 bg-neon-red/10 px-2 py-1 text-[9px] font-semibold tracking-wider text-neon-red transition-colors hover:bg-neon-red/20 disabled:opacity-40"
               >

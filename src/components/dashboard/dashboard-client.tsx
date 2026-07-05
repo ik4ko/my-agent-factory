@@ -15,6 +15,7 @@ import { ConnectionBanner } from './connection-banner';
 import { CommandConsole } from './command-console';
 import { useCommandStore } from '@/lib/cli/command-store';
 import { useWorkspaceInit } from '@/hooks/use-workspace-init';
+import { useSocketReconciliation } from '@/hooks/use-socket-reconciliation';
 import type { Agent, Task, Log } from '@/lib/types/database.types';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
@@ -66,6 +67,10 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
   // Hydrate the workspace: synchronous SSR seed (no layout shift) + parallel
   // reconcile fetch across all query keys, so tab re-entry is instant.
   useWorkspaceInit({ initial: { agents: initialAgents, tasks: initialTasks, logs: initialLogs } });
+
+  // Drag-net recovery: delta-fetch + merge everything missed while any
+  // realtime socket was down (postgres_changes never replays missed rows).
+  useSocketReconciliation();
 
   // Global keyboard shortcuts
   const handleKeyDown = useCallback(
@@ -164,8 +169,11 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
       {/* Realtime degraded-state toast (overlay, non-shifting) */}
       <ConnectionBanner />
 
-      {/* Federated brain observer — thinking states + last thoughts + provider badges */}
-      <AgentActivity />
+      {/* Federated brain observer — thinking states + last thoughts + provider
+          badges. Boundary-isolated: telemetry may die, the shell may not. */}
+      <WidgetErrorBoundary name="Agent Activity" compact>
+        <AgentActivity />
+      </WidgetErrorBoundary>
 
       {/* Human-in-the-loop approval track — renders only when orders are staged */}
       <StagedOrders />

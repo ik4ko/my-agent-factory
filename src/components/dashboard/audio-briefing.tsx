@@ -29,7 +29,6 @@ export function AudioBriefing() {
   const { speak, stop, isSupported } = useTTS();
   const [enabled, setEnabled] = useState(false);
   const [lastBriefing, setLastBriefing] = useState<BriefingEntry | null>(null);
-  const supabase = createClient();
   const briefedRef = useRef<Set<string>>(new Set());
 
   const deliverBriefing = useCallback(
@@ -37,13 +36,31 @@ export function AudioBriefing() {
       if (!enabled || briefedRef.current.has(task.id)) return;
       briefedRef.current.add(task.id);
       const text = buildBriefing(task);
+      // Playback is strictly gated behind the AUDIO ON toggle (a user
+      // gesture) — `enabled` can only become true via the button click,
+      // satisfying browser autoplay policy. All capture/playback runs on
+      // the page's own origin; API calls are same-origin relative fetches.
       speak(text, { rate: 0.95, pitch: 0.75 });
       setLastBriefing({ id: task.id, text, timestamp: Date.now() });
     },
     [enabled, speak]
   );
+  const deliverRef = useRef(deliverBriefing);
+  deliverRef.current = deliverBriefing;
 
   useEffect(() => {
+    // Client construction lives INSIDE the effect: it never runs during
+    // SSR/hydration, and a missing-env throw degrades to a warning instead
+    // of crashing the TopBar. Handler flows through a ref so toggling
+    // AUDIO ON/OFF never tears the channel down.
+    let supabase: ReturnType<typeof createClient>;
+    try {
+      supabase = createClient();
+    } catch (err) {
+      console.warn('[AudioBriefing] Supabase client unavailable — briefings disabled:', err);
+      return;
+    }
+
     const channel = supabase
       .channel('audio-briefing')
       .on(
@@ -52,14 +69,14 @@ export function AudioBriefing() {
         (payload) => {
           const task = payload.new as Task;
           if (task.status === 'completed' || task.status === 'failed') {
-            deliverBriefing(task);
+            deliverRef.current(task);
           }
         }
       )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [supabase, deliverBriefing]);
+  }, []);
 
   useEffect(() => {
     if (!lastBriefing) return;

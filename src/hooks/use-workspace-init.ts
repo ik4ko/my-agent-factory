@@ -33,16 +33,21 @@ export function useWorkspaceInit({ initial }: Options = {}): {
   const [error, setError] = useState<string | null>(null);
   const ran = useRef(false);
 
-  // Synchronous seed — happens before paint, so no spinner flash.
-  if (!ran.current && initial) {
-    if (initial.agents?.length) qc.setQueryData(AGENTS_KEY, initial.agents);
-    if (initial.tasks?.length) qc.setQueryData(TASKS_KEY, initial.tasks);
-    if (initial.logs?.length) qc.setQueryData(LOGS_KEY, initial.logs);
-  }
-
   useEffect(() => {
     if (ran.current) return;
     ran.current = true;
+
+    // Seed the caches POST-MOUNT, never during render. A render-phase
+    // setQueryData synchronously notifies already-subscribed components
+    // (StatsBar, LiveTerminal, …) and trips React's "cannot update a
+    // component while rendering a different component" on Fast Refresh
+    // remounts. First paint loses nothing: every consumer hook already
+    // receives this same SSR payload via its own useQuery `initialData`.
+    if (initial) {
+      if (initial.agents?.length) qc.setQueryData(AGENTS_KEY, initial.agents);
+      if (initial.tasks?.length) qc.setQueryData(TASKS_KEY, initial.tasks);
+      if (initial.logs?.length) qc.setQueryData(LOGS_KEY, initial.logs);
+    }
 
     let cancelled = false;
     setState('hydrating');
