@@ -27,5 +27,9 @@ npm-debug.log*
 # sandbox tool-runner scratch dir
 .sandbox/
 
+# robinhood sidecar (Python)
+services/robinhood/.venv/
+services/robinhood/__pycache__/
+
 .vercel
 .env*

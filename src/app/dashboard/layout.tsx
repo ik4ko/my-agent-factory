@@ -1,24 +1,29 @@
 import type { Metadata } from 'next';
-import { Activity, Cpu, Code2, Search, Layers, Globe, Settings, Zap } from 'lucide-react';
+import { Cpu, MessageSquare, Code2, LineChart, Search, User, Settings, Zap, Repeat, Activity, PenSquare, Radio } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { MobileTabBar } from '@/components/dashboard/mobile-tab-bar';
 
 export const metadata: Metadata = {
   title: 'Control Room',
 };
 
 const NAV_ITEMS = [
-  { href: '/dashboard', icon: Cpu,      label: 'Control Room', primary: true },
-  { href: '/dashboard/agents',  icon: Activity, label: 'Agents' },
-  { href: '/dashboard/tasks',   icon: Layers,   label: 'Tasks' },
-  { href: '/dashboard/memory',  icon: Code2,    label: 'Memory' },
-  { href: '/dashboard/browser', icon: Globe,    label: 'Browser' },
-  { href: '/dashboard/research',icon: Search,   label: 'Research' },
+  { href: '/dashboard', icon: Cpu, label: 'Control Room', primary: true },
+  { href: '/dashboard/results', icon: Activity, label: 'Results' },
+  { href: '/dashboard/chat', icon: MessageSquare, label: 'Chat' },
+  { href: '/dashboard/compose', icon: PenSquare, label: 'Compose' },
+  { href: '/dashboard/comms', icon: Radio, label: 'Comms' },
+  { href: '/dashboard/building', icon: Code2, label: 'App Building' },
+  { href: '/dashboard/trading', icon: LineChart, label: 'Stock Trading' },
+  { href: '/dashboard/loops', icon: Repeat, label: 'Loops' },
+  { href: '/dashboard/research', icon: Search, label: 'Research' },
+  { href: '/dashboard/personal', icon: User, label: 'Personal' },
 ];
 
 function Sidebar() {
   return (
-    <aside className="flex h-dvh w-14 flex-col items-center gap-1 border-r border-border bg-sidebar py-3">
+    <aside className="hidden h-dvh w-14 flex-col items-center gap-1 border-r border-border bg-sidebar py-3 md:flex">
       {/* Logo orb */}
       <div className="mb-2 flex size-8 items-center justify-center rounded-lg bg-primary/15 border border-primary/25 glow-green">
         <Zap className="size-4 text-primary" />
@@ -56,7 +61,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex h-dvh overflow-hidden bg-background">
       <Sidebar />
-      <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
+      <main className="flex flex-1 flex-col overflow-hidden pb-16 md:pb-0">{children}</main>
+      <MobileTabBar />
     </div>
   );
 }

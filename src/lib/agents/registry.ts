@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { AgentProvider, FederatedAgent, ThinkInput, ThinkResult } from './types';
 import type { AgentType } from '@/lib/types/database.types';
+import { hermesLog } from '@/lib/hermes/hermes-logger';
 
 /**
  * AgentRegistry — the Federated Brain Network.
@@ -122,9 +123,11 @@ function buildAgent(name: string, provider: AgentProvider, model: string, openAI
       try {
         return await openAICompatibleThink(openAICfg, input);
       } catch (err) {
-        console.warn(
-          `[registry] ${name} (${provider}) unavailable — falling back to anthropic/${ANTHROPIC_FALLBACK_MODEL}: ${String(err).slice(0, 120)}`,
-        );
+        const reason = String(err).replace(/\s+/g, ' ').slice(0, 160);
+        console.warn(`[registry] ${name} (${provider}) → Haiku fallback: ${reason}`);
+        // Surface the real reason in the dashboard terminal so silent fallbacks
+        // (missing key / 401 / 402 no-credits / bad model slug) are visible.
+        void hermesLog('warn', `[BRAIN] ${name} fell back to Haiku — ${provider} error: ${reason}`);
         return anthropicThink(ANTHROPIC_FALLBACK_MODEL, input);
       }
     },
@@ -136,11 +139,12 @@ function openRouterConfig(model: string): OpenAICompatibleConfig {
 }
 
 export const AgentRegistry = {
-  // CEO — the boss. Triages intent and delegates to the helpers.
-  CLAUDE: buildAgent('Claude', 'openrouter', 'anthropic/claude-3.5-sonnet', openRouterConfig('anthropic/claude-3.5-sonnet')),
-  // Helper — code + quantitative analysis.
+  // CEO — the boss. Runs DIRECT on the latest Anthropic model (no OpenRouter
+  // slug to 404 on); always current, always available on the ANTHROPIC_API_KEY.
+  CLAUDE: buildAgent('Claude', 'anthropic', 'claude-sonnet-5'),
+  // Helper — code + quantitative analysis (GPT via OpenRouter).
   CODEX: buildAgent('Codex', 'openrouter', 'openai/gpt-4o-mini', openRouterConfig('openai/gpt-4o-mini')),
-  // Helper — research + reconnaissance (the literal "Hermes" model).
+  // Helper — research + reconnaissance (the literal "Hermes" model via OpenRouter).
   HERMES: buildAgent('Hermes', 'openrouter', 'nousresearch/hermes-3-llama-3.1-70b', openRouterConfig('nousresearch/hermes-3-llama-3.1-70b')),
 } as const;
 

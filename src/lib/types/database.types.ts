@@ -143,6 +143,106 @@ export type PortfolioStateRow = {
   updated_at: string;
 };
 
+// Phase Loops — standing objectives the system re-evaluates on a cadence
+// and/or in reaction to events (news/price/manual/phone).
+export type LoopKind = 'trade' | 'research' | 'build' | 'personal' | 'monitor';
+export type LoopStatus = 'armed' | 'paused' | 'stopped';
+export type LoopTrigger = { type: 'news' | 'price' | 'earnings' | 'manual' | 'phone'; symbol?: string; minSeverity?: EventSeverity };
+
+export type LoopRow = {
+  id: string;
+  name: string;
+  kind: LoopKind;
+  objective: string;
+  status: LoopStatus;
+  cadence_seconds: number | null;
+  triggers: LoopTrigger[];
+  config: Record<string, unknown>;
+  brain: string;
+  last_tick_at: string | null;
+  next_tick_at: string | null;
+  lock_owner: string | null;
+  lock_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type LoopRunStatus = 'running' | 'completed' | 'failed';
+export type LoopRunRow = {
+  id: string;
+  loop_id: string | null;
+  trigger: Record<string, unknown> | null;
+  decision: Record<string, unknown> | null;
+  actions: Record<string, unknown> | null;
+  result: Record<string, unknown> | null;
+  status: LoopRunStatus;
+  error: string | null;
+  started_at: string;
+  finished_at: string | null;
+};
+
+// Event bus — market/news signals that can trigger an immediate loop run.
+export type EventType = 'news' | 'price' | 'earnings' | 'manual' | 'phone';
+export type EventSeverity = 'low' | 'med' | 'high' | 'critical';
+export type EventRow = {
+  id: string;
+  type: EventType;
+  symbol: string | null;
+  severity: EventSeverity | null;
+  payload: Record<string, unknown>;
+  consumed: boolean;
+  created_at: string;
+};
+
+// Executed (or dry-run) orders placed by a loop, distinct from the
+// human-approval staged_orders queue.
+export type OrderSide = 'buy' | 'sell';
+export type OrderType = 'market' | 'limit';
+export type OrderStatus = 'intent' | 'risk_blocked' | 'dry_run' | 'submitted' | 'filled' | 'rejected' | 'canceled';
+export type OrderRow = {
+  id: string;
+  loop_id: string | null;
+  symbol: string;
+  side: OrderSide;
+  qty: number | null;
+  notional: number | null;
+  type: OrderType;
+  limit_price: number | null;
+  status: OrderStatus;
+  broker_id: string | null;
+  fill_price: number | null;
+  reason: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+// Phase 3 — deterministic Regime Controller state (tighten-only, bounded by
+// the operator's base caps; see src/lib/events/regime.ts).
+export type Regime = 'NORMAL' | 'VOLATILE' | 'CRITICAL_HALT';
+export type SymbolOverride = {
+  blocked?: boolean;
+  sizeMultiplier?: number;
+  reason: string;
+  since: string;
+};
+
+// Global risk/kill-switch singleton (id is always 1).
+export type RiskStateRow = {
+  id: number;
+  day: string;
+  realized_pnl: number;
+  halted: boolean;
+  halt_reason: string | null;
+  trading_enabled: boolean;
+  kill_switch: boolean;
+  regime: Regime;
+  symbol_overrides: Record<string, SymbolOverride>;
+  feed_degraded: boolean;
+  feed_degraded_reason: string | null;
+  regime_updated_at: string | null;
+  updated_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -206,6 +306,36 @@ export type Database = {
         Insert: Omit<StagedOrderRow, 'created_at'> & { created_at?: string };
         // Only the human decision is mutable — everything else is immutable.
         Update: Partial<Pick<StagedOrderRow, 'human_approval_status'>>;
+        Relationships: [];
+      };
+      loops: {
+        Row: LoopRow;
+        Insert: Omit<LoopRow, 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<Omit<LoopRow, 'id' | 'created_at'>>;
+        Relationships: [];
+      };
+      loop_runs: {
+        Row: LoopRunRow;
+        Insert: Omit<LoopRunRow, 'id' | 'started_at'> & { id?: string; started_at?: string };
+        Update: Partial<Omit<LoopRunRow, 'id' | 'loop_id'>>;
+        Relationships: [];
+      };
+      events: {
+        Row: EventRow;
+        Insert: Omit<EventRow, 'id' | 'created_at' | 'consumed'> & { id?: string; created_at?: string; consumed?: boolean };
+        Update: Partial<Omit<EventRow, 'id'>>;
+        Relationships: [];
+      };
+      orders: {
+        Row: OrderRow;
+        Insert: Omit<OrderRow, 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<Omit<OrderRow, 'id' | 'created_at'>>;
+        Relationships: [];
+      };
+      risk_state: {
+        Row: RiskStateRow;
+        Insert: Partial<RiskStateRow> & { id?: number };
+        Update: Partial<Omit<RiskStateRow, 'id'>>;
         Relationships: [];
       };
     };

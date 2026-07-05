@@ -6,7 +6,9 @@ import { SESSION_COOKIE, verifySessionToken } from '@/lib/auth/session';
 // nothing is reachable without a valid session cookie.
 // /api/orchestrator/cron self-authorizes via CRON_SECRET (Vercel Cron can't
 // send the session cookie), so it's exempt from the cookie gate here.
-const PUBLIC_PATHS = new Set(['/login', '/api/auth/login', '/api/orchestrator/cron']);
+// /api/phone/sms self-authorizes via Twilio's request signature + the
+// OPERATOR_PHONE allowlist (Twilio can't send the session cookie either).
+const PUBLIC_PATHS = new Set(['/login', '/api/auth/login', '/api/orchestrator/cron', '/api/loops/tick', '/api/phone/sms']);
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

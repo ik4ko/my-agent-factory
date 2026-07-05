@@ -1,6 +1,7 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono, Space_Grotesk } from 'next/font/google';
 import { QueryProvider } from '@/components/providers/query-provider';
+import { ServiceWorkerRegister } from '@/components/pwa/sw-register';
 import './globals.css';
 
 const inter = Inter({
@@ -41,6 +42,20 @@ export const metadata: Metadata = {
     description: 'Cyberpunk AI agent orchestration dashboard powered by Hermes + Claude.',
   },
   robots: { index: false, follow: false },
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Agent Factory',
+  },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#09090c',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -52,6 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <body className="antialiased">
         <QueryProvider>{children}</QueryProvider>
+        <ServiceWorkerRegister />
       </body>
     </html>
   );

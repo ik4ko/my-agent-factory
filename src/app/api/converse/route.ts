@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { AgentRegistry } from '@/lib/agents/registry';
 import { hermesLog } from '@/lib/hermes/hermes-logger';
 import { publishBusEvent } from '@/lib/bus/system-bus';
+import { sendEmail } from '@/lib/comms/email';
 
 /**
  * POST /api/converse — the Claude-CEO conversation loop.
@@ -29,13 +30,17 @@ You command two helpers, each an independent brain:
 - Hermes — research & reconnaissance (gathers information, explores, summarizes findings).
 Decide whether the operator's request needs a helper. Reply with ONLY a JSON object and nothing else:
 {"reply":"<what you say to the operator right now, spoken>","delegate":[{"to":"codex"|"hermes","task":"<one clear instruction>"}]}
-Delegate ONLY when genuine work is required; for greetings, questions you can answer, or chat, return an empty delegate array. Never delegate more than 2 tasks.`;
+Delegate ONLY when genuine work is required; for greetings, questions you can answer, or chat, return an empty delegate array. Never delegate more than 2 tasks.
+You can also SEND AN EMAIL from the operator's own Gmail when they clearly ask you to email someone. To send, add an "email" field:
+{"reply":"...","delegate":[...],"email":{"to":"address@example.com","subject":"...","body":"..."}}
+Include "email" ONLY when the operator explicitly asks to send/email someone (use the address they give you); otherwise omit it entirely. When you do send, say so in your spoken reply.`;
 
 const SYNTH_SYSTEM = `You are Claude, CEO of My Agent Factory. Your helpers just reported back. Give the operator ONE short spoken summary (2-4 sentences, no markdown) of what was found or done, in your own decisive voice as the boss.`;
 
 interface Delegation { to: 'codex' | 'hermes'; task: string; }
+interface EmailAction { to: string; subject: string; body: string; }
 
-function parseCeo(text: string): { reply: string; delegate: Delegation[] } {
+function parseCeo(text: string): { reply: string; delegate: Delegation[]; email: EmailAction | null } {
   try {
     const m = text.match(/\{[\s\S]*\}/);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -49,9 +54,13 @@ function parseCeo(text: string): { reply: string; delegate: Delegation[] } {
           .map((d: any) => ({ to: d.to, task: String(d.task) }))
           .slice(0, 2)
       : [];
-    return { reply: reply || text.trim(), delegate };
+    const email: EmailAction | null =
+      j?.email && typeof j.email.to === 'string'
+        ? { to: String(j.email.to), subject: String(j.email.subject ?? ''), body: String(j.email.body ?? '') }
+        : null;
+    return { reply: reply || text.trim(), delegate, email };
   } catch {
-    return { reply: text.trim(), delegate: [] };
+    return { reply: text.trim(), delegate: [], email: null };
   }
 }
 
@@ -69,14 +78,26 @@ export async function POST(req: NextRequest) {
     await publishBusEvent({ topic: 'agent.thought', agent: 'Claude', payload: { role: 'CEO', heard: message.slice(0, 200) } });
 
     const ceo = await AgentRegistry.CLAUDE.think({ system: CEO_SYSTEM, prompt: ceoPrompt, maxTokens: 700 });
-    const { reply, delegate } = parseCeo(ceo.text);
-    await hermesLog('info', `[CONVERSE] Claude(CEO ${ceo.provider}:${ceo.model}) → ${delegate.length} delegation(s)`);
+    const { reply, delegate, email } = parseCeo(ceo.text);
+    await hermesLog('info', `[CONVERSE] Claude(CEO ${ceo.provider}:${ceo.model}) → ${delegate.length} delegation(s)${email ? ' + email' : ''}`);
+
+    // If Claude decided to send an email, do it now (autonomous send + audit).
+    let emailNote = '';
+    if (email) {
+      const r = await sendEmail({ to: email.to, subject: email.subject, body: email.body, agent: 'Claude' });
+      emailNote = r.ok
+        ? r.staged
+          ? ` (email to ${email.to} staged for approval)`
+          : ` (email sent to ${email.to})`
+        : ` (email to ${email.to} failed: ${r.error})`;
+    }
 
     if (delegate.length === 0) {
-      await publishBusEvent({ topic: 'agent.thought', agent: 'Claude', payload: { role: 'CEO', reply: reply.slice(0, 300) } });
+      await publishBusEvent({ topic: 'agent.thought', agent: 'Claude', payload: { role: 'CEO', reply: (reply + emailNote).slice(0, 300) } });
       return NextResponse.json({
-        reply,
+        reply: reply + emailNote,
         delegations: [],
+        emailed: email ? email.to : null,
         brain: { name: 'Claude', provider: ceo.provider, model: ceo.model },
       });
     }
@@ -112,9 +133,10 @@ export async function POST(req: NextRequest) {
     await publishBusEvent({ topic: 'agent.thought', agent: 'Claude', payload: { role: 'CEO', reply: finalReply.slice(0, 300) } });
 
     return NextResponse.json({
-      reply: finalReply,
+      reply: finalReply + emailNote,
       preamble: reply,
       delegations: results.map((r) => ({ agent: r.agent, task: r.task, provider: r.provider, model: r.model })),
+      emailed: email ? email.to : null,
       brain: { name: 'Claude', provider: ceo.provider, model: ceo.model },
     });
   } catch (err) {
