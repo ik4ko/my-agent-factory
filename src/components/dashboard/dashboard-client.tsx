@@ -14,15 +14,12 @@ import { WidgetErrorBoundary } from './widget-error-boundary';
 import { ConnectionBanner } from './connection-banner';
 import { CommandConsole } from './command-console';
 import { useCommandStore } from '@/lib/cli/command-store';
+import { useAgentSocket } from '@/hooks/use-agent-socket';
 import { useWorkspaceInit } from '@/hooks/use-workspace-init';
-import { useSocketReconciliation } from '@/hooks/use-socket-reconciliation';
 import type { Agent, Task, Log } from '@/lib/types/database.types';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { CinematicCore } from './cinematic-core';
-import { useCoreFxStore } from '@/lib/fx/core-store';
-import { StagedOrders } from './staged-orders';
-import { AgentActivity } from './agent-activity';
 
 const HANDLE_CLS = cn(
   'relative flex items-center justify-center',
@@ -59,18 +56,10 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
   const openConsole = useCommandStore((s) => s.setOpen);
   const qc = useQueryClient();
 
-  // Atomic selectors — each subscribes to exactly one slice, so a beam
-  // retarget never re-renders on voice-state flips and vice versa.
-  const isListening = useCoreFxStore((state) => state.isListening);
-  const focusTarget = useCoreFxStore((state) => state.focusTarget);
-
   // Hydrate the workspace: synchronous SSR seed (no layout shift) + parallel
   // reconcile fetch across all query keys, so tab re-entry is instant.
   useWorkspaceInit({ initial: { agents: initialAgents, tasks: initialTasks, logs: initialLogs } });
-
-  // Drag-net recovery: delta-fetch + merge everything missed while any
-  // realtime socket was down (postgres_changes never replays missed rows).
-  useSocketReconciliation();
+  useAgentSocket();
 
   // Global keyboard shortcuts
   const handleKeyDown = useCallback(
@@ -96,12 +85,6 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
 
   return (
     <>
-      {/* Neural power-grid background — sits behind all panels (-z-10 inside
-          the page's `isolate` context), never intercepts pointer events. */}
-      <div className="pointer-events-none absolute inset-0 -z-10 opacity-50" aria-hidden="true">
-        <CinematicCore isListening={isListening} focusTarget={focusTarget} intensity={1} />
-      </div>
-
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
       <CommandConsole />
 
@@ -169,14 +152,18 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
       {/* Realtime degraded-state toast (overlay, non-shifting) */}
       <ConnectionBanner />
 
-      {/* Federated brain observer — thinking states + last thoughts + provider
-          badges. Boundary-isolated: telemetry may die, the shell may not. */}
-      <WidgetErrorBoundary name="Agent Activity" compact>
-        <AgentActivity />
-      </WidgetErrorBoundary>
+      {/* Single terminal command dock — queues a pending task (lane-router flow) */}
+      
+      {/* Realtime degraded-state toast (overlay, non-shifting) */}
+      <ConnectionBanner />
 
-      {/* Human-in-the-loop approval track — renders only when orders are staged */}
-      <StagedOrders />
+      {/* Realtime degraded-state toast (overlay, non-shifting) */}
+      <ConnectionBanner />
+
+      {/* BACKGROUND GRAPHICS: Floating WebGL Particle Field */}
+      <div className="absolute inset-0 z-0 pointer-events-none opacity-40 mix-blend-screen">
+        <CinematicCore isListening={false} focusTarget={null} intensity={1} />
+      </div>
 
       {/* Single terminal command dock — queues a pending task (lane-router flow) */}
       <TaskInput />
