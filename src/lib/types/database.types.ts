@@ -243,6 +243,23 @@ export type RiskStateRow = {
   updated_at: string;
 };
 
+// Live-quote cache (one row per symbol) — populated by the loop-worker's
+// Finnhub REST poll cycle, read by the dashboard and (via getMarketContext's
+// own Yahoo-backed path) the risk gate. This table is a display/trigger
+// cache, not the source of truth the risk gate sizes orders against.
+export type QuoteRow = {
+  symbol: string;
+  price: number;
+  change: number | null;
+  change_pct: number | null;
+  high: number | null;
+  low: number | null;
+  open: number | null;
+  prev_close: number | null;
+  source: string;
+  updated_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -336,6 +353,12 @@ export type Database = {
         Row: RiskStateRow;
         Insert: Partial<RiskStateRow> & { id?: number };
         Update: Partial<Omit<RiskStateRow, 'id'>>;
+        Relationships: [];
+      };
+      quotes: {
+        Row: QuoteRow;
+        Insert: Omit<QuoteRow, 'updated_at'> & { updated_at?: string };
+        Update: Partial<Omit<QuoteRow, 'symbol'>>;
         Relationships: [];
       };
     };

@@ -17,6 +17,7 @@
     "loop-worker": "tsx scripts/loop-worker.mts",
     "executor-agent": "tsx scripts/executor-agent.mts",
     "demo-seed": "tsx scripts/demo-seed.mts",
+    "verify-safety": "tsx scripts/verify-safety.mts",
     "test:watch": "jest --config jest.config.js --watch"
   },
   "dependencies": {
@@ -89,6 +90,7 @@
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/node": "^20",
+    "@types/nodemailer": "^8.0.1",
     "@types/react": "^19.2.1",
     "@types/react-dom": "^19.2.1",
     "@types/three": "^0.185.0",

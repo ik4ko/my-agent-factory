@@ -141,7 +141,8 @@ export async function runCommand(cmd: Command, ctx: CommandContext): Promise<{ r
     case 'arm': {
       const err = await requirePin(cmd.pin, ctx, 'arm');
       if (err) return { reply: err };
-      await setArmed(true, ctx.actor);
+      const result = await setArmed(true, ctx.actor);
+      if (!result.ok) return { reply: `arm blocked: ${result.error}` };
       return { reply: 'trading ARMED — loops trade live within caps until disarmed or killed', mutated: true };
     }
 

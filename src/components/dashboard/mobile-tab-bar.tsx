@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Activity, Repeat, MessageSquare, Menu, X, Cpu, Code2, LineChart, Search, User, Settings, PenSquare, Radio } from 'lucide-react';
+import { Activity, Repeat, MessageSquare, Menu, X, Cpu, Code2, LineChart, Search, User, Settings, PenSquare, Radio, ShieldCheck, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const TABS = [
@@ -13,6 +13,8 @@ const TABS = [
 ];
 
 const MORE_ITEMS = [
+  { href: '/dashboard/golive', icon: ShieldCheck, label: 'Go-Live' },
+  { href: '/dashboard/docs', icon: BookOpen, label: 'Runbook' },
   { href: '/dashboard', icon: Cpu, label: 'Control Room' },
   { href: '/dashboard/compose', icon: PenSquare, label: 'Compose' },
   { href: '/dashboard/comms', icon: Radio, label: 'Comms' },

@@ -10,14 +10,18 @@ import { config } from 'dotenv';
 config({ path: '.env.local' });
 import { tick, dispatchEvents } from '@/lib/loops/engine';
 import { runNewsIngestCycle } from '@/lib/events/ingest';
+import { pollAndCacheQuotes } from '@/lib/market/finnhub-quotes';
 import { hermesLog } from '@/lib/hermes/hermes-logger';
 
 const TICK_MS = Number(process.env.LOOP_TICK_MS ?? 5000);
 const NEWS_POLL_MS = Number(process.env.NEWS_POLL_MS ?? 45_000);
+const QUOTE_POLL_MS = Number(process.env.QUOTE_POLL_MS ?? 30_000);
+const HEARTBEAT_MS = 30_000;
 
 let shuttingDown = false;
 let inFlight = false;
 let newsInFlight = false;
+let quoteInFlight = false;
 
 async function cycle(): Promise<void> {
   if (inFlight) return; // previous cycle still running (slow brain call) — skip, don't stack
@@ -57,14 +61,37 @@ async function newsCycle(): Promise<void> {
   }
 }
 
+// Separate cadence again — Finnhub quote polling is its own external
+// dependency with its own rate limit, independent of news and loop ticks.
+async function quoteCycle(): Promise<void> {
+  if (quoteInFlight) return;
+  quoteInFlight = true;
+  try {
+    const result = await pollAndCacheQuotes();
+    if (result.degraded || result.priceEvents > 0) {
+      console.log(`[loop-worker] quotes: polled=${result.polled} updated=${result.updated} priceEvents=${result.priceEvents} degraded=${result.degraded}${result.reason ? ` (${result.reason})` : ''}`);
+    }
+  } catch (err) {
+    console.error('[loop-worker] quote cycle failed:', err);
+  } finally {
+    quoteInFlight = false;
+  }
+}
+
 async function main() {
-  console.log(`[loop-worker] starting — tick interval ${TICK_MS}ms · news poll ${NEWS_POLL_MS}ms`);
-  await hermesLog('info', `[LOOP-WORKER] started (tick=${TICK_MS}ms, news=${NEWS_POLL_MS}ms)`).catch(() => {});
+  console.log(`[loop-worker] starting — tick interval ${TICK_MS}ms · news poll ${NEWS_POLL_MS}ms · quote poll ${QUOTE_POLL_MS}ms`);
+  await hermesLog('info', `[LOOP-WORKER] started (tick=${TICK_MS}ms, news=${NEWS_POLL_MS}ms, quotes=${QUOTE_POLL_MS}ms)`).catch(() => {});
 
   const interval = setInterval(() => void cycle(), TICK_MS);
   const newsInterval = setInterval(() => void newsCycle(), NEWS_POLL_MS);
+  const quoteInterval = setInterval(() => void quoteCycle(), QUOTE_POLL_MS);
+  // Distinct from the start/stop lines above — this is the liveness signal
+  // /api/golive/preflight checks: a recent "[LOOP-WORKER] alive" line means
+  // the process is genuinely still running, not just that it once started.
+  const heartbeatInterval = setInterval(() => void hermesLog('info', '[LOOP-WORKER] alive').catch(() => {}), HEARTBEAT_MS);
   void cycle(); // run immediately on boot, don't wait for the first interval
   void newsCycle();
+  void quoteCycle();
 
   const shutdown = (signal: string) => {
     if (shuttingDown) return;
@@ -72,6 +99,8 @@ async function main() {
     console.log(`[loop-worker] ${signal} received — shutting down`);
     clearInterval(interval);
     clearInterval(newsInterval);
+    clearInterval(quoteInterval);
+    clearInterval(heartbeatInterval);
     void hermesLog('info', '[LOOP-WORKER] stopped').finally(() => process.exit(0));
   };
   process.on('SIGINT', () => shutdown('SIGINT'));

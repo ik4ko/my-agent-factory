@@ -1,28 +1,63 @@
 'use client';
 
 import Link from 'next/link';
-import { MessageSquare } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import {
+  MessageSquare,
+  Activity,
+  BookOpen,
+  Code2,
+  LineChart,
+  PenSquare,
+  Radio,
+  Repeat,
+  Search,
+  Settings,
+  ShieldCheck,
+  User,
+  type LucideIcon,
+} from 'lucide-react';
 
 /**
- * Shared shell for the dedicated task workspaces (App Building, Trading,
- * Research, Personal). Each page is a focused surface; for now they share a
- * header + a quick link into the Chat page scoped to that domain. Panels get
- * filled in per-workspace next.
+ * Shared shell for the dedicated task workspaces (Results, Compose, Comms,
+ * Go-Live, App Building, Trading, Loops, Research, Personal, Settings).
+ *
+ * `icon` is a STRING KEY, not a component reference — a Server Component
+ * page passing a raw Lucide component (a function) as a prop into this
+ * Client Component crosses the RSC serialization boundary and breaks with
+ * "Functions cannot be passed directly to Client Components". Every page.tsx
+ * must pass one of the keys in ICON_REGISTRY below, resolved to the actual
+ * component here, inside the client boundary.
  */
+export const ICON_REGISTRY = {
+  activity: Activity,
+  bookopen: BookOpen,
+  code2: Code2,
+  linechart: LineChart,
+  pensquare: PenSquare,
+  radio: Radio,
+  repeat: Repeat,
+  search: Search,
+  settings: Settings,
+  shieldcheck: ShieldCheck,
+  user: User,
+} satisfies Record<string, LucideIcon>;
+
+export type WorkspaceIconKey = keyof typeof ICON_REGISTRY;
+
 export function WorkspaceScaffold({
   title,
   blurb,
-  icon: Icon,
+  icon,
   accent = 'text-primary',
   children,
 }: {
   title: string;
   blurb: string;
-  icon: LucideIcon;
+  icon: WorkspaceIconKey;
   accent?: string;
   children?: React.ReactNode;
 }) {
+  const Icon = ICON_REGISTRY[icon];
   return (
     <div className="flex h-full flex-col">
       <header className="flex h-11 shrink-0 items-center justify-between border-b border-border px-4">

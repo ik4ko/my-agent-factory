@@ -15,6 +15,12 @@ import { timingSafeEqualStr } from '@/lib/auth/session';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = () => getAdminClient() as any;
 
+// Kept in sync with src/lib/golive/preflight.ts's DEFAULT_OPERATOR_PIN — the
+// exact value this build generated in .env.local. Duplicated as a literal
+// (not imported) so this hardening check can never silently break if the
+// preflight module is ever refactored or removed.
+const DEFAULT_OPERATOR_PIN = '552487';
+
 /** Fails CLOSED — an unset OPERATOR_PIN means every privileged action is
  *  rejected, never silently allowed. */
 export function verifyOperatorPin(pin: unknown): boolean {
@@ -23,7 +29,27 @@ export function verifyOperatorPin(pin: unknown): boolean {
   return timingSafeEqualStr(pin, configured);
 }
 
-export async function setArmed(enabled: boolean, actor: string): Promise<void> {
+/** Default-PIN lockout (§2e hardening): blocks ARMING ONLY (kill/halt/disarm
+ *  stay available even on the default PIN, since those only ever make things
+ *  safer) when OPERATOR_PIN is unset or still the generated default. This is
+ *  independent of whether the submitted PIN happens to match — a correct
+ *  match against a known-public default is not authorization. */
+export function armLockoutReason(): string | null {
+  const pin = process.env.OPERATOR_PIN?.trim();
+  if (!pin) return 'OPERATOR_PIN is not set';
+  if (pin === DEFAULT_OPERATOR_PIN) return 'OPERATOR_PIN is still the generated default — change it before arming';
+  return null;
+}
+
+export async function setArmed(enabled: boolean, actor: string): Promise<{ ok: boolean; error?: string }> {
+  if (enabled) {
+    const lockout = armLockoutReason();
+    if (lockout) {
+      await hermesLog('warn', `[CONTROL] arm blocked — ${lockout} (actor=${actor})`);
+      return { ok: false, error: lockout };
+    }
+  }
+
   await db()
     .from('risk_state')
     .update({ trading_enabled: enabled, updated_at: new Date().toISOString() })
@@ -34,6 +60,7 @@ export async function setArmed(enabled: boolean, actor: string): Promise<void> {
       ? `⚠️ TRADING ARMED by ${actor}. Loops will place real orders within caps until disarmed or killed.`
       : `Trading disarmed by ${actor}. All execution back to dry-run.`
   );
+  return { ok: true };
 }
 
 /** Cancels every currently-submitted (not yet filled/rejected) order via

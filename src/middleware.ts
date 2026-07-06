@@ -8,7 +8,9 @@ import { SESSION_COOKIE, verifySessionToken } from '@/lib/auth/session';
 // send the session cookie), so it's exempt from the cookie gate here.
 // /api/phone/sms self-authorizes via Twilio's request signature + the
 // OPERATOR_PHONE allowlist (Twilio can't send the session cookie either).
-const PUBLIC_PATHS = new Set(['/login', '/api/auth/login', '/api/orchestrator/cron', '/api/loops/tick', '/api/phone/sms']);
+// /api/phone/voice is the same story for whichever voice provider is
+// configured — it 501s until VAPI_API_KEY/RETELL_API_KEY is set.
+const PUBLIC_PATHS = new Set(['/login', '/api/auth/login', '/api/orchestrator/cron', '/api/loops/tick', '/api/phone/sms', '/api/phone/voice']);
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

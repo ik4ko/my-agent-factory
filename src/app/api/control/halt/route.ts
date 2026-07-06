@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { hermesLog } from '@/lib/hermes/hermes-logger';
 import { setHalted, verifyOperatorPin } from '@/lib/control/risk-actions';
+import { rateLimited } from '@/lib/control/rate-limit';
 
 const Schema = z.object({
   pin: z.string(),
@@ -11,6 +12,8 @@ const Schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  if (rateLimited('control:halt', 15)) return NextResponse.json({ error: 'rate limited — try again shortly' }, { status: 429 });
+
   const parsed = Schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: 'expected { pin, halted, reason? }' }, { status: 400 });
 

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Cpu, MessageSquare, Code2, LineChart, Search, User, Settings, Zap, Repeat, Activity, PenSquare, Radio } from 'lucide-react';
+import { Cpu, MessageSquare, Code2, LineChart, Search, User, Settings, Zap, Repeat, Activity, PenSquare, Radio, ShieldCheck, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { MobileTabBar } from '@/components/dashboard/mobile-tab-bar';
@@ -14,6 +14,8 @@ const NAV_ITEMS = [
   { href: '/dashboard/chat', icon: MessageSquare, label: 'Chat' },
   { href: '/dashboard/compose', icon: PenSquare, label: 'Compose' },
   { href: '/dashboard/comms', icon: Radio, label: 'Comms' },
+  { href: '/dashboard/golive', icon: ShieldCheck, label: 'Go-Live' },
+  { href: '/dashboard/docs', icon: BookOpen, label: 'Runbook' },
   { href: '/dashboard/building', icon: Code2, label: 'App Building' },
   { href: '/dashboard/trading', icon: LineChart, label: 'Stock Trading' },
   { href: '/dashboard/loops', icon: Repeat, label: 'Loops' },
