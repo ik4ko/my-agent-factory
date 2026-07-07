@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Bot, Send, User, Volume2, VolumeX } from 'lucide-react';
-import { dispatchAgent } from '@/app/actions/agent-dispatcher';
+import { dispatchAgent, type MaterializedArtifact } from '@/app/actions/agent-dispatcher';
 import { BRAIN_IDS, BRAIN_MATRIX, type BrainId } from '@/lib/agents/brain-matrix';
 import { useConverse, speakBrowser } from '@/hooks/use-converse';
 import { shortModel } from '@/lib/telemetry/pricing';
+import { pushSystemFeed } from '@/lib/fx/system-feed';
 import { cn } from '@/lib/utils';
 
 type Lane = 'CLAUDE' | 'AUTO' | BrainId;
@@ -17,6 +18,8 @@ interface ChatTurn {
   agentId?: string;
   model?: string;
   error?: boolean;
+  /** live-table rows this reply produced (Tasks panel / Staged Orders) */
+  materialized?: MaterializedArtifact[];
 }
 
 /** Client-side mirror of the Hermes intent rules, extended to the full
@@ -84,6 +87,7 @@ export function AgentChat({ variant = 'panel' }: { variant?: 'panel' | 'full' })
     const agentId = lane === 'AUTO' ? routeIntent(prompt) : lane;
     setMatrixBusy(true);
     setMatrixTurns((t) => [...t, { role: 'user', content: prompt }]);
+    pushSystemFeed('DISPATCH', `[${agentId}] dispatch → "${prompt.slice(0, 48)}${prompt.length > 48 ? '…' : ''}"`);
     try {
       const history = matrixTurns
         .filter((t) => !t.error)
@@ -99,8 +103,15 @@ export function AgentChat({ variant = 'panel' }: { variant?: 'panel' | 'full' })
           agentId: result.agentId,
           model: result.modelUsed,
           error: Boolean(result.error),
+          materialized: result.materialized,
         },
       ]);
+      if (result.materialized?.length) {
+        pushSystemFeed(
+          'DISPATCH',
+          `[${agentId}] → ${result.materialized.map((m) => m.label).join(', ')}`,
+        );
+      }
       if (speakOn && !result.error) speakBrowser(result.content);
     } catch (err) {
       setMatrixTurns((t) => [
@@ -198,6 +209,24 @@ export function AgentChat({ variant = 'panel' }: { variant?: 'panel' | 'full' })
                   </p>
                 )}
                 <span className="whitespace-pre-wrap break-words">{turn.content}</span>
+                {turn.materialized && turn.materialized.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {turn.materialized.map((m) => (
+                      <span
+                        key={m.id}
+                        className={cn(
+                          'rounded border px-1.5 py-px font-terminal text-[9px] tracking-wide',
+                          m.type === 'staged_order'
+                            ? 'border-neon-green/40 text-neon-green/80'
+                            : 'border-primary/40 text-primary/80'
+                        )}
+                      >
+                        {m.type === 'staged_order' ? '◆ ' : '▸ '}
+                        {m.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               {isUser && (
                 <div className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border border-border bg-surface-2">

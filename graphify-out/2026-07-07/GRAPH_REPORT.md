@@ -1,11 +1,11 @@
 # Graph Report - my agent factory  (2026-07-07)
 
 ## Corpus Check
-- 293 files · ~138,042 words
+- 294 files · ~138,746 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1714 nodes · 3565 edges · 151 communities (93 shown, 58 thin omitted)
+- 1720 nodes · 3589 edges · 154 communities (96 shown, 58 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 22 edges (avg confidence: 0.7)
 - Token cost: 0 input · 0 output
 
@@ -147,6 +147,9 @@
 - [[_COMMUNITY_audio-briefing.tsx|audio-briefing.tsx]]
 - [[_COMMUNITY_use-risk-state.ts|use-risk-state.ts]]
 - [[_COMMUNITY_DirectAdapter|DirectAdapter]]
+- [[_COMMUNITY_loops-client.tsx|loops-client.tsx]]
+- [[_COMMUNITY_matrix-memory.ts|matrix-memory.ts]]
+- [[_COMMUNITY_demo-seed.mts|demo-seed.mts]]
 - [[_COMMUNITY_demo-seed.mts|demo-seed.mts]]
 - [[_COMMUNITY_research-sync.mts|research-sync.mts]]
 - [[_COMMUNITY_package.json|package.json]]
@@ -167,58 +170,58 @@
 - `RoomStatusStrip()` --indirect_call--> `health()`  [INFERRED]
   src/components/dashboard/room-status-strip.tsx → services/robinhood/main.py
 - `db()` --calls--> `getAdminClient()`  [EXTRACTED]
+  scripts/demo-seed.mts → src/lib/supabase/admin.ts
+- `db()` --calls--> `getAdminClient()`  [EXTRACTED]
   scripts/executor-agent.mts → src/lib/supabase/admin.ts
 - `processIntent()` --calls--> `notify()`  [EXTRACTED]
   scripts/executor-agent.mts → src/lib/comms/transport.ts
 - `processIntent()` --calls--> `hermesLog()`  [EXTRACTED]
   scripts/executor-agent.mts → src/lib/hermes/hermes-logger.ts
-- `main()` --calls--> `hermesLog()`  [EXTRACTED]
-  scripts/executor-agent.mts → src/lib/hermes/hermes-logger.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (151 total, 58 thin omitted)
+## Communities (154 total, 58 thin omitted)
 
 ### Community 0 - "NPM Package Dependencies"
 Cohesion: 0.03
 Nodes (68): dependencies, @anthropic-ai/sdk, class-variance-authority, clsx, cmdk, date-fns, dotenv, embla-carousel-react (+60 more)
 
 ### Community 1 - "Safety Selftest & Commands"
-Cohesion: 0.08
-Nodes (52): main(), POST(), Schema, POST(), Schema, POST(), Schema, POST() (+44 more)
+Cohesion: 0.20
+Nodes (15): POST(), Schema, GET(), POST(), twiml(), POST(), Command, CommandContext (+7 more)
 
 ### Community 2 - "Workspace Page Components"
 Cohesion: 0.14
 Nodes (7): DocsWorkspace(), readRunbook(), CodingRoomClient(), ResearchRoomClient(), TradingRoomClient(), WorkspaceIconKey, WorkspaceScaffold()
 
 ### Community 3 - "Loop Worker & News Cycle"
-Cohesion: 0.09
-Nodes (40): cycle(), main(), NEWS_POLL_MS, newsCycle(), QUOTE_POLL_MS, quoteCycle(), TICK_MS, authorized() (+32 more)
+Cohesion: 0.15
+Nodes (25): authorized(), GET(), POST(), pulse(), LiveClock(), extractOrderIntent(), RawIntentSchema, RawOrderIntent (+17 more)
 
 ### Community 4 - "News Feed Classification"
 Cohesion: 0.10
-Nodes (33): Classification, ClassificationSchema, classifyHeadline(), cleanHeadline(), extractJson(), failClosed(), alreadySeen(), db() (+25 more)
+Nodes (32): Classification, ClassificationSchema, classifyHeadline(), cleanHeadline(), extractJson(), failClosed(), alreadySeen(), db() (+24 more)
 
 ### Community 5 - "Model Router & Complexity"
-Cohesion: 0.11
-Nodes (18): ChatPage(), useHoverFocus(), AnyRecognition, BAR_DELAYS, getSpeechRecognitionCtor(), TaskInput(), Trace, TraceKind (+10 more)
+Cohesion: 0.23
+Nodes (16): POST(), Schema, POST(), Schema, POST(), Schema, notify(), HITS (+8 more)
 
 ### Community 6 - "Dev Build Tooling"
 Cohesion: 0.11
 Nodes (19): scripts, build, clean, demo-seed, dev, executor-agent, genkit:dev, genkit:watch (+11 more)
 
 ### Community 7 - "Bus Event Pipeline Engine"
-Cohesion: 0.07
-Nodes (59): POST(), SweepSchema, POST(), RunSchema, BusEvent, BusStatus, BusTopic, claimBusEvent() (+51 more)
+Cohesion: 0.06
+Nodes (72): DryRunOrder, main(), pct(), usd(), POST(), SweepSchema, POST(), RunSchema (+64 more)
 
 ### Community 8 - "Portfolio & Loop Clients"
-Cohesion: 0.12
-Nodes (35): ConnectionBanner(), ConnectionIndicator(), PRESENTATION, STAGED_ORDERS_KEY, StagedOrders(), useAgentsQuery(), useLogsQuery(), LOOP_RUNS_KEY (+27 more)
+Cohesion: 0.09
+Nodes (42): useModelLanes(), ConnectionBanner(), ConnectionIndicator(), PRESENTATION, KnowledgeSourceBadge(), controlPost(), ORDER_BADGE, REGIME_BADGE (+34 more)
 
 ### Community 9 - "Live Terminal & Metrics"
-Cohesion: 0.06
-Nodes (55): DashboardClientProps, HANDLE_CLS, HResizeHandle(), VResizeHandle(), CHANNEL_CLS, CHANNEL_SEVERITY, DEFAULT_FILTER, hhmmss() (+47 more)
+Cohesion: 0.08
+Nodes (29): CHANNEL_CLS, CHANNEL_SEVERITY, DEFAULT_FILTER, hhmmss(), LEVEL_CLS, LEVEL_TAG, LiveTerminal(), LiveTerminalProps (+21 more)
 
 ### Community 10 - "Command Console & Store"
 Cohesion: 0.12
@@ -229,8 +232,8 @@ Cohesion: 0.11
 Nodes (18): app, macOSPrivateApi, security, windows, build, beforeBuildCommand, beforeDevCommand, devUrl (+10 more)
 
 ### Community 12 - "Tool Call Parser & Policy"
-Cohesion: 0.25
-Nodes (15): ToolCall, ALLOWED_COMMANDS, ALLOWED_NPM_SCRIPTS, CommandCheck, confinePath(), PathCheck, sandboxRoot(), scrubbedEnv() (+7 more)
+Cohesion: 0.15
+Nodes (22): POST(), Schema, StreamPreview, asToolCall(), ParseResult, parseToolCalls(), ToolCall, ALLOWED_COMMANDS (+14 more)
 
 ### Community 13 - "Graphify CLI Documentation"
 Cohesion: 0.07
@@ -242,59 +245,59 @@ Nodes (32): _ema(), _env_keys(), IndicatorState, main(), MarketTickFeed, Any, In
 
 ### Community 15 - "Dashboard Client & Stats"
 Cohesion: 0.08
-Nodes (24): AgentCard, AgentFleet(), AgentFleetProps, DerivedTelemetry, EMPTY_DERIVED, InactiveGroup(), inferAgentType(), LANE_CLS (+16 more)
+Nodes (23): AgentCard, AgentFleetProps, DerivedTelemetry, EMPTY_DERIVED, InactiveGroup(), inferAgentType(), LANE_CLS, ModelLane (+15 more)
 
 ### Community 16 - "Trading Execution Adapters"
 Cohesion: 0.06
-Nodes (33): DryRunOrder, main(), pct(), usd(), BridgeAdapter, reads, baseUrl(), call() (+25 more)
+Nodes (41): main(), POST(), BridgeAdapter, reads, baseUrl(), call(), DirectAdapter, DryRunAdapter (+33 more)
 
 ### Community 17 - "Order Staging & Portfolio"
 Cohesion: 0.19
 Nodes (20): POST(), getActivePortfolioBalance(), buildStagedOrder(), db(), extractTradeParams(), persistStagedOrder(), stageOrderFromAnalysis(), StageResult (+12 more)
 
 ### Community 18 - "Agent Fleet UI Cards"
-Cohesion: 0.19
-Nodes (15): classifyComplexity(), Complexity, estimateTokens(), MODELS, RouteDecision, routeModel(), buildSystemPrompt(), Lane (+7 more)
+Cohesion: 0.15
+Nodes (18): POST(), RoutedRow, Schema, classifyComplexity(), Complexity, estimateTokens(), MODELS, RouteDecision (+10 more)
 
 ### Community 19 - "Orchestrator Auth & Pulse"
-Cohesion: 0.14
-Nodes (20): claimIntent(), connectMcp(), cycle(), db(), isKillSwitchOrHalted(), main(), processIntent(), releaseIntent() (+12 more)
+Cohesion: 0.23
+Nodes (10): db(), local, LocalTransport, MessageKind, MessageTransport, rateOk(), safeUpdate(), SENT_TIMES (+2 more)
 
 ### Community 20 - "Voice Task Input UI"
 Cohesion: 0.24
 Nodes (10): ArmConfirmModal(), controlPost(), GoLiveClient(), STATUS_BADGE, STATUS_COLOR, STATUS_ICON, usePreflight(), CheckStatus (+2 more)
 
 ### Community 21 - "Agent Status & DB Types"
-Cohesion: 0.15
-Nodes (15): DashboardPage(), fetchDashboardData(), AgentActivity(), BRAINS, BUS_THOUGHTS_KEY, providerBadge(), readProvenance(), ThoughtProvenance (+7 more)
+Cohesion: 0.29
+Nodes (10): AgentActivity(), BRAINS, BUS_THOUGHTS_KEY, providerBadge(), readProvenance(), ThoughtProvenance, useBusThoughts(), SystemHealthPill() (+2 more)
 
 ### Community 22 - "TypeScript Compiler Config"
 Cohesion: 0.10
 Nodes (20): compilerOptions, allowJs, esModuleInterop, incremental, isolatedModules, jsx, lib, module (+12 more)
 
 ### Community 24 - "Dashboard Activity Feed"
-Cohesion: 0.18
-Nodes (7): KnowledgeSourceBadge(), DispatchResponse, RoomComposer(), TaskOutputFeed(), Props, State, WidgetErrorBoundary
+Cohesion: 0.10
+Nodes (21): AgentFleet(), DispatchResponse, RoomComposer(), ApprovalIntercept, buildRunGroups(), STATUS_DOT, STATUS_VARIANT, TaskFeed() (+13 more)
 
 ### Community 25 - "Cinematic 3D Core Widget"
-Cohesion: 0.14
-Nodes (16): FableMeter, fmtTokens(), MetricCell, MetricsBar(), OutputCard, TaskResultPayload, AGENTS_KEY, TASKS_KEY (+8 more)
+Cohesion: 0.15
+Nodes (16): FableMeter, fmtTokens(), MetricCell, MetricsBar(), TimelineScrubber(), ScrubberStore, useScrubberStore, useSnapshotAt() (+8 more)
 
 ### Community 26 - "Message Transport Layer"
 Cohesion: 0.07
 Nodes (26): For /graphify add and --watch, For /graphify query, For the commit hook and native AGENTS.md integration, For --update and --cluster-only, /graphify, Honesty Rules, Interpreter guard for subcommands, Part A - Structural extraction for code files (+18 more)
 
 ### Community 27 - "Preflight System Checks"
-Cohesion: 0.21
-Nodes (9): BRAIN_OPTIONS, ComposeClient(), KIND_OPTIONS, SEVERITIES, TRIGGER_TYPES, TriggerDraft, LOOPS_KEY, EventSeverity (+1 more)
+Cohesion: 0.18
+Nodes (11): BRAIN_OPTIONS, ComposeClient(), KIND_OPTIONS, SEVERITIES, TRIGGER_TYPES, TriggerDraft, LOOPS_KEY, SymbolAggregate (+3 more)
 
 ### Community 28 - "Parallel Matrix Pipeline"
 Cohesion: 0.16
-Nodes (20): MatrixSchema, POST(), generateMatrixEmbedding(), toVectorLiteral(), cleanPreview(), commitMatrixToLongTermMemory(), db(), MatrixMemoryRecord (+12 more)
+Nodes (19): CommandSchema, POST(), MatrixSchema, POST(), runAgentWorker(), ClaimedLane, db(), DEBATES (+11 more)
 
 ### Community 29 - "Hermes Logger & Approvals"
-Cohesion: 0.26
-Nodes (10): db(), DELETE(), PATCH(), PatchSchema, CreateSchema, db(), GET(), POST() (+2 more)
+Cohesion: 0.17
+Nodes (17): db(), DELETE(), PATCH(), PatchSchema, CreateSchema, db(), GET(), POST() (+9 more)
 
 ### Community 30 - "Command Palette UI"
 Cohesion: 0.22
@@ -302,15 +305,15 @@ Nodes (13): AGENT_COLORS, AGENT_ICONS, CommandPalette(), CommandPaletteProps, in
 
 ### Community 31 - "Connection Status & Orders"
 Cohesion: 0.11
-Nodes (26): db(), DEMO_LOOPS, main(), POST(), Schema, POST(), Schema, POST() (+18 more)
+Nodes (25): POST(), Schema, POST(), Schema, POST(), POST(), Schema, POST() (+17 more)
 
 ### Community 32 - "Task Feed & Timeline"
 Cohesion: 0.11
 Nodes (18): 0. Who you are / what this is, 1. Decisions already made by the operator (build to these), 2. The mission for this phase, 3. CRITICAL architecture reality — read before designing execution, 4. What to build, 5. Safety layer — MANDATORY, non-negotiable, 6. Env vars to add (`.env.local`), 7. Gotchas / hard-won lessons in this codebase (save yourself hours) (+10 more)
 
 ### Community 33 - "Watchlist Sweep Orchestrator"
-Cohesion: 0.17
-Nodes (18): authorized(), GET(), POST(), pulse(), GET(), POST(), reap(), POST() (+10 more)
+Cohesion: 0.19
+Nodes (16): authorized(), GET(), POST(), pulse(), GET(), POST(), reap(), POST() (+8 more)
 
 ### Community 34 - "CEO Delegation & System Bus"
 Cohesion: 0.13
@@ -322,7 +325,7 @@ Nodes (14): 0. Ground truth — the real system (do not diverge), 1. Goal, 2. Di
 
 ### Community 36 - "Loop Management UI"
 Cohesion: 0.09
-Nodes (32): PanelSkeleton(), AudioBriefing(), BriefingEntry, buildBriefing(), MemoryInspector(), MemoryRow, MemoryViewer(), PinActionModal() (+24 more)
+Nodes (33): PanelSkeleton(), AudioBriefing(), BriefingEntry, buildBriefing(), HResizeHandle(), VResizeHandle(), MemoryInspector(), MemoryRow (+25 more)
 
 ### Community 37 - "Federated Agent Registry"
 Cohesion: 0.13
@@ -333,8 +336,8 @@ Cohesion: 0.32
 Nodes (11): BaseModel, cancel_order(), CancelRequest, health(), _login(), OrderIntent, place_order(), portfolio() (+3 more)
 
 ### Community 40 - "Loop CRUD Routes"
-Cohesion: 0.09
-Nodes (29): BRAIN_OPTIONS, KIND_OPTIONS, LoopRow_(), LoopsClient(), patchLoop(), relativeTime(), STATUS_BADGE, controlPost() (+21 more)
+Cohesion: 0.11
+Nodes (25): DashboardPage(), fetchDashboardData(), AudioBriefing, DashboardClient(), DashboardClientProps, HANDLE_CLS, Options, useWorkspaceInit() (+17 more)
 
 ### Community 41 - "Executor Agent Worker"
 Cohesion: 0.14
@@ -417,8 +420,8 @@ Cohesion: 0.40
 Nodes (4): Endpoints, Robinhood sidecar, Safety, Setup
 
 ### Community 90 - "cinematic-core.tsx"
-Cohesion: 0.09
-Nodes (29): AgentDispatchInput, AgentDispatchResult, AgentId, assertOperatorSession(), dispatchAgent(), DispatchSchema, OpenRouterResponse, failures (+21 more)
+Cohesion: 0.05
+Nodes (50): AgentDispatchInput, AgentDispatchResult, AgentId, assertOperatorSession(), dispatchAgent(), DispatchSchema, OpenRouterResponse, failures (+42 more)
 
 ### Community 125 - "audio-briefing.tsx"
 Cohesion: 0.11
@@ -429,16 +432,16 @@ Cohesion: 0.24
 Nodes (15): GET(), activeTransport(), checkAdapter(), checkCaps(), checkDbAndRiskState(), checkNotificationTransport(), checkOperatorPin(), checkSingleWriter() (+7 more)
 
 ### Community 131 - "metrics-bar.tsx"
-Cohesion: 0.31
-Nodes (7): POST(), Schema, StreamPreview, asToolCall(), ParseResult, parseToolCalls(), formatToolResults()
+Cohesion: 0.19
+Nodes (15): cycle(), main(), NEWS_POLL_MS, newsCycle(), QUOTE_POLL_MS, quoteCycle(), TICK_MS, allowlistSymbols() (+7 more)
 
 ### Community 132 - "registry.ts"
-Cohesion: 0.17
-Nodes (15): POST(), Schema, Delegation, EmailAction, parseCeo(), POST(), Schema, AgentRegistry (+7 more)
+Cohesion: 0.10
+Nodes (26): POST(), Schema, Delegation, EmailAction, parseCeo(), POST(), Schema, AgentRegistry (+18 more)
 
 ### Community 133 - "compose-client.tsx"
-Cohesion: 0.23
-Nodes (8): CommsSimulatorClient(), QUICK_COMMANDS, relativeTime(), Turn, Button, ButtonProps, buttonVariants, useOutboundMessagesQuery()
+Cohesion: 0.24
+Nodes (7): CommsSimulatorClient(), QUICK_COMMANDS, relativeTime(), Turn, Button, ButtonProps, buttonVariants
 
 ### Community 134 - "loops-client.tsx"
 Cohesion: 0.33
@@ -449,16 +452,16 @@ Cohesion: 0.40
 Nodes (4): Execution & audit, Signal logic, Sizing & risk (non-negotiable), Strategy: SPY Momentum Swing (IV-filtered MA crossover)
 
 ### Community 136 - "autonomous-runner.ts"
-Cohesion: 0.31
+Cohesion: 0.27
 Nodes (9): buildBeam(), buildGeometry(), CinematicCore(), CinematicCoreProps, COLOR_CYAN, COLOR_PURPLE, CoreFocusTarget, DAMP (+1 more)
 
 ### Community 137 - "comms-simulator-client.tsx"
 Cohesion: 0.14
-Nodes (16): ApprovalIntercept, buildRunGroups(), STATUS_DOT, STATUS_VARIANT, TaskFeed(), TaskRow, TaskRunCard, TimelineScrubber() (+8 more)
+Nodes (21): DOT, Health, RoomChip, RoomStatusStrip(), fetchRiskState(), RISK_STATE_KEY, RiskRow, RiskStateView (+13 more)
 
 ### Community 139 - "research-sync.mts"
-Cohesion: 0.10
-Nodes (27): CommandSchema, POST(), POST(), Schema, POST(), RoutedRow, Schema, ActionSchema (+19 more)
+Cohesion: 0.38
+Nodes (10): claimIntent(), connectMcp(), cycle(), db(), isKillSwitchOrHalted(), main(), processIntent(), releaseIntent() (+2 more)
 
 ### Community 140 - "use-simulation-status.ts"
 Cohesion: 0.33
@@ -473,12 +476,24 @@ Cohesion: 0.33
 Nodes (5): description, identifier, permissions, $schema, windows
 
 ### Community 144 - "DirectAdapter"
-Cohesion: 0.22
-Nodes (11): AgentWorkerInput, HermesCommandOptions, applyRules(), llmFallback(), parseIntent(), RulePattern, RULES, ParsedIntent (+3 more)
+Cohesion: 0.17
+Nodes (13): Dispatch, AgentWorkerInput, PERSONAS, HermesCommandOptions, applyRules(), llmFallback(), parseIntent(), RulePattern (+5 more)
+
+### Community 145 - "loops-client.tsx"
+Cohesion: 0.25
+Nodes (9): BRAIN_OPTIONS, KIND_OPTIONS, LoopRow_(), LoopsClient(), patchLoop(), relativeTime(), STATUS_BADGE, useLoopRunsQuery() (+1 more)
+
+### Community 146 - "matrix-memory.ts"
+Cohesion: 0.46
+Nodes (6): generateMatrixEmbedding(), toVectorLiteral(), cleanPreview(), commitMatrixToLongTermMemory(), db(), MatrixMemoryRecord
 
 ### Community 147 - "demo-seed.mts"
 Cohesion: 0.24
 Nodes (6): metadata, MobileTabBar(), MORE_ITEMS, TABS, NAV_ITEMS, NavSidebar()
+
+### Community 151 - "demo-seed.mts"
+Cohesion: 0.67
+Nodes (3): db(), DEMO_LOOPS, main()
 
 ### Community 153 - "research-sync.mts"
 Cohesion: 0.53
@@ -489,24 +504,24 @@ Cohesion: 0.50
 Nodes (3): name, private, version
 
 ## Knowledge Gaps
-- **643 isolated node(s):** `cspDirectives`, `securityHeaders`, `nextConfig`, `name`, `version` (+638 more)
+- **645 isolated node(s):** `cspDirectives`, `securityHeaders`, `nextConfig`, `name`, `version` (+640 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **58 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `cn()` connect `Loop Management UI` to `Model Router & Complexity`, `compose-client.tsx`, `Portfolio & Loop Clients`, `Live Terminal & Metrics`, `Command Console & Store`, `Loop CRUD Routes`, `comms-simulator-client.tsx`, `App Layout & Providers`, `Dashboard Client & Stats`, `demo-seed.mts`, `Voice Task Input UI`, `Agent Status & DB Types`, `Dashboard Activity Feed`, `Cinematic 3D Core Widget`, `cinematic-core.tsx`, `Command Palette UI`?**
-  _High betweenness centrality (0.070) - this node is a cross-community bridge._
-- **Why does `ConnectionIndicator()` connect `Portfolio & Loop Clients` to `Loop Management UI`, `Agent Status & DB Types`, `Chat & Dashboard UI`?**
+- **Why does `cn()` connect `Loop Management UI` to `compose-client.tsx`, `Portfolio & Loop Clients`, `Loop CRUD Routes`, `Command Console & Store`, `Live Terminal & Metrics`, `comms-simulator-client.tsx`, `App Layout & Providers`, `Dashboard Client & Stats`, `loops-client.tsx`, `demo-seed.mts`, `Voice Task Input UI`, `Agent Status & DB Types`, `Dashboard Activity Feed`, `Cinematic 3D Core Widget`, `cinematic-core.tsx`, `Command Palette UI`?**
+  _High betweenness centrality (0.066) - this node is a cross-community bridge._
+- **Why does `ConnectionIndicator()` connect `Portfolio & Loop Clients` to `Loop CRUD Routes`, `Loop Management UI`, `Chat & Dashboard UI`?**
   _High betweenness centrality (0.062) - this node is a cross-community bridge._
+- **Why does `getAdminClient()` connect `Connection Status & Orders` to `Safety Selftest & Commands`, `timingSafeEqualStr`, `Loop Worker & News Cycle`, `registry.ts`, `Model Router & Complexity`, `News Feed Classification`, `Bus Event Pipeline Engine`, `metrics-bar.tsx`, `research-sync.mts`, `Tool Call Parser & Policy`, `audio-briefing.tsx`, `DirectAdapter`, `Trading Execution Adapters`, `Agent Fleet UI Cards`, `Orchestrator Auth & Pulse`, `Order Staging & Portfolio`, `matrix-memory.ts`, `demo-seed.mts`, `research-sync.mts`, `Parallel Matrix Pipeline`, `Hermes Logger & Approvals`, `Watchlist Sweep Orchestrator`?**
+  _High betweenness centrality (0.056) - this node is a cross-community bridge._
 - **What connects `Local Python runtime package for Jarvis agent loops.`, `Incremental Wilder RSI(14) + MACD(12,26,9) so the frontend only ever     receive`, `Streams Alpaca free-tier (IEX) trades/bars, computes indicators in     Python, a` to the rest of the system?**
-  _655 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _657 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `NPM Package Dependencies` be split into smaller, more focused modules?**
   _Cohesion score 0.029411764705882353 - nodes in this community are weakly interconnected._
-- **Should `Safety Selftest & Commands` be split into smaller, more focused modules?**
-  _Cohesion score 0.07507914970601538 - nodes in this community are weakly interconnected._
 - **Should `Workspace Page Components` be split into smaller, more focused modules?**
   _Cohesion score 0.14210526315789473 - nodes in this community are weakly interconnected._
 - **Should `Loop Worker & News Cycle` be split into smaller, more focused modules?**
-  _Cohesion score 0.08792270531400966 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.1477832512315271 - nodes in this community are weakly interconnected._

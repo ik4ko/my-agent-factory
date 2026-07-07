@@ -144,10 +144,13 @@
   "142": "research-sync.md",
   "143": "use-risk-state.ts",
   "144": "DirectAdapter",
+  "145": "loops-client.tsx",
+  "146": "matrix-memory.ts",
   "147": "demo-seed.mts",
   "148": "build.rs",
   "149": "lib.rs",
   "150": "main.rs",
+  "151": "demo-seed.mts",
   "153": "research-sync.mts",
   "154": "package.json"
 }
