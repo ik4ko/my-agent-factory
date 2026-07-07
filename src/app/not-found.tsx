@@ -5,7 +5,7 @@ export const metadata: Metadata = { title: '404 — Sector Not Found' };
 
 export default function NotFound() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-center">
+    <div className="flex h-full min-h-0 flex-col items-center justify-center overflow-y-auto bg-background px-6 text-center">
       {/* Glitch number */}
       <div className="relative select-none mb-6">
         <span

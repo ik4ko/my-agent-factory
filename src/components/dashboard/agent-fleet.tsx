@@ -1,8 +1,8 @@
 'use client';
 
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, Code2, Search, Globe, Layers, ChevronDown } from 'lucide-react';
+import { Activity, Archive, Code2, Search, Globe, Layers, ChevronDown, EyeOff, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAgentsQuery } from '@/hooks/use-agents-query';
 import { TASKS_KEY } from '@/hooks/use-tasks-query';
@@ -14,13 +14,14 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import type { Agent, AgentType, Metric, Task } from '@/lib/types/database.types';
+import { partitionFleet, type FieldState } from '@/lib/types/control-room.types';
+import { agentInScope, tradingAgentIdsFromTasks, type RoomScope } from '@/lib/rooms/scope';
 import { formatDistanceToNow } from 'date-fns';
 import { useSnapshotAt } from '@/lib/scrubber/scrubber-store';
 import { useCoreFxStore } from '@/lib/fx/core-store';
 import { useAgentTelemetryStore, EMPTY_TELEMETRY } from '@/lib/fx/agent-telemetry';
 
-function formatLatency(ms: number | null): string {
-  if (ms == null) return '—';
+function formatLatency(ms: number): string {
   return ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`;
 }
 
@@ -103,7 +104,66 @@ const LANE_CLS: Record<ModelLane['transition'], string> = {
   SEAT: 'border-neon-cyan/30 bg-neon-cyan/10 text-neon-cyan',
 };
 
-const AgentCard = memo(function AgentCard({ agent, lane }: { agent: Agent; lane: ModelLane | null }) {
+/** Historical per-agent compute facts derived from the task/metric tables —
+ *  the fallback when the live session telemetry store has nothing yet. */
+interface DerivedTelemetry {
+  model: string | null;
+  spanMs: number | null;
+  completed: number;
+}
+const EMPTY_DERIVED: DerivedTelemetry = { model: null, spanMs: null, completed: 0 };
+
+/** DB timestamps here mix `timestamptz` and naive-UTC `timestamp` columns;
+ *  parsing a naive value as local time skews spans by the UTC offset. Treat
+ *  suffix-less timestamps as UTC. */
+function parseUtcMs(iso: string): number {
+  return Date.parse(/Z$|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : `${iso}Z`);
+}
+
+/** One BRAIN/LAT/OPS cell. Never a bare dash: empty and error states render a
+ *  short word with the full reason as tooltip + aria-label. */
+const TelemetryValue = memo(function TelemetryValue({
+  field,
+  readyCls,
+  emptyLabel,
+}: {
+  field: FieldState<string>;
+  readyCls: string;
+  /** short word for the empty state ('no ops' when the agent never ran;
+   *  'n/a' when it ran but the datum was not recorded) */
+  emptyLabel: string;
+}) {
+  if (field.status === 'ready') return <span className={readyCls}>{field.value}</span>;
+  if (field.status === 'loading')
+    return (
+      <span className="text-muted-foreground/40" aria-busy="true" title="Loading telemetry…">
+        …
+      </span>
+    );
+  return (
+    <span
+      className={cn('lowercase', field.status === 'error' ? 'text-neon-red/70' : 'text-muted-foreground/40')}
+      title={field.reason}
+      aria-label={field.reason}
+    >
+      {field.status === 'error' ? 'error' : emptyLabel}
+    </span>
+  );
+});
+
+const AgentCard = memo(function AgentCard({
+  agent,
+  lane,
+  derived,
+  telemetryLoading,
+  telemetryError,
+}: {
+  agent: Agent;
+  lane: ModelLane | null;
+  derived: DerivedTelemetry;
+  telemetryLoading: boolean;
+  telemetryError: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
   const { cardRef, onMouseEnter, onMouseLeave } = useHoverFocus(agent.id);
   // Atomic slice subscription: this card re-renders only when ITS telemetry
@@ -119,6 +179,34 @@ const AgentCard = memo(function AgentCard({ agent, lane }: { agent: Agent; lane:
     : '—';
   const halted = Boolean(agent.halted_at);
   const paused = Boolean(agent.paused) && !halted;
+
+  // Live session telemetry wins; historical task-derived facts back-fill;
+  // anything else is an explicit, explained empty/loading/error state.
+  const brainField: FieldState<string> = telemetry.model
+    ? { status: 'ready', value: shortModel(telemetry.model) }
+    : derived.model
+      ? { status: 'ready', value: shortModel(derived.model) }
+      : telemetryError
+        ? { status: 'error', reason: 'Task history failed to load — brain unknown' }
+        : telemetryLoading
+          ? { status: 'loading' }
+          : derived.completed === 0
+            ? { status: 'empty', reason: 'No completed tasks yet — brain appears after this agent’s first run' }
+            : { status: 'empty', reason: 'Completed tasks did not record a model name' };
+
+  const latMs = telemetry.lastLatencyMs ?? derived.spanMs;
+  const latField: FieldState<string> = latMs != null
+    ? { status: 'ready', value: formatLatency(latMs) }
+    : telemetryError
+      ? { status: 'error', reason: 'Task history failed to load — latency unknown' }
+      : telemetryLoading
+        ? { status: 'loading' }
+        : derived.completed === 0
+          ? { status: 'empty', reason: 'No completed tasks yet — latency appears after this agent’s first run' }
+          : { status: 'empty', reason: 'Completed tasks carry no usable timing data' };
+
+  const ops = Math.max(telemetry.opsCompleted, derived.completed);
+  const emptyLabel = derived.completed === 0 ? 'no ops' : 'n/a';
 
   return (
     <motion.div
@@ -198,21 +286,20 @@ const AgentCard = memo(function AgentCard({ agent, lane }: { agent: Agent; lane:
 
         {/* Telemetry strip — session compute diagnostics (BRAIN / LAT / OPS) */}
         <div className="flex items-center justify-between border-t border-border/40 px-2.5 py-1 font-terminal text-[9px] leading-none">
-          <span className="flex items-center gap-1">
+          <span className="flex items-center gap-1" title="Model that most recently ran this agent’s work (live session, else last completed task)">
             <span className="uppercase tracking-wider text-muted-foreground/30">Brain</span>
-            <span className={telemetry.model ? 'text-neon-cyan/80' : 'text-muted-foreground/40'}>
-              {telemetry.model ? shortModel(telemetry.model) : '—'}
-            </span>
+            <TelemetryValue field={brainField} readyCls="text-neon-cyan/80" emptyLabel={emptyLabel} />
           </span>
-          <span className="flex items-center gap-1">
+          <span className="flex items-center gap-1" title="Most recent operation latency (live busy→idle span, else last task’s created→updated span)">
             <span className="uppercase tracking-wider text-muted-foreground/30">Lat</span>
-            <span className={cn('tabular', telemetry.lastLatencyMs != null ? 'text-neon-green/80' : 'text-muted-foreground/40')}>
-              {formatLatency(telemetry.lastLatencyMs)}
-            </span>
+            <TelemetryValue field={latField} readyCls="tabular text-neon-green/80" emptyLabel={emptyLabel} />
           </span>
-          <span className="flex items-center gap-1">
+          <span
+            className="flex items-center gap-1"
+            title="Completed operations — live session count, backed by this agent’s completed-task history"
+          >
             <span className="uppercase tracking-wider text-muted-foreground/30">Ops</span>
-            <span className="tabular text-neon-purple/80">{telemetry.opsCompleted}</span>
+            <span className="tabular text-neon-purple/80">{ops}</span>
           </span>
         </div>
 
@@ -267,13 +354,122 @@ function AgentSkeleton() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Inactive seed group — dormant rows are collapsed out of the live list, not
+// mixed into it. Dismissal persists per browser; a restore chip stays visible
+// so hidden agents are never silently unreachable.
+// ---------------------------------------------------------------------------
+
+const INACTIVE_DISMISS_KEY = 'fleet.inactive.dismissed';
+
+function InactiveGroup({ agents }: { agents: Agent[] }) {
+  const [open, setOpen] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  // localStorage only after mount — SSR and first client paint must agree.
+  useEffect(() => {
+    setDismissed(localStorage.getItem(INACTIVE_DISMISS_KEY) === '1');
+    setHydrated(true);
+  }, []);
+
+  const dismiss = () => {
+    localStorage.setItem(INACTIVE_DISMISS_KEY, '1');
+    setDismissed(true);
+    setOpen(false);
+  };
+  const restore = () => {
+    localStorage.removeItem(INACTIVE_DISMISS_KEY);
+    setDismissed(false);
+  };
+
+  if (!hydrated || agents.length === 0) return null;
+
+  if (dismissed) {
+    return (
+      <button
+        onClick={restore}
+        className="w-full rounded-md border border-dashed border-border/60 px-2 py-1 text-left font-terminal text-[10px] text-muted-foreground/40 transition-colors hover:text-muted-foreground/70"
+        aria-label={`${agents.length} inactive agents hidden — show them`}
+      >
+        <EyeOff className="mr-1 inline size-2.5" aria-hidden /> {agents.length} inactive hidden — show
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-border/60 bg-surface-1/50">
+      <div className="flex items-center gap-2 px-2.5 py-1.5">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="flex flex-1 items-center gap-2 text-left"
+          title="Seed agents with no heartbeat, no task history, and 0 completed operations — auto-collapsed out of the live fleet"
+        >
+          <Archive className="size-3 shrink-0 text-muted-foreground/40" aria-hidden />
+          <span className="font-terminal text-[10px] uppercase tracking-wider text-muted-foreground/60">
+            Inactive ({agents.length})
+          </span>
+          <span className="hidden text-[9px] text-muted-foreground/35 sm:block">no heartbeat · 0 ops</span>
+          <ChevronDown
+            className={cn('ml-auto size-3 text-muted-foreground/40 transition-transform duration-200', open && 'rotate-180')}
+            aria-hidden
+          />
+        </button>
+        <button
+          onClick={dismiss}
+          aria-label="Dismiss inactive agents group"
+          title="Hide this group (a restore chip stays in its place)"
+          className="shrink-0 rounded p-0.5 text-muted-foreground/30 transition-colors hover:text-muted-foreground/70"
+        >
+          <X className="size-3" />
+        </button>
+      </div>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18, ease: 'easeInOut' }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-0.5 border-t border-border/40 px-2.5 py-1.5">
+              {agents.map((a) => {
+                const t = a.type ?? inferAgentType(a.name);
+                const Icon = TYPE_ICON[t];
+                return (
+                  <div key={a.id} className="flex items-center gap-2 py-0.5 font-terminal text-[10px] text-muted-foreground/50">
+                    <Icon className={cn('size-2.5 shrink-0 opacity-60', TYPE_COLOR[t])} aria-hidden />
+                    <span className="truncate">{a.name}</span>
+                    <span className="ml-auto shrink-0 text-[9px] text-muted-foreground/30">
+                      {a.last_heartbeat
+                        ? `last seen ${formatDistanceToNow(new Date(a.last_heartbeat), { addSuffix: true })}`
+                        : 'never active'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 interface AgentFleetProps {
   initialAgents?: Agent[];
+  /** Room filter — 'all' (Control Room) shows the whole fleet; a room scope
+   *  keeps only that room's agents (trading membership is earned via
+   *  trading-domain task history — see lib/rooms/scope.ts). */
+  scope?: RoomScope;
 }
 
 /** Passive cache reads — TaskFeed / MetricsBar own the realtime channels. */
-function useModelLanes(): { lanes: Map<string, ModelLane>; tasks: Task[] } {
-  const { data: tasks = [] } = useQuery<Task[]>({
+function useModelLanes(): { lanes: Map<string, ModelLane>; tasks: Task[]; isLoading: boolean; isError: boolean } {
+  const { data: tasks = [], isLoading, isError } = useQuery<Task[]>({
     queryKey: TASKS_KEY,
     queryFn: async () => {
       const { data, error } = await createClient()
@@ -302,12 +498,12 @@ function useModelLanes(): { lanes: Map<string, ModelLane>; tasks: Task[] } {
     if (t.status !== 'running' || !t.agent_id || !t.model) continue;
     lanes.set(t.agent_id, { model: t.model, transition: transitionByTask.get(t.id) ?? 'SEAT' });
   }
-  return { lanes, tasks };
+  return { lanes, tasks, isLoading, isError };
 }
 
-export function AgentFleet({ initialAgents = [] }: AgentFleetProps) {
+export function AgentFleet({ initialAgents = [], scope = 'all' }: AgentFleetProps) {
   const { data: rawAgents = [], isLoading } = useAgentsQuery(initialAgents);
-  const { lanes, tasks } = useModelLanes();
+  const { lanes, tasks, isLoading: tasksLoading, isError: tasksError } = useModelLanes();
   const snapshotAt = useSnapshotAt();
 
   // ---- Telemetry producers -------------------------------------------------
@@ -330,24 +526,13 @@ export function AgentFleet({ initialAgents = [] }: AgentFleetProps) {
     prevAgentStatusRef.current = new Map(rawAgents.map((a) => [a.id, a.status]));
   }, [rawAgents]);
 
-  // Op counter + model badge from task completions; first pass seeds a
-  // historical baseline (model + updated_at−created_at fallback latency)
-  // without inflating the session counter.
+  // Op counter + model badge from live task completions this session.
   const prevTaskStatusRef = useRef<Map<string, string> | null>(null);
   useEffect(() => {
     if (tasks.length === 0) return;
     const store = useAgentTelemetryStore.getState();
     const prev = prevTaskStatusRef.current;
-    if (prev === null) {
-      const seeded = new Set<string>();
-      for (const t of tasks) {
-        // hook returns newest-first: first completed task per agent wins
-        if (t.status !== 'completed' || !t.agent_id || seeded.has(t.agent_id)) continue;
-        seeded.add(t.agent_id);
-        const span = t.updated_at ? Date.parse(t.updated_at) - Date.parse(t.created_at) : NaN;
-        store.seed(t.agent_id, t.model ?? null, Number.isFinite(span) && span > 0 ? span : null);
-      }
-    } else {
+    if (prev !== null) {
       for (const t of tasks) {
         const was = prev.get(t.id);
         if (was && was !== 'completed' && t.status === 'completed' && t.agent_id) {
@@ -358,12 +543,67 @@ export function AgentFleet({ initialAgents = [] }: AgentFleetProps) {
     prevTaskStatusRef.current = new Map(tasks.map((t) => [t.id, t.status]));
   }, [tasks]);
 
+  // Brain fallback beyond the 24h metrics window: the newest USAGE metric per
+  // agent records the model that actually ran the work even when tasks.model
+  // was never written (the common case for worker-run tasks).
+  const { data: usageMetrics = [] } = useQuery<Metric[]>({
+    queryKey: ['metrics', 'latest-usage'],
+    queryFn: async () => {
+      const { data, error } = await createClient()
+        .from('metrics')
+        .select('*')
+        .eq('event', 'USAGE')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 60_000,
+  });
+
+  // Historical per-agent facts from the task + metric tables: brain = model of
+  // the newest completed task (else newest USAGE metric), latency = the task's
+  // created→updated span, plus a completed count. This is what the BRAIN/LAT
+  // cells fall back to, so agents with real history never show an
+  // unexplained dash.
+  const derivedByAgent = useMemo(() => {
+    const map = new Map<string, DerivedTelemetry>();
+    for (const t of tasks) {
+      if (t.status !== 'completed' || !t.agent_id) continue;
+      const entry = map.get(t.agent_id) ?? { ...EMPTY_DERIVED };
+      entry.completed += 1;
+      if (entry.model === null && t.model) entry.model = t.model; // newest-first
+      if (entry.spanMs === null && t.updated_at) {
+        const span = parseUtcMs(t.updated_at) - parseUtcMs(t.created_at);
+        if (Number.isFinite(span) && span > 0) entry.spanMs = span;
+      }
+      map.set(t.agent_id, entry);
+    }
+    for (const m of usageMetrics) {
+      if (!m.agent_id || !m.model) continue;
+      const entry = map.get(m.agent_id);
+      if (entry && entry.model === null) entry.model = m.model; // newest-first
+    }
+    return map;
+  }, [tasks, usageMetrics]);
+
   const historical = snapshotAt !== null;
-  const agents = historical
+  const timeFiltered = historical
     ? rawAgents.filter((a) => new Date(a.created_at).getTime() <= snapshotAt)
     : rawAgents;
 
-  const counts = agents.reduce((acc, a) => {
+  const visibleAgents = useMemo(() => {
+    if (scope === 'all') return timeFiltered;
+    const tradingIds = tradingAgentIdsFromTasks(tasks);
+    return timeFiltered.filter((a) => agentInScope(a, scope, tradingIds));
+  }, [timeFiltered, scope, tasks]);
+
+  const { active, inactive } = useMemo(
+    () => partitionFleet(visibleAgents, (id) => (derivedByAgent.get(id)?.completed ?? 0) > 0),
+    [visibleAgents, derivedByAgent]
+  );
+
+  const counts = active.reduce((acc, a) => {
     acc[a.status] = (acc[a.status] ?? 0) + 1;
     return acc;
   }, {} as Record<string, number>);
@@ -374,7 +614,12 @@ export function AgentFleet({ initialAgents = [] }: AgentFleetProps) {
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Fleet</span>
           {!isLoading && (
-            <span className="font-terminal text-[10px] text-muted-foreground/40">({agents.length})</span>
+            <span className="font-terminal text-[10px] text-muted-foreground/40" title="Active agents (inactive seeds are grouped below)">
+              ({active.length})
+            </span>
+          )}
+          {!isLoading && inactive.length > 0 && (
+            <span className="font-terminal text-[10px] text-muted-foreground/25">+{inactive.length} inactive</span>
           )}
         </div>
         {!isLoading && (
@@ -390,12 +635,28 @@ export function AgentFleet({ initialAgents = [] }: AgentFleetProps) {
         <div className="space-y-1.5 pr-0.5">
           {isLoading ? (
             Array.from({ length: 4 }).map((_, i) => <AgentSkeleton key={i} />)
+          ) : active.length === 0 && inactive.length === 0 ? (
+            <div className="flex h-32 items-center justify-center">
+              <span className="font-terminal text-xs text-muted-foreground/30">
+                {scope === 'all' ? 'No agents registered' : 'No agents assigned to this room yet'}
+              </span>
+            </div>
           ) : (
-            <AnimatePresence mode="popLayout" initial={false}>
-              {agents.map((agent) => (
-                <AgentCard key={agent.id} agent={agent} lane={lanes.get(agent.id) ?? null} />
-              ))}
-            </AnimatePresence>
+            <>
+              <AnimatePresence mode="popLayout" initial={false}>
+                {active.map((agent) => (
+                  <AgentCard
+                    key={agent.id}
+                    agent={agent}
+                    lane={lanes.get(agent.id) ?? null}
+                    derived={derivedByAgent.get(agent.id) ?? EMPTY_DERIVED}
+                    telemetryLoading={tasksLoading}
+                    telemetryError={tasksError}
+                  />
+                ))}
+              </AnimatePresence>
+              <InactiveGroup agents={inactive} />
+            </>
           )}
         </div>
       </div>

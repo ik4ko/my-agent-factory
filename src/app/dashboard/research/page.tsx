@@ -1,12 +1,15 @@
 import { WorkspaceScaffold } from '@/components/dashboard/workspace-scaffold';
+import { ResearchRoomClient } from '@/components/dashboard/research-room-client';
 
 export default function ResearchWorkspace() {
   return (
     <WorkspaceScaffold
-      title="Research"
+      title="Research Room"
       icon="search"
       accent="text-neon-purple"
-      blurb="Deep research and reconnaissance, led by Hermes. Note: the agents currently reason from trained knowledge, not live web — wiring a real web-search tool is the next upgrade here. Ask Claude in Chat to send a research task to Hermes."
-    />
+      blurb="Deep research and reconnaissance, led by Hermes with Scout assisting. Findings are grounded in trained knowledge and cached news events — the badge below tracks exactly what sources are in play."
+    >
+      <ResearchRoomClient />
+    </WorkspaceScaffold>
   );
 }

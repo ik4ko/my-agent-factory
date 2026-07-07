@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono, Space_Grotesk } from 'next/font/google';
 import { QueryProvider } from '@/components/providers/query-provider';
 import { ServiceWorkerRegister } from '@/components/pwa/sw-register';
+import { TitleBar } from '@/components/desktop/TitleBar';
 import './globals.css';
 
 const inter = Inter({
@@ -62,11 +63,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`dark ${inter.variable} ${mono.variable} ${display.variable}`}
+      className={`dark h-full ${inter.variable} ${mono.variable} ${display.variable}`}
       suppressHydrationWarning
     >
-      <body className="antialiased">
-        <QueryProvider>{children}</QueryProvider>
+      <body className="h-full antialiased">
+        <QueryProvider>
+          {/* Desktop-shell flex column: TitleBar (h-8, Tauri-only — renders
+              null in browsers) pinned to the viewport ceiling, everything
+              else in a min-h-0 flex-1 well. Pages size with h-full/min-h-full
+              (never h-dvh/100vh) so content can't bleed under the native
+              drag region in the frameless shell. */}
+          <div className="flex h-dvh flex-col overflow-hidden bg-background">
+            <TitleBar />
+            <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+          </div>
+        </QueryProvider>
         <ServiceWorkerRegister />
       </body>
     </html>

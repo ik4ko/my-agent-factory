@@ -37,7 +37,8 @@ export function EmergencyStop() {
       <button
         onClick={openModal}
         suppressHydrationWarning={true}
-        title="Emergency Stop — halt all active agents & tasks"
+        title="Emergency Stop — halts all active agents & tasks (agent orchestration only; does not and cannot touch a brokerage)"
+        aria-label="Emergency stop: halt all active agents and tasks. Agent orchestration only — no live trading is connected."
         className={cn(
           'flex items-center gap-1.5 rounded-md border px-2 py-1 font-terminal text-[10px] font-bold uppercase tracking-wider',
           'border-neon-red/40 bg-neon-red/10 text-neon-red transition-colors',

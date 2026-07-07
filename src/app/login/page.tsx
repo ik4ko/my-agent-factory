@@ -32,7 +32,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background p-4">
+    <main className="flex h-full min-h-0 items-center justify-center overflow-y-auto bg-background p-4">
       <form
         onSubmit={onSubmit}
         className="w-full max-w-sm rounded-lg border border-border bg-card p-6 shadow-lg"

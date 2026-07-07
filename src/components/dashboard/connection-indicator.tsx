@@ -13,7 +13,10 @@ const PRESENTATION: Record<
   OverallStatus,
   { label: string; dot: string; text: string; pulse: boolean; icon: 'wifi' | 'off' | 'spin' }
 > = {
-  connected:    { label: 'LIVE',         dot: 'bg-neon-green',  text: 'text-neon-green',  pulse: true,  icon: 'wifi' },
+  // "SYNC" (not "LIVE"): this badge reports the realtime DATABASE link only.
+  // It must never read as a live-market/trading indicator — the market-data
+  // state is owned by the SimulationBanner.
+  connected:    { label: 'SYNC',         dot: 'bg-neon-green',  text: 'text-neon-green',  pulse: true,  icon: 'wifi' },
   connecting:   { label: 'CONNECTING',   dot: 'bg-neon-cyan',   text: 'text-neon-cyan',   pulse: true,  icon: 'spin' },
   reconnecting: { label: 'RECONNECTING', dot: 'bg-neon-orange', text: 'text-neon-orange', pulse: true,  icon: 'spin' },
   offline:      { label: 'OFFLINE',      dot: 'bg-neon-red',    text: 'text-neon-red',    pulse: false, icon: 'off'  },
@@ -71,7 +74,8 @@ export function ConnectionIndicator() {
       className={cn('flex items-center gap-1.5 font-terminal text-[10px]', p.text)}
       role="status"
       aria-live="polite"
-      title={`Realtime: ${p.label.toLowerCase()}`}
+      title={`Realtime database link: ${p.label.toLowerCase()} — dashboard sync status only, not a market-data or trading indicator`}
+      aria-label={`Realtime database link ${p.label.toLowerCase()}`}
     >
       {p.icon === 'wifi' && <Wifi className="size-3" />}
       {p.icon === 'off' && <WifiOff className="size-3" />}

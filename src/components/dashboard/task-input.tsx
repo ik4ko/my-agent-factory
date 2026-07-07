@@ -447,15 +447,16 @@ export function TaskInput() {
         />
 
         {voiceSupported && (
-          <div
-            role="button"
-            tabIndex={0}
+          /* ONE voice-arm control: the label, state readout, waveform, and mic
+             glyph are a single button with a single accessible name — never two
+             overlapping arm targets with divergent labels. */
+          <button
+            type="button"
             onClick={onToggleVoice}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') onToggleVoice(e as unknown as React.MouseEvent);
-            }}
             suppressHydrationWarning={true}
-            title={armed ? 'Disarm voice' : 'Arm Hey Hermes voice'}
+            aria-pressed={armed}
+            aria-label={armed ? 'Disarm “Hey Hermes” voice wake' : 'Arm “Hey Hermes” voice wake'}
+            title={armed ? 'Disarm “Hey Hermes” voice wake' : 'Arm “Hey Hermes” voice wake'}
             className="relative z-50 flex shrink-0 cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 pointer-events-auto hover:bg-white/[0.03]"
           >
             <span
@@ -471,26 +472,23 @@ export function TaskInput() {
               {VOICE_LABEL[voiceState]}
             </span>
 
-            <span suppressHydrationWarning={true} className="flex items-center">
+            <span suppressHydrationWarning={true} className="flex items-center" aria-hidden>
               {voiceState === 'idle' && <DotMatrix />}
               {voiceState === 'listening' && <SoundWaveform />}
               {voiceState === 'processing' && <ProcessingRing />}
             </span>
 
-            <button
-              type="button"
-              onClick={onToggleVoice}
+            <span
               suppressHydrationWarning={true}
-              tabIndex={-1}
-              aria-label={armed ? 'Disarm voice' : 'Arm voice'}
+              aria-hidden
               className={cn(
-                'pointer-events-auto shrink-0 rounded p-0.5 transition-colors duration-150',
-                armed ? 'text-amber-400 hover:text-amber-300' : 'text-emerald-500/70 hover:text-emerald-400'
+                'shrink-0 rounded p-0.5 transition-colors duration-150',
+                armed ? 'text-amber-400' : 'text-emerald-500/70'
               )}
             >
               {armed ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
-            </button>
-          </div>
+            </span>
+          </button>
         )}
 
         <button

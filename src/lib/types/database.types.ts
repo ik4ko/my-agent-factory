@@ -84,6 +84,9 @@ export type Memory = {
   key: string;
   value: Record<string, unknown>;
   updated_at: string;
+  // Additive fields (present in DB; optional here to avoid churn on existing call sites).
+  source?: string | null;
+  tags?: string[] | null;
 };
 
 // Return shape of the public.agent_emergency_stop() RPC.

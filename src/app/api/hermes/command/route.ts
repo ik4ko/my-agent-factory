@@ -8,8 +8,15 @@ const CommandSchema = z.object({
   command: z.string().min(1, 'Command cannot be empty').max(1000, 'Command too long'),
   /** Client-side submit timestamp (ISO 8601) — used for transport-latency telemetry. */
   issuedAt: z.string().datetime({ offset: true }).optional(),
-  /** Dispatch contract: Hermes only routes to idle agents; anything else is rejected. */
-  target: z.object({ status: z.literal('idle') }).optional(),
+  /** Dispatch contract: Hermes only routes to idle agents; anything else is
+   *  rejected. `agentType` pins routing to a room's agent type (set by the
+   *  room composers); omitted = intent-parser routing. */
+  target: z
+    .object({
+      status: z.literal('idle'),
+      agentType: z.enum(['generic', 'coder', 'researcher', 'browser', 'planner']).optional(),
+    })
+    .optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -37,7 +44,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const result = await runHermesCommand(parsed.data.command);
+  const result = await runHermesCommand(parsed.data.command, {
+    pinnedAgentType: parsed.data.target?.agentType,
+  });
 
   // Fire the worker agent after the response is sent to the client.
   // `after()` extends the serverless function lifetime beyond the response flush.

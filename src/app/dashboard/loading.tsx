@@ -27,7 +27,7 @@ function PanelSkeleton({ className }: { className?: string }) {
 
 export default function DashboardLoading() {
   return (
-    <div className="flex h-screen flex-col bg-background overflow-hidden">
+    <div className="flex h-full flex-col bg-background overflow-hidden">
       {/* TopBar skeleton */}
       <div className="flex h-10 shrink-0 items-center gap-3 border-b border-border px-4">
         <Skeleton className="h-3 w-28" />

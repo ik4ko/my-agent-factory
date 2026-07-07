@@ -18,6 +18,8 @@
     "executor-agent": "tsx scripts/executor-agent.mts",
     "demo-seed": "tsx scripts/demo-seed.mts",
     "verify-safety": "tsx scripts/verify-safety.mts",
+    "research-sync": "tsx scripts/research-sync.mts",
+    "sim-report": "tsx scripts/simulation-report.mts",
     "test:watch": "jest --config jest.config.js --watch"
   },
   "dependencies": {
@@ -53,6 +55,7 @@
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
     "@tanstack/react-query": "^5.101.2",
+    "@tauri-apps/api": "^2.11.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
@@ -62,6 +65,7 @@
     "framer-motion": "^12.40.0",
     "genkit": "^1.28.0",
     "gun": "^0.2020.1239",
+    "lightweight-charts": "^5.2.0",
     "lucide-react": "^0.475.0",
     "next": "^16.2.1",
     "next-themes": "^0.4.4",
@@ -88,6 +92,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
     "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.1",

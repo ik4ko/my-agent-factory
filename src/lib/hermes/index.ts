@@ -3,9 +3,16 @@ import { parseIntent } from './intent-parser';
 import { hermesLog } from './hermes-logger';
 import { readRecentMemory, writeMemory } from './memory-service';
 import { findIdleAgent, createTask, assignAgentToTask } from './task-router';
+import type { AgentType } from '@/lib/types/database.types';
 import type { HermesResult } from './types';
 
-export async function runHermesCommand(command: string): Promise<HermesResult> {
+export interface HermesCommandOptions {
+  /** Room composers pin the agent type (Coding → coder, Research →
+   *  researcher/generic) instead of letting the intent parser route. */
+  pinnedAgentType?: AgentType;
+}
+
+export async function runHermesCommand(command: string, options: HermesCommandOptions = {}): Promise<HermesResult> {
   const requestId = randomUUID();
 
   await hermesLog('info', `Command received [${requestId.slice(0, 8)}]: "${command}"`);
@@ -14,6 +21,10 @@ export async function runHermesCommand(command: string): Promise<HermesResult> {
   let intent;
   try {
     intent = await parseIntent(command);
+    if (options.pinnedAgentType && intent.agentType !== options.pinnedAgentType) {
+      await hermesLog('debug', `Intent type ${intent.agentType} overridden → ${options.pinnedAgentType} (room-pinned dispatch)`);
+      intent = { ...intent, agentType: options.pinnedAgentType };
+    }
     await hermesLog('debug', `Intent: type=${intent.agentType} priority=${intent.priority} via=${intent.confidence}`);
   } catch (err) {
     await hermesLog('error', `Intent parsing failed: ${String(err)}`);

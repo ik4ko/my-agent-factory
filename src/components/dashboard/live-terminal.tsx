@@ -2,7 +2,13 @@
 
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Terminal, ChevronsDown } from 'lucide-react';
+import { Terminal, ChevronsDown, ShieldAlert } from 'lucide-react';
+import {
+  HEARTBEAT_PATTERN,
+  levelToSeverity,
+  type TerminalSeverity,
+} from '@/lib/types/control-room.types';
+import { logInScope, scopeAgentIds, tradingAgentIdsFromTasks, type RoomScope } from '@/lib/rooms/scope';
 import { useLogsQuery } from '@/hooks/use-logs-query';
 import { TASKS_KEY } from '@/hooks/use-tasks-query';
 import { AGENTS_KEY } from '@/hooks/use-agents-query';
@@ -48,6 +54,35 @@ const CHANNEL_CLS: Record<FeedChannel, string> = {
 };
 
 const STAGED_ORDERS_CHANNEL = 'staged-orders-stream';
+
+/** Feed-channel → filter severity. COGNITION token streams are diagnostics
+ *  noise (debug-class); CRITICAL always rides the error lane. */
+const CHANNEL_SEVERITY: Record<FeedChannel, TerminalSeverity> = {
+  SYSTEM: 'info',
+  NETWORK: 'info',
+  DISPATCH: 'info',
+  VOICE: 'info',
+  COGNITION: 'debug',
+  STRATEGY: 'info',
+  CRITICAL: 'error',
+};
+
+const SEVERITY_ORDER: TerminalSeverity[] = ['error', 'warn', 'info', 'debug'];
+const SEVERITY_CHIP: Record<TerminalSeverity, { label: string; on: string }> = {
+  error: { label: 'ERR', on: 'border-neon-red/50 bg-neon-red/10 text-neon-red' },
+  warn:  { label: 'WRN', on: 'border-neon-orange/50 bg-neon-orange/10 text-neon-orange' },
+  info:  { label: 'INF', on: 'border-border bg-surface-2 text-foreground/70' },
+  debug: { label: 'DBG', on: 'border-border bg-surface-2 text-muted-foreground/60' },
+};
+
+/** Default view: real events only — heartbeat proof-of-life lines and debug
+ *  diagnostics are hidden until the operator opts in via the DBG chip. */
+const DEFAULT_FILTER: Record<TerminalSeverity, boolean> = {
+  error: true,
+  warn: true,
+  info: true,
+  debug: false,
+};
 
 function hhmmss(iso: string): string {
   const t = new Date(iso);
@@ -100,6 +135,9 @@ const StreamBlock = memo(function StreamBlock({ task }: { task: Task }) {
 
 interface LiveTerminalProps {
   initialLogs?: Log[];
+  /** Room filter for persisted DB logs. Session diagnostics (the client-side
+   *  feed) stay visible in every scope — they are low-volume and local. */
+  scope?: RoomScope;
 }
 
 /**
@@ -109,8 +147,8 @@ interface LiveTerminalProps {
  * TaskFeed's subscription keeps it hot). Auto-scrolls unless the operator
  * scrolls up; a jump chip restores tailing.
  */
-export function LiveTerminal({ initialLogs = [] }: LiveTerminalProps) {
-  const { data: logs = [] } = useLogsQuery(initialLogs);
+export function LiveTerminal({ initialLogs = [], scope = 'all' }: LiveTerminalProps) {
+  const { data: allLogs = [] } = useLogsQuery(initialLogs);
 
   // Passive cache read — no second realtime channel for tasks.
   const { data: tasks = [] } = useQuery<Task[]>({
@@ -140,6 +178,14 @@ export function LiveTerminal({ initialLogs = [] }: LiveTerminalProps) {
     },
     staleTime: 30_000,
   });
+
+  // Room scoping: persisted logs filter by agent membership + domain
+  // patterns; the client diagnostics feed stays (session-local, low volume).
+  const logs = useMemo(() => {
+    if (scope === 'all') return allLogs;
+    const ids = scopeAgentIds(agents, scope, tradingAgentIdsFromTasks(tasks));
+    return allLogs.filter((l) => logInScope(l, scope, ids));
+  }, [allLogs, scope, agents, tasks]);
 
   const streaming = useMemo(
     () =>
@@ -269,18 +315,55 @@ export function LiveTerminal({ initialLogs = [] }: LiveTerminalProps) {
 
   // Merge persisted DB logs with client diagnostics, oldest-first by
   // timestamp for terminal reading order (logs hook returns newest-first).
+  // Every line carries a filter severity; heartbeat proof-of-life lines are
+  // reclassified DEBUG regardless of stored level so they can never bury a
+  // kill-switch or auto-halt event.
   const feed = useSystemFeed((s) => s.entries);
   const lines = useMemo(() => {
     const merged: Array<
-      | { kind: 'db'; key: string; ts: number; log: Log }
-      | { kind: 'sys'; key: string; ts: number; entry: SystemFeedEntry }
+      | { kind: 'db'; key: string; ts: number; severity: TerminalSeverity; log: Log }
+      | { kind: 'sys'; key: string; ts: number; severity: TerminalSeverity; entry: SystemFeedEntry }
     > = [
-      ...logs.map((log) => ({ kind: 'db' as const, key: log.id, ts: Date.parse(log.timestamp), log })),
-      ...feed.map((entry) => ({ kind: 'sys' as const, key: entry.id, ts: Date.parse(entry.timestamp), entry })),
+      ...logs.map((log) => {
+        const isHeartbeat = log.level === 'info' && HEARTBEAT_PATTERN.test(log.message);
+        return {
+          kind: 'db' as const,
+          key: log.id,
+          ts: Date.parse(log.timestamp),
+          severity: isHeartbeat ? ('debug' as const) : levelToSeverity(log.level),
+          log,
+        };
+      }),
+      ...feed.map((entry) => ({
+        kind: 'sys' as const,
+        key: entry.id,
+        ts: Date.parse(entry.timestamp),
+        severity: CHANNEL_SEVERITY[entry.channel],
+        entry,
+      })),
     ];
     merged.sort((a, b) => a.ts - b.ts);
     return merged;
   }, [logs, feed]);
+
+  const [filter, setFilter] = useState<Record<TerminalSeverity, boolean>>(DEFAULT_FILTER);
+  const visible = useMemo(() => lines.filter((l) => filter[l.severity]), [lines, filter]);
+  const hiddenCount = lines.length - visible.length;
+  const severityCounts = useMemo(() => {
+    const counts: Record<TerminalSeverity, number> = { error: 0, warn: 0, info: 0, debug: 0 };
+    for (const l of lines) counts[l.severity] += 1;
+    return counts;
+  }, [lines]);
+
+  // Persistent alert strip: the newest ERROR-level event (kill switch,
+  // AUTO-HALT, …) stays pinned above the stream no matter what the filters
+  // hide or how far the log has scrolled.
+  const latestError = useMemo(() => {
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (lines[i].severity === 'error') return lines[i];
+    }
+    return null;
+  }, [lines]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pinned, setPinned] = useState(true);
@@ -289,7 +372,7 @@ export function LiveTerminal({ initialLogs = [] }: LiveTerminalProps) {
     if (pinned && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [lines, streaming, pinned]);
+  }, [visible, streaming, pinned]);
 
   const onScroll = () => {
     const el = scrollRef.current;
@@ -305,23 +388,73 @@ export function LiveTerminal({ initialLogs = [] }: LiveTerminalProps) {
           <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Live Terminal</span>
         </div>
         <div className="flex items-center gap-2 font-terminal text-[10px]">
+          {/* severity filter — DBG (incl. heartbeat proof-of-life) off by default */}
+          <div className="flex items-center gap-1" role="group" aria-label="Log severity filter">
+            {SEVERITY_ORDER.map((sev) => {
+              const chip = SEVERITY_CHIP[sev];
+              const on = filter[sev];
+              return (
+                <button
+                  key={sev}
+                  onClick={() => setFilter((f) => ({ ...f, [sev]: !f[sev] }))}
+                  aria-pressed={on}
+                  title={
+                    sev === 'debug'
+                      ? `Debug diagnostics + heartbeat proof-of-life lines (${severityCounts.debug}). Hidden by default so real events stay visible.`
+                      : `${chip.label} lines: ${severityCounts[sev]}`
+                  }
+                  className={cn(
+                    'rounded border px-1 py-0.5 text-[9px] font-bold tracking-wider transition-colors',
+                    on ? chip.on : 'border-border/40 text-muted-foreground/30 hover:text-muted-foreground/60'
+                  )}
+                >
+                  {chip.label}&nbsp;{severityCounts[sev]}
+                </button>
+              );
+            })}
+          </div>
           {streaming.length > 0 && (
             <span className="text-primary animate-glow-pulse">{streaming.length} streaming</span>
           )}
-          <span className="text-muted-foreground/40">{lines.length} lines</span>
+          <span className="text-muted-foreground/40" title={hiddenCount > 0 ? `${hiddenCount} lines hidden by the severity filter` : undefined}>
+            {visible.length} lines{hiddenCount > 0 ? ` · ${hiddenCount} hidden` : ''}
+          </span>
         </div>
       </div>
+
+      {/* Pinned risk-event strip — the newest ERROR survives every filter */}
+      {latestError && (
+        <div
+          role="alert"
+          className="flex shrink-0 items-center gap-2 rounded-md border border-neon-red/40 bg-neon-red/10 px-2.5 py-1.5 font-terminal text-[10px] text-neon-red"
+        >
+          <ShieldAlert className="size-3 shrink-0" aria-hidden />
+          <span className="font-bold uppercase tracking-wider shrink-0">
+            {severityCounts.error} error{severityCounts.error === 1 ? '' : 's'}
+          </span>
+          <span className="truncate text-neon-red/90">
+            {latestError.kind === 'db' ? latestError.log.message : latestError.entry.message}
+          </span>
+          <span className="ml-auto shrink-0 tabular text-neon-red/60">
+            {hhmmss(latestError.kind === 'db' ? latestError.log.timestamp : latestError.entry.timestamp)}
+          </span>
+        </div>
+      )}
 
       <div
         ref={scrollRef}
         onScroll={onScroll}
         className="flex-1 overflow-y-auto rounded-lg border border-border bg-background/80 p-2.5 font-terminal text-[11px]"
       >
-        {lines.length === 0 && streaming.length === 0 ? (
-          <p className="text-muted-foreground/40">— no activity yet —</p>
+        {visible.length === 0 && streaming.length === 0 ? (
+          <p className="text-muted-foreground/40">
+            {lines.length > 0
+              ? `— ${lines.length} lines hidden by the severity filter —`
+              : '— no activity yet —'}
+          </p>
         ) : (
           <>
-            {lines.map((row) =>
+            {visible.map((row) =>
               row.kind === 'db' ? (
                 <LogLine key={row.key} log={row.log} />
               ) : (

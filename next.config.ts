@@ -13,7 +13,11 @@ const cspDirectives = [
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.resend.com https://hooks.slack.com",
+  // ws://localhost:8765 / ws://127.0.0.1:8765 — local agent socket (core/ipc_bridge.py)
+  // feeding the Trading Room chart; loopback-only, unreachable from deployed origins.
+  // ipc: / http://ipc.localhost — Tauri v2 webview IPC (window controls, drag region);
+  // inert outside the desktop shell.
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.resend.com https://hooks.slack.com ws://localhost:8765 ws://127.0.0.1:8765 ipc: http://ipc.localhost",
   "font-src 'self'",
   "frame-ancestors 'none'",
   "form-action 'self'",
@@ -29,6 +33,11 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // NO `output: 'export'` — this app is full-stack Next (API routes under
+  // src/app/api/*, auth middleware/proxy, cookie-based force-dynamic SSR,
+  // server actions). A static export fails the build and would strip auth,
+  // dispatch, and trading endpoints. The Tauri shell therefore points at the
+  // SERVED app (see src-tauri/tauri.conf.json) instead of a ../out dist.
   async headers() {
     return [
       {
@@ -43,6 +52,8 @@ const nextConfig: NextConfig = {
     },
   },
   images: {
+    // Webview shell renders images directly; skip the optimizer pipeline.
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',

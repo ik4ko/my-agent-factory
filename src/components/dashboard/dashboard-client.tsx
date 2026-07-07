@@ -3,10 +3,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { AgentFleet } from './agent-fleet';
+import { AgentChat } from './agent-chat';
+import { StagedOrders } from './staged-orders';
 import { TaskFeed } from './task-feed';
 import { LiveTerminal } from './live-terminal';
-import { StatsBar } from './stats-bar';
 import { MetricsBar } from './metrics-bar';
+import { RoomStatusStrip } from './room-status-strip';
 import { CommandPalette } from './command-palette';
 import { TaskInput } from './task-input';
 import { MemoryViewer } from './memory-viewer';
@@ -88,22 +90,24 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
       <CommandConsole />
 
-      {/* Stats bar - live fleet health summary */}
-      <WidgetErrorBoundary name="Stats">
-        <StatsBar />
-      </WidgetErrorBoundary>
-
-      {/* Ecosystem metrics — 24h token spend, est cost, Fable cap meter */}
+      {/* Single coherent metrics strip — fleet, tasks, log rate, spend, Fable cap */}
       <WidgetErrorBoundary name="Metrics">
         <MetricsBar />
       </WidgetErrorBoundary>
 
-      {/* Resizable three-panel layout */}
+      {/* Cross-room overview — one status chip per room; the full trading
+          chrome (simulation banner, risk panel) lives in /dashboard/trading */}
+      <WidgetErrorBoundary name="Rooms">
+        <RoomStatusStrip />
+      </WidgetErrorBoundary>
+
+      {/* Command-horizon grid: every orchestration surface on one screen.
+          Top row: Fleet | Tasks | unified 9-agent orchestration chat.
+          Bottom row: live terminal stream | staged-order approvals + memory. */}
       <PanelGroup direction="vertical" className="flex-1 overflow-hidden">
-        {/* Top row: Agent Fleet + Task Feed */}
         <Panel defaultSize={55} minSize={25}>
           <PanelGroup direction="horizontal" className="h-full">
-            <Panel defaultSize={42} minSize={22}>
+            <Panel defaultSize={30} minSize={18}>
               <div className="h-full overflow-hidden border-r border-border p-3">
                 <WidgetErrorBoundary name="Agent Fleet">
                   <AgentFleet initialAgents={initialAgents} />
@@ -113,10 +117,20 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
 
             <HResizeHandle />
 
-            <Panel defaultSize={58} minSize={28}>
+            <Panel defaultSize={38} minSize={22}>
               <div className="h-full overflow-hidden p-3">
                 <WidgetErrorBoundary name="Task Feed">
                   <TaskFeed initialTasks={initialTasks} />
+                </WidgetErrorBoundary>
+              </div>
+            </Panel>
+
+            <HResizeHandle />
+
+            <Panel defaultSize={32} minSize={22}>
+              <div className="h-full overflow-hidden border-l border-border p-3">
+                <WidgetErrorBoundary name="Orchestrate">
+                  <AgentChat variant="panel" />
                 </WidgetErrorBoundary>
               </div>
             </Panel>
@@ -125,7 +139,6 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
 
         <VResizeHandle />
 
-        {/* Bottom row: Log Terminal + Memory Viewer */}
         <Panel defaultSize={45} minSize={20}>
           <PanelGroup direction="horizontal" className="h-full">
             <Panel defaultSize={65} minSize={35}>
@@ -139,23 +152,22 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
             <HResizeHandle />
 
             <Panel defaultSize={35} minSize={22}>
-              <div className="h-full overflow-hidden border-t border-l border-border p-3">
-                <WidgetErrorBoundary name="Memory">
-                  <MemoryViewer />
+              <div className="flex h-full flex-col gap-3 overflow-hidden border-t border-l border-border p-3">
+                {/* Human trade authority on the horizon — renders nothing while
+                    the approval queue is empty */}
+                <WidgetErrorBoundary name="Staged Orders">
+                  <StagedOrders />
                 </WidgetErrorBoundary>
+                <div className="min-h-0 flex-1">
+                  <WidgetErrorBoundary name="Memory">
+                    <MemoryViewer />
+                  </WidgetErrorBoundary>
+                </div>
               </div>
             </Panel>
           </PanelGroup>
         </Panel>
       </PanelGroup>
-
-      {/* Realtime degraded-state toast (overlay, non-shifting) */}
-      <ConnectionBanner />
-
-      {/* Single terminal command dock — queues a pending task (lane-router flow) */}
-      
-      {/* Realtime degraded-state toast (overlay, non-shifting) */}
-      <ConnectionBanner />
 
       {/* Realtime degraded-state toast (overlay, non-shifting) */}
       <ConnectionBanner />

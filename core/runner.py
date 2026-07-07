@@ -24,10 +24,12 @@ class RuntimeLoop:
         self._matrix = None
         self._router = None
         self._room_event_cls = None
+        self._market_feed_task: asyncio.Task[None] | None = None
 
     async def run_forever(self) -> None:
         self._install_signals()
         self._load_runtime_bridges()
+        self._start_market_feed()
 
         try:
             while not self._stop.is_set():
@@ -42,6 +44,8 @@ class RuntimeLoop:
 
                 await asyncio.sleep(max(0, self.tick_s - (time.perf_counter() - started)))
         finally:
+            if self._market_feed_task is not None:
+                self._market_feed_task.cancel()
             self.store.close()
 
     def stop(self) -> None:
@@ -153,6 +157,16 @@ class RuntimeLoop:
         except Exception:
             self._room_event_cls = None
             self._router = None
+
+    def _start_market_feed(self) -> None:
+        # Alpaca IEX ticks (mock fallback without keys) share this process's
+        # ipc_bridge socket — only one process can own port 8765.
+        try:
+            from .alpaca_feed import MarketTickFeed
+
+            self._market_feed_task = asyncio.get_running_loop().create_task(MarketTickFeed().run())
+        except Exception:
+            self._market_feed_task = None
 
     def _make_room_event(self, event: dict[str, Any]) -> Any:
         if self._room_event_cls is None:
