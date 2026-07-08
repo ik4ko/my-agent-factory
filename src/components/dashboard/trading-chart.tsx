@@ -44,9 +44,22 @@ function readTick(event: AgentSocketEvent): MarketTick | null {
   };
 }
 
-/** Live tick chart for the Trading Room. Consumes market.tick events pushed
- *  into the React Query cache by useAgentSocket (core/alpaca_feed.py emits
- *  them over the local agent socket with RSI/MACD precomputed in Python). */
+const DEFAULT_SYMBOL = 'SPY';
+const QUOTE_POLL_MS = 10_000;
+
+interface LiveQuote {
+  symbol?: string;
+  price?: number;
+  ts?: number;
+  error?: string;
+}
+
+/** Live tick chart for the Trading Room. Two feeds land on the same price
+ *  line: market.tick events pushed into the React Query cache by
+ *  useAgentSocket (core/alpaca_feed.py, with RSI/MACD precomputed in Python)
+ *  when that local bridge is running, and a direct poll of
+ *  /api/market/quotes?symbol= (yahoo-finance2) so the price line stays live
+ *  even without it. */
 export function TradingChart() {
   const { data: events = [] } = useQuery<AgentSocketEvent[]>({
     queryKey: AGENT_SOCKET_EVENTS_KEY,
@@ -76,14 +89,15 @@ export function TradingChart() {
   }, [events]);
 
   const activeSymbol = symbol ?? symbols[0] ?? null;
+  const chartSymbol = activeSymbol ?? DEFAULT_SYMBOL;
 
   const latest = useMemo(() => {
     for (const event of events) {
       const tick = readTick(event);
-      if (tick && tick.symbol === activeSymbol) return tick;
+      if (tick && tick.symbol === chartSymbol) return tick;
     }
     return null;
-  }, [events, activeSymbol]);
+  }, [events, chartSymbol]);
 
   // Chart lifecycle — created once, torn down on unmount.
   useEffect(() => {
@@ -146,7 +160,7 @@ export function TradingChart() {
     };
   }, []);
 
-  // Reset series when the active symbol changes.
+  // Reset series when the charted symbol changes.
   useEffect(() => {
     lastTimeRef.current = 0;
     priceRef.current?.setData([]);
@@ -154,17 +168,17 @@ export function TradingChart() {
     macdRef.current?.setData([]);
     signalRef.current?.setData([]);
     histRef.current?.setData([]);
-  }, [activeSymbol]);
+  }, [chartSymbol]);
 
   // Append fresh ticks. Events arrive newest-first and capped, so walk the
   // buffer oldest-first and only push points past the last painted second.
   useEffect(() => {
     const price = priceRef.current;
-    if (!price || !activeSymbol) return;
+    if (!price) return;
 
     for (let i = events.length - 1; i >= 0; i--) {
       const tick = readTick(events[i]);
-      if (!tick || tick.symbol !== activeSymbol) continue;
+      if (!tick || tick.symbol !== chartSymbol) continue;
       const time = Math.floor(tick.ts) as UTCTimestamp;
       if (time < lastTimeRef.current) continue;
       lastTimeRef.current = time;
@@ -181,7 +195,43 @@ export function TradingChart() {
         });
       }
     }
-  }, [events, activeSymbol]);
+  }, [events, chartSymbol]);
+
+  // Poll the live Yahoo-backed quote endpoint so the price line stays real
+  // regardless of whether the local tick socket is connected. Timestamps
+  // share `lastTimeRef` with the tick ingestion above so neither feed can
+  // push the series backwards in time.
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const pull = async () => {
+      try {
+        const res = await fetch(`/api/market/quotes?symbol=${encodeURIComponent(chartSymbol)}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as LiveQuote;
+        const price = priceRef.current;
+        if (!price || typeof data.price !== 'number' || typeof data.ts !== 'number') return;
+
+        const time = Math.floor(data.ts / 1000) as UTCTimestamp;
+        if (time < lastTimeRef.current) return;
+        lastTimeRef.current = time;
+        price.update({ time, value: data.price });
+      } catch {
+        /* network hiccup — next poll retries */
+      }
+    };
+
+    void pull();
+    const interval = setInterval(pull, QUOTE_POLL_MS);
+    return () => {
+      cancelled = true;
+      controller.abort();
+      clearInterval(interval);
+    };
+  }, [chartSymbol]);
 
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border p-3">
@@ -190,8 +240,8 @@ export function TradingChart() {
           {symbols.length === 0 && (
             <span className="flex items-center gap-2 text-xs text-muted-foreground" role="status">
               <span className="size-1.5 shrink-0 rounded-full bg-neon-orange animate-pulse" aria-hidden />
-              Live tick stream offline — reconnecting automatically. Charts resume as soon as the
-              market-data bridge is back online.
+              Live tick bridge offline — RSI/MACD resume once it reconnects. Price ({chartSymbol}) stays
+              live via direct quote polling.
             </span>
           )}
           {symbols.map((s) => (
@@ -201,7 +251,7 @@ export function TradingChart() {
               onClick={() => setSymbol(s)}
               className={cn(
                 'rounded-md border border-border px-2 py-0.5 font-terminal text-xs transition-colors',
-                s === activeSymbol
+                s === chartSymbol
                   ? 'border-neon-green/50 text-neon-green'
                   : 'text-muted-foreground hover:text-foreground',
               )}

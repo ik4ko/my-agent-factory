@@ -485,8 +485,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/task-input.tsx": {
-    "mtime": 1783389325.7446194,
-    "ast_hash": "7fa1fdfdca66e5e8d915f90380138007",
+    "mtime": 1783514502.5952222,
+    "ast_hash": "8ec984f5d7576fb18cdb9c04c411fa46",
     "semantic_hash": ""
   },
   "src/components/dashboard/timeline-scrubber.tsx": {
@@ -1540,8 +1540,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/agent-chat.tsx": {
-    "mtime": 1783467569.72483,
-    "ast_hash": "b9e098c4c71c71a2c86e3337dbac0e7f",
+    "mtime": 1783514323.1449022,
+    "ast_hash": "356469d7fa089fa896ff5e694e7ff31d",
     "semantic_hash": ""
   },
   "src/app/dashboard/rooms/analytics/page.tsx": {
@@ -1565,8 +1565,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/workspace-deck.tsx": {
-    "mtime": 1783483307.1266398,
-    "ast_hash": "dca2fd2374d3be8baef4396eb29ccc0d",
+    "mtime": 1783514487.3221076,
+    "ast_hash": "2ca54ff3bcb2a646a4f433515851e9d0",
     "semantic_hash": ""
   },
   "src/lib/agents/openrouter.ts": {
@@ -1582,6 +1582,16 @@
   "src/lib/fx/spatial-pulse.ts": {
     "mtime": 1783485315.081237,
     "ast_hash": "3c655ea8a285c2f1e22b82c319536be2",
+    "semantic_hash": ""
+  },
+  "src/components/dashboard/consensus-view.tsx": {
+    "mtime": 1783514440.7198641,
+    "ast_hash": "b8c78825dcd815f1c1ba51ead8d8313d",
+    "semantic_hash": ""
+  },
+  "src/lib/agents/intent-router.ts": {
+    "mtime": 1783514298.2807355,
+    "ast_hash": "5d6fb03bced2bf7995f885e2f8ae0fc5",
     "semantic_hash": ""
   }
 }

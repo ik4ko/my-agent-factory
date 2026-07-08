@@ -91,6 +91,7 @@
     "tailwindcss-animate": "^1.0.7",
     "three": "^0.185.1",
     "xlsx": "^0.18.5",
+    "yahoo-finance2": "^3.15.4",
     "zod": "^3.24.2",
     "zustand": "^5.0.12"
   },
