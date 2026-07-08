@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, Mic, MicOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,9 @@ import type { HermesResult } from '@/lib/hermes/types';
 import type { PipelineRunResponse } from '@/lib/pipeline/types';
 import { pushSystemFeed } from '@/lib/fx/system-feed';
 import { useConverse } from '@/hooks/use-converse';
+import { dispatchAgent } from '@/app/actions/agent-dispatcher';
+import { classifyIntent } from '@/lib/agents/intent-router';
+import { shortModel } from '@/lib/telemetry/pricing';
 
 type TraceKind = 'ok' | 'error';
 interface Trace {
@@ -191,8 +194,48 @@ export function TaskInput() {
       return;
     }
 
+    // Central intent routing: a plain prompt is pre-classified locally and
+    // dispatched to the resolved sovereign brain lane (CODEX/HERMES for
+    // technical work, GROK for semiconductor/market/risk/macro, …). The reply
+    // streams to the terminal and materializes via dispatchAgent (CODEX→Tasks,
+    // GROK→Staged Orders). "/fleet <task>" opts back into the classic
+    // fleet-queue dispatch below (agent goes busy, worker runs).
+    const fleetMode = lower === '/fleet' || lower.startsWith('/fleet ');
+    if (!fleetMode) {
+      const route = classifyIntent(prompt);
+      try {
+        pushSystemFeed('DISPATCH', `Intent → ${route.lane} · ${route.hint}`);
+        const result = await dispatchAgent({ agentId: route.lane, prompt });
+        if (result.error) throw new Error(result.error);
+        setValue('');
+        pushSystemFeed(
+          route.lane === 'GROK' ? 'STRATEGY' : 'COGNITION',
+          `[${result.agentId}] ${result.content.slice(0, 140)}${result.content.length > 140 ? '…' : ''}`,
+        );
+        if (result.materialized?.length) {
+          pushSystemFeed('DISPATCH', `[${result.agentId}] → ${result.materialized.map((m) => m.label).join(', ')}`);
+        }
+        setTrace({
+          kind: 'ok',
+          text: `${result.agentId} · ${shortModel(result.modelUsed)}${result.materialized?.length ? ` → ${result.materialized.length} artifact${result.materialized.length > 1 ? 's' : ''}` : ''}`,
+          id: Date.now(),
+        });
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : 'dispatch failed';
+        pushSystemFeed('SYSTEM', `Intent dispatch rejected — ${reason}`);
+        setTrace({ kind: 'error', text: reason, id: Date.now() });
+      } finally {
+        pendingRef.current = false;
+        setPending(false);
+        if (armedRef.current) setVoiceState('listening');
+        inputRef.current?.focus();
+      }
+      return;
+    }
+
+    const fleetPrompt = prompt.replace(/^\/fleet\s*/i, '').trim();
     const t0 = performance.now();
-    pushSystemFeed('DISPATCH', `Command accepted — routing "${prompt.slice(0, 48)}${prompt.length > 48 ? '…' : ''}" to intent parser`);
+    pushSystemFeed('DISPATCH', `Fleet queue — routing "${fleetPrompt.slice(0, 48)}${fleetPrompt.length > 48 ? '…' : ''}" to intent parser`);
     try {
       // Route through the Hermes orchestration layer: intent parsing →
       // idle-agent lookup → task creation → worker dispatch. Status flips
@@ -202,7 +245,7 @@ export function TaskInput() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          command: prompt,
+          command: fleetPrompt,
           issuedAt: new Date().toISOString(),
           target: { status: 'idle' },
         }),
@@ -404,8 +447,37 @@ export function TaskInput() {
     };
   }, []);
 
+  // Live pre-classification preview — shows the resolved lane as the operator
+  // types, before anything is sent. Slash commands bypass intent routing.
+  const intentPreview = useMemo(() => {
+    const t = value.trim();
+    if (!t || t.startsWith('/')) return null;
+    return classifyIntent(t);
+  }, [value]);
+
+  const LANE_ACCENT: Record<string, string> = {
+    GROK: 'border-neon-green/40 text-neon-green',
+    CODEX: 'border-neon-cyan/40 text-neon-cyan',
+    HERMES: 'border-primary/40 text-primary',
+    SCOUT: 'border-neon-purple/40 text-neon-purple',
+    GEMINI: 'border-neon-purple/40 text-neon-purple',
+    AEGIS: 'border-neon-orange/40 text-neon-orange',
+    CRONOS: 'border-border text-muted-foreground',
+    PHANTOM: 'border-border text-muted-foreground',
+    LEDGER: 'border-border text-muted-foreground',
+  };
+
   return (
     <div className="shrink-0 border-t border-border bg-[#0A0A0A] px-4 py-2.5 space-y-1">
+      {intentPreview && !pending && (
+        <div className="flex items-center gap-1.5 px-1 font-terminal text-[10px]">
+          <span className="text-muted-foreground/40">intent route</span>
+          <span className={cn('rounded border px-1.5 py-px font-bold tracking-wider', LANE_ACCENT[intentPreview.lane] ?? 'border-border text-muted-foreground')}>
+            → {intentPreview.lane}
+          </span>
+          <span className="truncate text-muted-foreground/50">{intentPreview.hint}</span>
+        </div>
+      )}
       <div
         className={cn(
           'group relative flex items-center gap-2.5 rounded-md border border-l-2 border-border bg-[#0A0A0A]',
@@ -436,7 +508,7 @@ export function TaskInput() {
             if (e.key === 'Enter') void submit(value);
           }}
           disabled={pending}
-          placeholder={armed ? 'Say Hey Hermes or type...' : 'Queue a task for the fleet... (/run <objective> = live pipeline)'}
+          placeholder={armed ? 'Say Hey Hermes or type...' : 'Command the matrix — intent-routed to a brain lane  ·  /fleet = queue worker  ·  /run = pipeline'}
           autoComplete="off"
           spellCheck={false}
           suppressHydrationWarning={true}

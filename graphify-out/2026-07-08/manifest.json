@@ -20,8 +20,8 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1783473265.2796092,
-    "ast_hash": "f1d02f06fa17ee8715458339a182b18a",
+    "mtime": 1783485275.8499084,
+    "ast_hash": "172c4cc3e376530a795999e3d0bcb32e",
     "semantic_hash": ""
   },
   "postcss.config.mjs": {
@@ -1575,8 +1575,13 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/SpatialWorkspace.tsx": {
-    "mtime": 1783483406.7937217,
-    "ast_hash": "17f90347a78f123bda481954816d07ca",
+    "mtime": 1783485470.4929295,
+    "ast_hash": "d2b3a4fc1d50fe911aa68ff907b18daf",
+    "semantic_hash": ""
+  },
+  "src/lib/fx/spatial-pulse.ts": {
+    "mtime": 1783485315.081237,
+    "ast_hash": "3c655ea8a285c2f1e22b82c319536be2",
     "semantic_hash": ""
   }
 }

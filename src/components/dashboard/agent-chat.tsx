@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Bot, Send, User, Volume2, VolumeX } from 'lucide-react';
 import { dispatchAgent, type MaterializedArtifact } from '@/app/actions/agent-dispatcher';
 import { BRAIN_IDS, BRAIN_MATRIX, type BrainId } from '@/lib/agents/brain-matrix';
+import { classifyIntent } from '@/lib/agents/intent-router';
 import { useConverse, speakBrowser } from '@/hooks/use-converse';
 import { shortModel } from '@/lib/telemetry/pricing';
 import { pushSystemFeed } from '@/lib/fx/system-feed';
@@ -22,21 +23,10 @@ interface ChatTurn {
   materialized?: MaterializedArtifact[];
 }
 
-/** Client-side mirror of the Hermes intent rules, extended to the full
- *  9-agent matrix: AUTO inspects the prompt and picks the lane — trading
- *  scripts fire on GROK, code patches on CODEX, and so on. HERMES is the
- *  fallback orchestrator. */
+/** AUTO lane routing — delegates to the shared central classifier so the
+ *  Orchestrate panel and the global command dock resolve intent identically. */
 export function routeIntent(prompt: string): BrainId {
-  const p = prompt.toLowerCase();
-  if (/(trade|trading|market|chart|position|portfolio|pnl|ticker|option|etf|rsi|macd|stock|spy|nvda|soxs|thesis|stress.?test)/.test(p)) return 'GROK';
-  if (/(write|create|build|code|implement|fix|debug|refactor|patch|script|component)/.test(p)) return 'CODEX';
-  if (/(research|find|search|look up|investigate|news|summari[sz]e)/.test(p)) return 'SCOUT';
-  if (/(schedule|cron|sequence|timeline|order of operations)/.test(p)) return 'CRONOS';
-  if (/(risk|audit|security|compliance|review for)/.test(p)) return 'AEGIS';
-  if (/(ledger|reconcile|tally|bookkeep|balance sheet)/.test(p)) return 'LEDGER';
-  if (/(extract|parse|json|structure|fields)/.test(p)) return 'PHANTOM';
-  if (/(strategy|strategi[sz]e|plan|compare options|tradeoffs|analy[sz]e)/.test(p)) return 'GEMINI';
-  return 'HERMES';
+  return classifyIntent(prompt).lane;
 }
 
 const LANE_LABEL = (lane: Lane): string =>

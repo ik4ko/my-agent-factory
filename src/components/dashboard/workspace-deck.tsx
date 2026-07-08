@@ -7,6 +7,7 @@ import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { EyeOff, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
 import { AgentFleet } from './agent-fleet';
 import { AgentChat } from './agent-chat';
+import { ConsensusView } from './consensus-view';
 import { TaskFeed } from './task-feed';
 import { LiveTerminal } from './live-terminal';
 import { MemoryViewer } from './memory-viewer';
@@ -21,7 +22,7 @@ const SpatialWorkspace = dynamic(() => import('./SpatialWorkspace').then((m) => 
   loading: () => <div className="h-full w-full animate-pulse rounded-md bg-surface-2/30" />,
 });
 
-const PANE_IDS = ['spatial', 'fleet', 'tasks', 'orchestrate', 'terminal', 'approvals', 'memory'] as const;
+const PANE_IDS = ['spatial', 'fleet', 'tasks', 'orchestrate', 'consensus', 'terminal', 'approvals', 'memory'] as const;
 export type PaneId = (typeof PANE_IDS)[number];
 
 const PANE_LABEL: Record<PaneId, string> = {
@@ -29,6 +30,7 @@ const PANE_LABEL: Record<PaneId, string> = {
   fleet: 'Fleet',
   tasks: 'Tasks',
   orchestrate: 'Orchestrate',
+  consensus: 'Consensus',
   terminal: 'Terminal',
   approvals: 'Staged Orders',
   memory: 'Memory',
@@ -39,10 +41,15 @@ const PANE_ACCENT: Record<PaneId, string> = {
   fleet: 'text-neon-green',
   tasks: 'text-warning',
   orchestrate: 'text-primary',
+  consensus: 'text-primary',
   terminal: 'text-neon-cyan',
   approvals: 'text-neon-orange',
   memory: 'text-neon-purple',
 };
+
+// Consensus starts hidden — it's an opt-in debate surface, not part of the
+// default tiling. Users bring it in from the tab strip.
+const DEFAULT_HIDDEN: PaneId[] = ['consensus'];
 
 const LS_KEY = 'deck.layout.v1';
 
@@ -51,7 +58,7 @@ interface DeckState {
   hidden: PaneId[];
 }
 
-const DEFAULT_STATE: DeckState = { order: [...PANE_IDS], hidden: [] };
+const DEFAULT_STATE: DeckState = { order: [...PANE_IDS], hidden: [...DEFAULT_HIDDEN] };
 
 function loadState(): DeckState {
   try {
@@ -152,6 +159,8 @@ export function WorkspaceDeck({
         return <TaskFeed initialTasks={initialTasks} />;
       case 'orchestrate':
         return <AgentChat variant="panel" />;
+      case 'consensus':
+        return <ConsensusView />;
       case 'terminal':
         return <LiveTerminal initialLogs={initialLogs} />;
       case 'approvals':
