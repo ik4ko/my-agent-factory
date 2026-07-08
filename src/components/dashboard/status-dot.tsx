@@ -3,14 +3,15 @@
 import { cn } from '@/lib/utils';
 import type { AgentStatus } from '@/lib/types/database.types';
 
+// One clean micro-neon glow accent per state, mapped consistently everywhere.
 const STATUS_CONFIG: Record<
   AgentStatus,
-  { color: string; ping: string; label: string }
+  { color: string; ping: string; glow: string; label: string }
 > = {
-  idle:    { color: 'bg-neon-green',  ping: 'bg-neon-green',  label: 'Idle' },
-  busy:    { color: 'bg-neon-cyan',   ping: 'bg-neon-cyan',   label: 'Busy' },
-  error:   { color: 'bg-neon-red',    ping: 'bg-neon-red',    label: 'Error' },
-  offline: { color: 'bg-muted-foreground/40', ping: '', label: 'Offline' },
+  idle:    { color: 'bg-neon-green',  ping: 'bg-neon-green',  glow: 'status-active', label: 'Idle' },
+  busy:    { color: 'bg-neon-cyan',   ping: 'bg-neon-cyan',   glow: 'status-idle',   label: 'Busy' },
+  error:   { color: 'bg-neon-red',    ping: 'bg-neon-red',    glow: 'status-error',  label: 'Error' },
+  offline: { color: 'bg-muted-foreground/40', ping: '', glow: '', label: 'Offline' },
 };
 
 interface StatusDotProps {
@@ -35,7 +36,7 @@ export function StatusDot({ status, size = 'md', className }: StatusDotProps) {
           )}
         />
       )}
-      <span className={cn('relative inline-flex rounded-full', dotSize, cfg.color)} />
+      <span className={cn('relative inline-flex rounded-full', dotSize, cfg.color, cfg.glow)} />
     </span>
   );
 }

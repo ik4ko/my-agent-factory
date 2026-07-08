@@ -8,6 +8,7 @@ import { EyeOff, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
 import { AgentFleet } from './agent-fleet';
 import { AgentChat } from './agent-chat';
 import { ConsensusView } from './consensus-view';
+import { TokenStream } from './token-stream';
 import { TaskFeed } from './task-feed';
 import { LiveTerminal } from './live-terminal';
 import { MemoryViewer } from './memory-viewer';
@@ -22,7 +23,7 @@ const SpatialWorkspace = dynamic(() => import('./SpatialWorkspace').then((m) => 
   loading: () => <div className="h-full w-full animate-pulse rounded-md bg-surface-2/30" />,
 });
 
-const PANE_IDS = ['spatial', 'fleet', 'tasks', 'orchestrate', 'consensus', 'terminal', 'approvals', 'memory'] as const;
+const PANE_IDS = ['spatial', 'fleet', 'tasks', 'orchestrate', 'consensus', 'tokens', 'terminal', 'approvals', 'memory'] as const;
 export type PaneId = (typeof PANE_IDS)[number];
 
 const PANE_LABEL: Record<PaneId, string> = {
@@ -31,6 +32,7 @@ const PANE_LABEL: Record<PaneId, string> = {
   tasks: 'Tasks',
   orchestrate: 'Orchestrate',
   consensus: 'Consensus',
+  tokens: 'Tokens',
   terminal: 'Terminal',
   approvals: 'Staged Orders',
   memory: 'Memory',
@@ -42,14 +44,15 @@ const PANE_ACCENT: Record<PaneId, string> = {
   tasks: 'text-warning',
   orchestrate: 'text-primary',
   consensus: 'text-primary',
+  tokens: 'text-neon-green',
   terminal: 'text-neon-cyan',
   approvals: 'text-neon-orange',
   memory: 'text-neon-purple',
 };
 
-// Consensus starts hidden — it's an opt-in debate surface, not part of the
-// default tiling. Users bring it in from the tab strip.
-const DEFAULT_HIDDEN: PaneId[] = ['consensus'];
+// Consensus + Tokens start hidden — opt-in surfaces, not part of the default
+// tiling. Users bring them in from the tab strip.
+const DEFAULT_HIDDEN: PaneId[] = ['consensus', 'tokens'];
 
 const LS_KEY = 'deck.layout.v1';
 
@@ -161,6 +164,8 @@ export function WorkspaceDeck({
         return <AgentChat variant="panel" />;
       case 'consensus':
         return <ConsensusView />;
+      case 'tokens':
+        return <TokenStream />;
       case 'terminal':
         return <LiveTerminal initialLogs={initialLogs} />;
       case 'approvals':

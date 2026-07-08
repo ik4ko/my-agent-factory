@@ -22,7 +22,6 @@ export interface RoomDef {
 export const ROOMS: RoomDef[] = [
   { scope: 'trading', label: 'Trading', href: '/dashboard/rooms/trading', accent: 'text-neon-green' },
   { scope: 'coding', label: 'Coding', href: '/dashboard/rooms/coding', accent: 'text-neon-cyan' },
-  { scope: 'research', label: 'Research', href: '/dashboard/rooms/research', accent: 'text-neon-purple' },
 ];
 
 /** Agent-type → rooms. Hermes (generic) leads Research; Codex (coder) leads

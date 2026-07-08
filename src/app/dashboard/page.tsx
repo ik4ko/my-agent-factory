@@ -6,7 +6,6 @@ import { createClient } from '@/lib/supabase/server';
 import { DashboardClient } from '@/components/dashboard/dashboard-client';
 import { LiveClock } from '@/components/dashboard/live-clock';
 import { ConnectionIndicator } from '@/components/dashboard/connection-indicator';
-import { EmergencyStop } from '@/components/dashboard/emergency-stop';
 import { TimelineScrubber } from '@/components/dashboard/timeline-scrubber';
 import { SystemHealthPill } from '@/components/dashboard/system-health-pill';
 import { WidgetErrorBoundary } from '@/components/dashboard/widget-error-boundary';
@@ -34,14 +33,16 @@ async function fetchDashboardData() {
 
 function TopBar() {
   return (
-    <header className="flex h-11 shrink-0 items-center justify-between border-b border-border px-4">
+    // pr-36 reserves the top-right corner for the global controls cluster
+    // (E-STOP + ambient chat) rendered by the shared layout.
+    <header className="hairline-b flex h-11 shrink-0 items-center justify-between px-4 pr-36 surface-glass">
       <div className="flex items-center gap-2">
         <Cpu className="size-3.5 text-primary" />
         <span className="font-display text-sm font-semibold tracking-wide text-foreground/90">
           My Agent Factory
         </span>
         <span className="hidden text-[10px] uppercase tracking-widest text-muted-foreground sm:block">
-          — Control Room
+          — Main Dashboard
         </span>
       </div>
       <div className="flex items-center gap-3">
@@ -53,7 +54,6 @@ function TopBar() {
         </WidgetErrorBoundary>
         <TimelineScrubber />
         <AudioBriefing />
-        <EmergencyStop />
         <ConnectionIndicator />
         <LiveClock />
       </div>

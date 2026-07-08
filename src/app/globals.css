@@ -156,6 +156,23 @@
     -webkit-backdrop-filter: blur(12px);
   }
 
+  /* ── Command-desk surfaces (spatial-command-hub visual system) ──
+     Semi-transparent dark glass + hairline low-opacity borders, used for
+     every room shell / panel so heavy opaque boxes are eliminated. */
+  .surface-glass {
+    background: hsl(var(--card) / 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--border) / 0.5);
+  }
+  .hairline { border: 1px solid hsl(var(--border) / 0.45); }
+  .hairline-b { border-bottom: 1px solid hsl(var(--border) / 0.45); }
+
+  /* ── Micro-neon status glow — exactly one accent per state ────── */
+  .status-active { box-shadow: 0 0 5px hsl(var(--neon-green) / 0.7), 0 0 12px hsl(var(--neon-green) / 0.35); }
+  .status-idle   { box-shadow: 0 0 4px hsl(var(--neon-cyan)  / 0.45); }
+  .status-error  { box-shadow: 0 0 5px hsl(var(--neon-red)   / 0.7), 0 0 12px hsl(var(--neon-red)   / 0.35); }
+
   /* ── Terminal font ──────────────────────────────────────── */
   .font-terminal {
     font-family: var(--font-mono), 'JetBrains Mono', 'Fira Mono', ui-monospace, monospace;

@@ -40,8 +40,8 @@ const LANE_LABEL = (lane: Lane): string =>
  *    can't.
  *  - AUTO + 9 matrix agents: the dispatchAgent server action against the
  *    OpenRouter brain matrix, with per-reply routing shown on the bubble.
- * Renders as a bounded panel widget on /dashboard and full-page on
- * /dashboard/chat.
+ * Renders as a bounded panel widget in the workspace deck and inside the
+ * global ambient-chat overlay.
  */
 export function AgentChat({ variant = 'panel' }: { variant?: 'panel' | 'full' }) {
   const converse = useConverse();

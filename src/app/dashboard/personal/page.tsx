@@ -1,15 +1,15 @@
 import { WorkspaceScaffold } from '@/components/dashboard/workspace-scaffold';
-import { EmailComposer } from '@/components/dashboard/email-composer';
+import { PersonalRoomClient } from '@/components/dashboard/personal-room-client';
 
-export default function PersonalWorkspace() {
+export default function PersonalRoom() {
   return (
     <WorkspaceScaffold
-      title="Personal"
+      title="Personal Room"
       icon="user"
       accent="text-neon-orange"
-      blurb="Your personal assistant surface. Compose and send email straight from your Gmail below — every send is logged to the outbound audit trail. Or ask Claude in Chat to draft and send one for you."
+      blurb="Administrative control, metrics management, and client tracking — isolated from the orchestration context. Compose audited client email, watch 24h model spend per lane, and reach the utility routes."
     >
-      <EmailComposer />
+      <PersonalRoomClient />
     </WorkspaceScaffold>
   );
 }

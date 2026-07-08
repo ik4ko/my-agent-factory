@@ -3,25 +3,18 @@
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Activity, Repeat, MessageSquare, Menu, X, Cpu, Code2, LineChart, Search, User, Settings, PenSquare, ShieldCheck, BookOpen } from 'lucide-react';
+import { Repeat, Menu, X, Cpu, Code2, LineChart, User, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const TABS = [
-  { href: '/dashboard/results', icon: Activity, label: 'Results' },
-  { href: '/dashboard/loops', icon: Repeat, label: 'Loops' },
-  { href: '/dashboard/chat', icon: MessageSquare, label: 'Chat' },
+  { href: '/dashboard', icon: Cpu, label: 'Main' },
+  { href: '/dashboard/rooms/trading', icon: LineChart, label: 'Trading' },
+  { href: '/dashboard/rooms/coding', icon: Code2, label: 'Coding' },
+  { href: '/dashboard/personal', icon: User, label: 'Personal' },
 ];
 
 const MORE_ITEMS = [
-  { href: '/dashboard/golive', icon: ShieldCheck, label: 'Go-Live' },
-  { href: '/dashboard/docs', icon: BookOpen, label: 'Runbook' },
-  { href: '/dashboard', icon: Cpu, label: 'Control Room' },
-  { href: '/dashboard/compose', icon: PenSquare, label: 'Compose' },
-  { href: '/dashboard/rooms/trading', icon: LineChart, label: 'Trading Room' },
-  { href: '/dashboard/rooms/coding', icon: Code2, label: 'Coding Room' },
-  { href: '/dashboard/rooms/research', icon: Search, label: 'Research Room' },
-  { href: '/dashboard/rooms/analytics', icon: Activity, label: 'Analytics Room' },
-  { href: '/dashboard/personal', icon: User, label: 'Personal' },
+  { href: '/dashboard/loops', icon: Repeat, label: 'Loops' },
   { href: '/dashboard/settings', icon: Settings, label: 'Settings' },
 ];
 

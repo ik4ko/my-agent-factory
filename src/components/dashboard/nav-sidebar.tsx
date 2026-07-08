@@ -1,24 +1,23 @@
 'use client';
 
-import { Cpu, MessageSquare, Code2, LineChart, Search, User, Settings, Zap, Repeat, Activity, PenSquare, Gauge, ShieldCheck, BookOpen } from 'lucide-react';
+import { Cpu, Code2, LineChart, User, Settings, Zap, Repeat } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
+// The four fixed rooms. Global ambient chat + E-STOP live in the shared
+// layout, not the rail.
 const NAV_ITEMS = [
-  { href: '/dashboard', icon: Cpu, label: 'Control Room', primary: true },
-  { href: '/dashboard/results', icon: Activity, label: 'Results' },
-  { href: '/dashboard/chat', icon: MessageSquare, label: 'Chat' },
-  { href: '/dashboard/compose', icon: PenSquare, label: 'Compose' },
-  { href: '/dashboard/golive', icon: ShieldCheck, label: 'Go-Live' },
-  { href: '/dashboard/docs', icon: BookOpen, label: 'Runbook' },
-  // Rooms — consolidated deep-dive modules under /dashboard/rooms/*
+  { href: '/dashboard', icon: Cpu, label: 'Main Dashboard', primary: true },
   { href: '/dashboard/rooms/trading', icon: LineChart, label: 'Trading Room' },
   { href: '/dashboard/rooms/coding', icon: Code2, label: 'Coding Room' },
-  { href: '/dashboard/rooms/research', icon: Search, label: 'Research Room' },
-  { href: '/dashboard/rooms/analytics', icon: Gauge, label: 'Analytics Room' },
+  { href: '/dashboard/personal', icon: User, label: 'Personal Room' },
+];
+
+// Utility routes — retained but demoted below a divider (not rooms).
+const UTILITY_ITEMS = [
   { href: '/dashboard/loops', icon: Repeat, label: 'Loops' },
-  { href: '/dashboard/personal', icon: User, label: 'Personal' },
+  { href: '/dashboard/settings', icon: Settings, label: 'Settings' },
 ];
 
 /**
@@ -73,18 +72,29 @@ export function NavSidebar() {
         })}
       </nav>
 
-      <Link
-        href="/dashboard/settings"
-        title="Settings"
-        aria-label="Settings"
-        aria-current={isActive('/dashboard/settings') ? 'page' : undefined}
-        className={cn(
-          'flex size-9 items-center justify-center rounded-md text-sidebar-foreground/40 hover:text-foreground hover:bg-surface-2 transition-all duration-150',
-          isActive('/dashboard/settings') && 'bg-surface-2 text-foreground'
-        )}
-      >
-        <Settings className="size-4" aria-hidden />
-      </Link>
+      {/* utility routes — demoted below a hairline divider */}
+      <div className="my-1 h-px w-6 bg-border/60" aria-hidden />
+      <div className="flex flex-col items-center gap-1 px-2 pb-1">
+        {UTILITY_ITEMS.map(({ href, icon: Icon, label }) => {
+          const active = isActive(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              title={label}
+              aria-label={label}
+              aria-current={active ? 'page' : undefined}
+              className={cn(
+                'relative flex size-9 items-center justify-center rounded-md text-sidebar-foreground/40 transition-all duration-150 hover:text-foreground hover:bg-surface-2',
+                active && 'bg-surface-2 text-foreground'
+              )}
+            >
+              {active && <span aria-hidden className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary" />}
+              <Icon className="size-4" aria-hidden />
+            </Link>
+          );
+        })}
+      </div>
     </aside>
   );
 }
