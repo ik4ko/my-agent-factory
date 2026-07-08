@@ -1,5 +1,5 @@
-// Transport-agnostic command core — the single parse → authorize → execute
-// → reply pipeline shared by every channel (dashboard simulator today,
+﻿// Transport-agnostic command core â€” the single parse â†’ authorize â†’ execute
+// â†’ reply pipeline shared by every channel (dashboard simulator today,
 // Twilio SMS/Vapi voice later with zero changes here). A channel adapter's
 // only job is: get text in, call runCommand(parseCommand(text), ctx), get a
 // reply string out.
@@ -7,7 +7,7 @@
 // Authorization lives HERE, not in any transport: every state-changing verb
 // (arm/disarm/kill/halt/resume/new/pause) requires the operator's PIN as its
 // first argument, checked with the exact same verifyOperatorPin() the
-// dashboard's /api/control/* routes use — fails closed if OPERATOR_PIN is
+// dashboard's /api/control/* routes use â€” fails closed if OPERATOR_PIN is
 // unset. Read-only verbs (status/pnl/positions/loops/help) need no PIN.
 import { getAdminClient } from '@/lib/supabase/admin';
 import { hermesLog } from '@/lib/hermes/hermes-logger';
@@ -35,7 +35,7 @@ export type Command =
 
 export interface CommandContext {
   /** Human-readable source of this command, e.g. "sms:+15555550100" or
-   *  "dashboard-simulator" — used only for audit logs, never for auth. */
+   *  "dashboard-simulator" â€” used only for audit logs, never for auth. */
   actor: string;
 }
 
@@ -44,7 +44,7 @@ const HELP_TEXT =
   'arm <PIN> | disarm <PIN> | kill <PIN> | halt <PIN> | resume <PIN> | ' +
   'new <PIN> <objective> | pause <PIN> <loop name or id> | help';
 
-/** Pure text → Command. Never throws — an unparseable line becomes
+/** Pure text â†’ Command. Never throws â€” an unparseable line becomes
  *  {type:'unknown'} so runCommand can reply with help instead of crashing
  *  the channel that called it. */
 export function parseCommand(text: string): Command {
@@ -86,7 +86,7 @@ export function parseCommand(text: string): Command {
 
 async function requirePin(pin: string, ctx: CommandContext, action: string): Promise<string | null> {
   if (verifyOperatorPin(pin)) return null;
-  await hermesLog('warn', `[COMMAND] ${action} rejected — invalid PIN (actor=${ctx.actor})`);
+  await hermesLog('warn', `[COMMAND] ${action} rejected â€” invalid PIN (actor=${ctx.actor})`);
   return 'rejected: invalid PIN';
 }
 
@@ -102,12 +102,12 @@ async function describeStatus(): Promise<string> {
     risk.feed_degraded ? 'feed degraded' : 'feed ok',
     `adapter=${adapter.name}`,
   ];
-  return bits.join(' · ');
+  return bits.join(' Â· ');
 }
 
 /** Execute an already-parsed command. Every branch audits to `logs`; state
  *  mutations reuse the exact same services the dashboard control endpoints
- *  and Compose page call — this file has no bespoke DB-mutation logic of
+ *  and Compose page call â€” this file has no bespoke DB-mutation logic of
  *  its own beyond the read-only summaries. */
 export async function runCommand(cmd: Command, ctx: CommandContext): Promise<{ reply: string; mutated?: boolean }> {
   await hermesLog('info', `[COMMAND] ${ctx.actor}: ${cmd.type}`);
@@ -131,7 +131,7 @@ export async function runCommand(cmd: Command, ctx: CommandContext): Promise<{ r
     case 'loops': {
       const { data } = await db().from('loops').select('name, status, kind').order('created_at', { ascending: false }).limit(10);
       const rows = (data ?? []) as { name: string; status: string; kind: string }[];
-      if (rows.length === 0) return { reply: 'no loops yet — try: new <PIN> <objective>' };
+      if (rows.length === 0) return { reply: 'no loops yet â€” try: new <PIN> <objective>' };
       return { reply: rows.map((l) => `${l.name}[${l.kind}]:${l.status}`).join(', ') };
     }
 
@@ -143,21 +143,21 @@ export async function runCommand(cmd: Command, ctx: CommandContext): Promise<{ r
       if (err) return { reply: err };
       const result = await setArmed(true, ctx.actor);
       if (!result.ok) return { reply: `arm blocked: ${result.error}` };
-      return { reply: 'trading ARMED — loops trade live within caps until disarmed or killed', mutated: true };
+      return { reply: 'trading ARMED â€” loops trade live within caps until disarmed or killed', mutated: true };
     }
 
     case 'disarm': {
       const err = await requirePin(cmd.pin, ctx, 'disarm');
       if (err) return { reply: err };
       await setArmed(false, ctx.actor);
-      return { reply: 'trading disarmed — back to dry-run', mutated: true };
+      return { reply: 'trading disarmed â€” back to dry-run', mutated: true };
     }
 
     case 'kill': {
       const err = await requirePin(cmd.pin, ctx, 'kill');
       if (err) return { reply: err };
       const { canceled } = await setKillSwitch(true, ctx.actor);
-      return { reply: `KILL engaged — ${canceled} open order(s) canceled`, mutated: true };
+      return { reply: `KILL engaged â€” ${canceled} open order(s) canceled`, mutated: true };
     }
 
     case 'halt': {
@@ -186,7 +186,7 @@ export async function runCommand(cmd: Command, ctx: CommandContext): Promise<{ r
         .select('id, name')
         .single();
       if (error) return { reply: `create failed: ${error.message.slice(0, 100)}` };
-      return { reply: `created loop "${(data as { name: string }).name}" (paused — arm it from the dashboard)`, mutated: true };
+      return { reply: `created loop "${(data as { name: string }).name}" (paused â€” arm it from the dashboard)`, mutated: true };
     }
 
     case 'pause': {
@@ -203,7 +203,22 @@ export async function runCommand(cmd: Command, ctx: CommandContext): Promise<{ r
     }
 
     case 'unknown':
-    default:
-      return { reply: `unrecognized command "${'raw' in cmd ? cmd.raw : ''}". ${HELP_TEXT}` };
+    default: {
+      // Background brain pipe: a non-command text routes silently to the
+      // orchestrator brain (read-only â€” no PIN needed since nothing mutates)
+      // and the exchange lands as a terminal log line. Command verbs above
+      // are matched FIRST, so no state-changing word can ever reach a model.
+      const raw = 'raw' in cmd ? cmd.raw.trim() : '';
+      if (raw.length >= 4) {
+        const { completeWithBrain } = await import('@/lib/agents/openrouter');
+        const brain = await completeWithBrain('HERMES', raw, { maxChars: 480 });
+        if (brain.content) {
+          await hermesLog('info', `[COMMSâ†’HERMES] "${raw.slice(0, 60)}${raw.length > 60 ? 'â€¦' : ''}" â†’ replied via ${brain.model} (${ctx.actor})`);
+          return { reply: brain.content };
+        }
+        await hermesLog('warn', `[COMMSâ†’HERMES] brain pipe failed (${brain.error ?? 'unknown'}) â€” falling back to help (${ctx.actor})`);
+      }
+      return { reply: `unrecognized command "${raw}". ${HELP_TEXT}` };
+    }
   }
 }

@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Activity, Code2, Globe, Layers, RefreshCw, Search,
-  Terminal, Zap, Keyboard,
+  Terminal, Zap, Keyboard, type LucideIcon,
 } from 'lucide-react';
 import {
   Command, CommandEmpty, CommandGroup, CommandInput,
@@ -18,7 +18,7 @@ import { LOGS_KEY } from '@/hooks/use-logs-query';
 import type { Agent, AgentType } from '@/lib/types/database.types';
 import { cn } from '@/lib/utils';
 
-const AGENT_ICONS: Record<AgentType, React.ElementType> = {
+const AGENT_ICONS: Record<AgentType, LucideIcon> = {
   generic: Activity, coder: Code2, researcher: Search,
   browser: Globe, planner: Layers,
 };

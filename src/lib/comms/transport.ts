@@ -1,10 +1,10 @@
-// Outbound message transport abstraction. Every notify call in the codebase
+﻿// Outbound message transport abstraction. Every notify call in the codebase
 // (arm/kill/fill/critical-regime) routes through notify()/activeTransport()
 // so that adding real Twilio later is a config change, not a refactor.
 //
 // LocalTransport is the default and is a REAL delivery, not a no-op stub:
 // it persists to outbound_messages (status='local') and Realtime streams it
-// straight into /dashboard/comms — inspectable and testable today with zero
+// straight into /api/comms/simulate (headless) â€” inspectable and testable today with zero
 // external accounts.
 import { hermesLog } from '@/lib/hermes/hermes-logger';
 import { getAdminClient } from '@/lib/supabase/admin';
@@ -13,7 +13,7 @@ import { getAdminClient } from '@/lib/supabase/admin';
 const db = () => getAdminClient() as any;
 
 // PostgrestBuilder only implements `.then()` (it's a thenable, not a real
-// Promise) — `.catch()` is not a method on it, so best-effort audit updates
+// Promise) â€” `.catch()` is not a method on it, so best-effort audit updates
 // must go through a real try/catch instead of chaining `.catch(() => {})`.
 async function safeUpdate(id: string, patch: Record<string, unknown>): Promise<void> {
   try {
@@ -46,7 +46,7 @@ class LocalTransport implements MessageTransport {
 
   async send(to: string, body: string, kind: MessageKind = 'alert'): Promise<void> {
     if (!rateOk()) {
-      await hermesLog('warn', `[COMMS] local send dropped — rate cap reached (max ${MAX_PER_HOUR}/hour)`);
+      await hermesLog('warn', `[COMMS] local send dropped â€” rate cap reached (max ${MAX_PER_HOUR}/hour)`);
       return;
     }
     try {
@@ -62,7 +62,7 @@ class LocalTransport implements MessageTransport {
     } catch (err) {
       await hermesLog('error', `[COMMS] local delivery audit failed: ${String(err).replace(/\s+/g, ' ').slice(0, 160)}`);
     }
-    await hermesLog('info', `[COMMS→local] to ${to} — "${body.slice(0, 120)}"`);
+    await hermesLog('info', `[COMMSâ†’local] to ${to} â€” "${body.slice(0, 120)}"`);
   }
 }
 
@@ -89,7 +89,7 @@ class TwilioTransport implements MessageTransport {
 
     if (!sid || !token || !from) {
       if (auditId) await safeUpdate(auditId, { status: 'failed', error: 'Twilio not configured' });
-      await hermesLog('error', '[COMMS→twilio] send attempted with missing TWILIO_* env');
+      await hermesLog('error', '[COMMSâ†’twilio] send attempted with missing TWILIO_* env');
       return;
     }
     if (!rateOk()) {
@@ -113,11 +113,11 @@ class TwilioTransport implements MessageTransport {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sidOut = (json as any)?.sid as string | undefined;
       if (auditId) await safeUpdate(auditId, { status: 'sent', provider_id: sidOut ?? null, sent_at: new Date().toISOString() });
-      await hermesLog('success', `[COMMS→twilio] sent — "${trimmedBody.slice(0, 100)}"`);
+      await hermesLog('success', `[COMMSâ†’twilio] sent â€” "${trimmedBody.slice(0, 100)}"`);
     } catch (e) {
       const msg = (e instanceof Error ? e.message : String(e)).replace(/\s+/g, ' ').slice(0, 200);
       if (auditId) await safeUpdate(auditId, { status: 'failed', error: msg });
-      await hermesLog('error', `[COMMS→twilio] send FAILED — ${msg.slice(0, 120)}`);
+      await hermesLog('error', `[COMMSâ†’twilio] send FAILED â€” ${msg.slice(0, 120)}`);
     }
   }
 }
@@ -125,14 +125,14 @@ class TwilioTransport implements MessageTransport {
 const local = new LocalTransport();
 const twilio = new TwilioTransport();
 
-/** Twilio auto-selected the instant all three creds are present — nothing
+/** Twilio auto-selected the instant all three creds are present â€” nothing
  *  else in the codebase needs to change when that happens. */
 export function activeTransport(): MessageTransport {
   const configured = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_NUMBER;
   return configured ? twilio : local;
 }
 
-/** Convenience wrapper every notify call site should use — resolves the
+/** Convenience wrapper every notify call site should use â€” resolves the
  *  operator's number (or a local-console placeholder) and sends through
  *  whichever transport is active. */
 export async function notify(body: string, kind: MessageKind = 'alert'): Promise<void> {

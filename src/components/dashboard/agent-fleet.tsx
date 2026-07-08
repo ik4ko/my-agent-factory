@@ -2,7 +2,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, Archive, Code2, Search, Globe, Layers, ChevronDown, EyeOff, X } from 'lucide-react';
+import { Activity, Archive, Code2, Search, Globe, Layers, ChevronDown, EyeOff, X, type LucideIcon } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAgentsQuery } from '@/hooks/use-agents-query';
 import { TASKS_KEY } from '@/hooks/use-tasks-query';
@@ -72,7 +72,7 @@ function inferAgentType(name: string): AgentType {
   return 'generic';
 }
 
-const TYPE_ICON: Record<AgentType, React.ElementType> = {
+const TYPE_ICON: Record<AgentType, LucideIcon> = {
   generic: Activity, coder: Code2, researcher: Search,
   browser: Globe, planner: Layers,
 };

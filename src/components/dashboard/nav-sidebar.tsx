@@ -1,6 +1,6 @@
 'use client';
 
-import { Cpu, MessageSquare, Code2, LineChart, Search, User, Settings, Zap, Repeat, Activity, PenSquare, Radio, ShieldCheck, BookOpen } from 'lucide-react';
+import { Cpu, MessageSquare, Code2, LineChart, Search, User, Settings, Zap, Repeat, Activity, PenSquare, Gauge, ShieldCheck, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -10,13 +10,14 @@ const NAV_ITEMS = [
   { href: '/dashboard/results', icon: Activity, label: 'Results' },
   { href: '/dashboard/chat', icon: MessageSquare, label: 'Chat' },
   { href: '/dashboard/compose', icon: PenSquare, label: 'Compose' },
-  { href: '/dashboard/comms', icon: Radio, label: 'Comms' },
   { href: '/dashboard/golive', icon: ShieldCheck, label: 'Go-Live' },
   { href: '/dashboard/docs', icon: BookOpen, label: 'Runbook' },
-  { href: '/dashboard/building', icon: Code2, label: 'App Building' },
-  { href: '/dashboard/trading', icon: LineChart, label: 'Stock Trading' },
+  // Rooms — consolidated deep-dive modules under /dashboard/rooms/*
+  { href: '/dashboard/rooms/trading', icon: LineChart, label: 'Trading Room' },
+  { href: '/dashboard/rooms/coding', icon: Code2, label: 'Coding Room' },
+  { href: '/dashboard/rooms/research', icon: Search, label: 'Research Room' },
+  { href: '/dashboard/rooms/analytics', icon: Gauge, label: 'Analytics Room' },
   { href: '/dashboard/loops', icon: Repeat, label: 'Loops' },
-  { href: '/dashboard/research', icon: Search, label: 'Research' },
   { href: '/dashboard/personal', icon: User, label: 'Personal' },
 ];
 

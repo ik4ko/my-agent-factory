@@ -26,14 +26,24 @@ export function CodingRoomClient() {
       </WidgetErrorBoundary>
 
       <div className="grid gap-3 lg:grid-cols-2">
-        <WidgetErrorBoundary name="Code Review">
-          <TaskOutputFeed
-            agentTypes={['coder', 'planner']}
-            title="Code review — latest Codex output"
-            accent="text-neon-cyan"
-            emptyText="No Codex output yet — dispatch a build task above and its generated code / review notes stream in here."
-          />
-        </WidgetErrorBoundary>
+        {/* Patch frame — minified file-tree chrome around the review feed */}
+        <div className="min-w-0 rounded-md border border-neon-cyan/20 bg-surface-1/40">
+          <div className="border-b border-neon-cyan/15 px-2.5 py-1 font-terminal text-[9px] leading-relaxed text-neon-cyan/50">
+            <span className="text-neon-cyan/70">workspace/</span>
+            <br />├─ patches/&nbsp;&nbsp;<span className="text-muted-foreground/40">· execution-ready output frames</span>
+            <br />└─ sandbox/&nbsp;&nbsp;<span className="text-muted-foreground/40">· tool-runner stream →</span>
+          </div>
+          <div className="p-2.5">
+            <WidgetErrorBoundary name="Code Review">
+              <TaskOutputFeed
+                agentTypes={['coder', 'planner']}
+                title="Code review — latest Codex output"
+                accent="text-neon-cyan"
+                emptyText="No Codex output yet — dispatch a build task above and its generated code / review notes stream in here."
+              />
+            </WidgetErrorBoundary>
+          </div>
+        </div>
 
         <section className="min-w-0">
           <h2 className="mb-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">

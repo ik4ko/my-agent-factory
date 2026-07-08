@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { hermesLog } from '@/lib/hermes/hermes-logger';
 import { parseCommand, runCommand } from '@/lib/comms/command';
 import { validateTwilioSignature } from '@/lib/comms/twilio-signature';
@@ -13,9 +13,9 @@ function twiml(message: string): NextResponse {
 }
 
 /**
- * Inbound Twilio SMS webhook — a real shell today, honest about being
+ * Inbound Twilio SMS webhook â€” a real shell today, honest about being
  * unconfigured rather than faking success. The command core it calls
- * (parseCommand/runCommand) is the exact same one /dashboard/comms already
+ * (parseCommand/runCommand) is the exact same one /api/comms/simulate already
  * exercises, so the ONLY thing a Twilio account unlocks here is the
  * signature check + the physical inbound pipe.
  */
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   const operatorPhone = process.env.OPERATOR_PHONE?.trim();
 
   if (!sid || !token || !number) {
-    return NextResponse.json({ error: 'Twilio not configured — set TWILIO_ACCOUNT_SID/AUTH_TOKEN/NUMBER' }, { status: 501 });
+    return NextResponse.json({ error: 'Twilio not configured â€” set TWILIO_ACCOUNT_SID/AUTH_TOKEN/NUMBER' }, { status: 501 });
   }
 
   const rawBody = await req.text();
@@ -34,13 +34,13 @@ export async function POST(req: NextRequest) {
   const signature = req.headers.get('x-twilio-signature') ?? '';
 
   if (!validateTwilioSignature(req.url, params, signature, token)) {
-    await hermesLog('warn', '[SMS] inbound rejected — bad Twilio signature');
+    await hermesLog('warn', '[SMS] inbound rejected â€” bad Twilio signature');
     return NextResponse.json({ error: 'invalid signature' }, { status: 403 });
   }
 
   const from = params.From ?? '';
   if (!operatorPhone || from !== operatorPhone) {
-    await hermesLog('warn', `[SMS] inbound rejected — sender ${from || '(none)'} not on the allowlist`);
+    await hermesLog('warn', `[SMS] inbound rejected â€” sender ${from || '(none)'} not on the allowlist`);
     return twiml('not authorized');
   }
 

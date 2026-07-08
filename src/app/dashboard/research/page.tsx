@@ -1,15 +1,6 @@
-import { WorkspaceScaffold } from '@/components/dashboard/workspace-scaffold';
-import { ResearchRoomClient } from '@/components/dashboard/research-room-client';
+import { redirect } from 'next/navigation';
 
-export default function ResearchWorkspace() {
-  return (
-    <WorkspaceScaffold
-      title="Research Room"
-      icon="search"
-      accent="text-neon-purple"
-      blurb="Deep research and reconnaissance, led by Hermes with Scout assisting. Findings are grounded in trained knowledge and cached news events — the badge below tracks exactly what sources are in play."
-    >
-      <ResearchRoomClient />
-    </WorkspaceScaffold>
-  );
+/** Route moved — research now lives under the consolidated rooms path. */
+export default function ResearchRedirect() {
+  redirect('/dashboard/rooms/research');
 }

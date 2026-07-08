@@ -2,7 +2,7 @@
 
 import { memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Activity, CheckCircle2, Clock, Coins, DollarSign, Gauge, ScrollText, Zap } from 'lucide-react';
+import { Activity, CheckCircle2, Clock, Coins, DollarSign, Gauge, ScrollText, Zap, type LucideIcon } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useMetricsQuery } from '@/hooks/use-metrics-query';
 import { AGENTS_KEY } from '@/hooks/use-agents-query';
@@ -33,7 +33,7 @@ const MetricCell = memo(function MetricCell({
   color,
   loading,
 }: {
-  icon: React.ElementType;
+  icon: LucideIcon;
   label: string;
   value: string;
   unit?: string;

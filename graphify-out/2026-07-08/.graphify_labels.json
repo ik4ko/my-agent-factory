@@ -150,7 +150,6 @@
   "148": "build.rs",
   "149": "lib.rs",
   "150": "main.rs",
-  "151": "executor-agent.mts",
   "152": "agent-dispatcher.ts",
   "153": "research-sync.mts",
   "154": "package.json",

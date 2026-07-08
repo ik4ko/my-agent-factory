@@ -820,9 +820,9 @@
     "semantic_hash": "d501c79c5b1905b8718db9a1877a5201"
   },
   "src/lib/hermes/hermes-logger.ts": {
-    "mtime": 1782706963.8821285,
-    "ast_hash": "03dfa67ed75b5123a66825f52992e373",
-    "semantic_hash": "03dfa67ed75b5123a66825f52992e373"
+    "mtime": 1783467502.3077576,
+    "ast_hash": "d8ec870621e6b7ae0cac811f67c01901",
+    "semantic_hash": ""
   },
   "src/lib/hermes/index.ts": {
     "mtime": 1783402699.505412,
@@ -1535,8 +1535,8 @@
     "semantic_hash": ""
   },
   "src/app/actions/agent-dispatcher.ts": {
-    "mtime": 1783452170.1831467,
-    "ast_hash": "1bd880a731f0a25d5ab62b0154259e07",
+    "mtime": 1783467550.0679305,
+    "ast_hash": "747b6b28a56bab8dea00d0b3165b48d0",
     "semantic_hash": ""
   },
   "src/components/dashboard/settings-client.tsx": {
@@ -1550,8 +1550,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/agent-chat.tsx": {
-    "mtime": 1783465593.9623568,
-    "ast_hash": "91016396c88c12664a9817fb83ad2385",
+    "mtime": 1783467569.72483,
+    "ast_hash": "b9e098c4c71c71a2c86e3337dbac0e7f",
     "semantic_hash": ""
   }
 }

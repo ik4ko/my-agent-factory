@@ -2,6 +2,12 @@
 // the dispatchAgent server action (execution) and the Settings panel
 // (display + connectivity tests). Deliberately NOT inside the 'use server'
 // module: those may only export async functions, and none of this is secret.
+//
+// SOVEREIGN MAPPING CONTRACT: each agent is pinned to exactly one provider
+// slug. dispatchAgent sends agent.model verbatim and FAILS LOUDLY on a dead
+// endpoint — there is no fallback chain, so a lane can never silently drift
+// to a different provider. Slugs verified against the live OpenRouter
+// catalog 2026-07-07.
 
 export interface BrainDef {
   /** OpenRouter model slug */
@@ -17,9 +23,9 @@ export interface BrainDef {
 export const BRAIN_MATRIX = {
   // Tier 1 — core orchestrators
   HERMES: {
-    // claude-3.5-sonnet was retired from OpenRouter (404 "No endpoints
-    // found", verified 2026-07-07); sonnet-5 is the current GA successor.
-    model: 'anthropic/claude-sonnet-5',
+    // Sovereign: Nous Research native — hermes-4-405b is the current
+    // top-tier Hermes on OpenRouter.
+    model: 'nousresearch/hermes-4-405b',
     temperature: 0.2,
     tier: 1,
     role: 'core orchestrator',
@@ -46,7 +52,9 @@ export const BRAIN_MATRIX = {
   },
   // Tier 2 — specialized workers
   CODEX: {
-    model: 'qwen/qwen-2.5-coder-32b-instruct',
+    // Sovereign: OpenAI — gpt-5.3-codex is the newest codex-line coding
+    // model on OpenRouter (replaces the interim Qwen coder).
+    model: 'openai/gpt-5.3-codex',
     temperature: 0.1,
     tier: 2,
     role: 'senior engineer',
