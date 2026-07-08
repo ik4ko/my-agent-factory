@@ -1,8 +1,15 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { create } from 'zustand';
 
-export interface ConverseTurn { role: 'user' | 'assistant'; content: string; }
+export interface ConverseTurn {
+  role: 'user' | 'assistant';
+  content: string;
+  /** True while this turn is a live, still-being-spoken STT partial — not yet
+   *  a submitted message. Replaced in place as more chunks arrive, and
+   *  cleared (superseded by the final turn) once the utterance finalizes. */
+  interim?: boolean;
+}
 export interface ConverseResult {
   reply: string;
   preamble?: string;
@@ -31,43 +38,67 @@ export function speakBrowser(text: string) {
   }
 }
 
-/**
- * Client hook for the Claude-CEO conversation loop. Posts to /api/converse,
- * keeps a short rolling history, and speaks Claude's reply out loud.
- */
-export function useConverse() {
-  const [history, setHistory] = useState<ConverseTurn[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [lastReply, setLastReply] = useState<string | null>(null);
-  const historyRef = useRef<ConverseTurn[]>([]);
-  historyRef.current = history;
+interface ConverseState {
+  history: ConverseTurn[];
+  busy: boolean;
+  lastReply: string | null;
+  setInterim: (text: string) => void;
+  send: (message: string, opts?: { speak?: boolean }) => Promise<ConverseResult | null>;
+}
 
-  const send = useCallback(async (message: string, opts?: { speak?: boolean }): Promise<ConverseResult | null> => {
+// A shared store, not per-component state: TaskInput's voice pipeline and
+// every AgentChat instance (main deck pane, ambient overlay, Personal Room)
+// must observe the SAME conversation — otherwise a voice-dispatched message
+// updates a `history` array nothing on screen ever reads.
+const useConverseStore = create<ConverseState>((set, get) => ({
+  history: [],
+  busy: false,
+  lastReply: null,
+
+  setInterim: (text) => {
+    const trimmed = text.trim();
+    const settled = get().history.filter((t) => !t.interim);
+    set({ history: trimmed ? [...settled, { role: 'user', content: trimmed, interim: true }] : settled });
+  },
+
+  send: async (message, opts) => {
     const msg = message.trim();
     if (!msg) return null;
-    setBusy(true);
-    setHistory((h) => [...h, { role: 'user', content: msg }]);
+    set({ busy: true });
+    // Clears any live interim partial for this same utterance and appends
+    // the settled turn in one update, so the UI never shows a duplicate.
+    set((s) => ({ history: [...s.history.filter((t) => !t.interim), { role: 'user', content: msg }] }));
     try {
       const res = await fetch('/api/converse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg, history: historyRef.current.slice(-8) }),
+        body: JSON.stringify({ message: msg, history: get().history.slice(-9, -1) }),
       });
       const data = (await res.json().catch(() => ({}))) as ConverseResult;
       const reply = data.reply || data.error || 'Sorry, I could not respond.';
-      setHistory((h) => [...h, { role: 'assistant', content: reply }]);
-      setLastReply(reply);
+      set((s) => ({ history: [...s.history, { role: 'assistant', content: reply }], lastReply: reply }));
       if (opts?.speak !== false) speakBrowser(reply);
       return data;
     } catch (e) {
       const reply = `Network error: ${e instanceof Error ? e.message : 'unreachable'}`;
-      setHistory((h) => [...h, { role: 'assistant', content: reply }]);
-      setLastReply(reply);
+      set((s) => ({ history: [...s.history, { role: 'assistant', content: reply }], lastReply: reply }));
       return { reply, error: reply };
     } finally {
-      setBusy(false);
+      set({ busy: false });
     }
-  }, []);
+  },
+}));
 
-  return { history, busy, lastReply, send, speak: speakBrowser };
+/**
+ * Client hook for the Claude-CEO conversation loop. Posts to /api/converse,
+ * keeps a short rolling history shared across every consumer (chat panels
+ * and the voice dock alike), and speaks Claude's reply out loud.
+ */
+export function useConverse() {
+  const history = useConverseStore((s) => s.history);
+  const busy = useConverseStore((s) => s.busy);
+  const lastReply = useConverseStore((s) => s.lastReply);
+  const setInterim = useConverseStore((s) => s.setInterim);
+  const send = useConverseStore((s) => s.send);
+  return { history, busy, lastReply, setInterim, send, speak: speakBrowser };
 }

@@ -465,7 +465,44 @@ interface AgentFleetProps {
    *  keeps only that room's agents (trading membership is earned via
    *  trading-domain task history — see lib/rooms/scope.ts). */
   scope?: RoomScope;
+  /** Single-row, high-density layout (name + status + active task inline)
+   *  instead of the vertical card grid — used by the Main Dashboard's
+   *  Fleet pane. Trading/Coding rooms keep the default card layout. */
+  dense?: boolean;
 }
+
+/** One compact chip: icon, name, status, and the agent's active task inline
+ *  (falls back to a short status word when idle/offline/halted). */
+const DenseAgentChip = memo(function DenseAgentChip({
+  agent,
+  taskDescription,
+}: {
+  agent: Agent;
+  taskDescription: string | null;
+}) {
+  const agentType = agent.type ?? inferAgentType(agent.name);
+  const Icon = TYPE_ICON[agentType];
+  const halted = Boolean(agent.halted_at);
+  const paused = Boolean(agent.paused) && !halted;
+
+  return (
+    <div
+      className={cn(
+        'flex shrink-0 items-center gap-2 rounded-md border border-border bg-surface-1 px-2.5 py-1.5',
+        halted && 'border-neon-red/40 bg-neon-red/[0.05]',
+        paused && 'opacity-60 saturate-50'
+      )}
+      title={taskDescription ?? undefined}
+    >
+      <Icon className={cn('size-3 shrink-0', TYPE_COLOR[agentType])} aria-hidden />
+      <StatusDot status={agent.status} size="sm" />
+      <span className="shrink-0 text-[11px] font-semibold text-foreground">{agent.name}</span>
+      <span className="max-w-[220px] truncate font-terminal text-[10px] text-muted-foreground/60">
+        {halted ? 'halted' : paused ? 'paused' : taskDescription ?? (agent.status === 'busy' ? 'working…' : agent.status)}
+      </span>
+    </div>
+  );
+});
 
 /** Passive cache reads — TaskFeed / MetricsBar own the realtime channels. */
 function useModelLanes(): { lanes: Map<string, ModelLane>; tasks: Task[]; isLoading: boolean; isError: boolean } {
@@ -501,7 +538,7 @@ function useModelLanes(): { lanes: Map<string, ModelLane>; tasks: Task[]; isLoad
   return { lanes, tasks, isLoading, isError };
 }
 
-export function AgentFleet({ initialAgents = [], scope = 'all' }: AgentFleetProps) {
+export function AgentFleet({ initialAgents = [], scope = 'all', dense = false }: AgentFleetProps) {
   const { data: rawAgents = [], isLoading } = useAgentsQuery(initialAgents);
   const { lanes, tasks, isLoading: tasksLoading, isError: tasksError } = useModelLanes();
   const snapshotAt = useSnapshotAt();
@@ -607,6 +644,55 @@ export function AgentFleet({ initialAgents = [], scope = 'all' }: AgentFleetProp
     acc[a.status] = (acc[a.status] ?? 0) + 1;
     return acc;
   }, {} as Record<string, number>);
+
+  // Active task description per agent, for the dense inline row — sourced
+  // from the same `tasks` list useModelLanes() already fetched.
+  const taskById = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
+
+  if (dense) {
+    return (
+      <div className={cn('flex h-full flex-col gap-2', historical && 'opacity-90 saturate-[0.6]')}>
+        <div className="flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Fleet</span>
+            {!isLoading && (
+              <span className="font-terminal text-[10px] text-muted-foreground/40">({active.length})</span>
+            )}
+          </div>
+          {!isLoading && (
+            <div className="flex items-center gap-2 font-terminal text-[10px]">
+              {(counts.busy    ?? 0) > 0 && <span className="text-neon-cyan">{counts.busy} busy</span>}
+              {(counts.idle    ?? 0) > 0 && <span className="text-neon-green">{counts.idle} idle</span>}
+              {(counts.offline ?? 0) > 0 && <span className="text-muted-foreground/40">{counts.offline} offline</span>}
+            </div>
+          )}
+        </div>
+        <div className="flex-1 overflow-x-auto">
+          {isLoading ? (
+            <div className="flex gap-1.5">
+              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-8 w-40 shrink-0 rounded-md" />)}
+            </div>
+          ) : active.length === 0 ? (
+            <div className="flex h-8 items-center">
+              <span className="font-terminal text-xs text-muted-foreground/30">
+                {scope === 'all' ? 'No agents registered' : 'No agents assigned to this room yet'}
+              </span>
+            </div>
+          ) : (
+            <div className="flex gap-1.5">
+              {active.map((agent) => (
+                <DenseAgentChip
+                  key={agent.id}
+                  agent={agent}
+                  taskDescription={agent.current_task_id ? taskById.get(agent.current_task_id)?.description ?? null : null}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn('flex h-full flex-col gap-2.5', historical && 'opacity-90 saturate-[0.6]')}>

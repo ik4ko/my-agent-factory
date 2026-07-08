@@ -5,12 +5,24 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import { getAdminClient } from '@/lib/supabase/admin';
-import { confinePath, vetCommand, scrubbedEnv, sandboxRoot } from '@/lib/sandbox/policy';
+import {
+  confinePath,
+  vetCommand,
+  scrubbedEnv,
+  sandboxRoot,
+  vetUrl,
+  checkWebFetchRateLimit,
+  ALLOWED_WEB_CONTENT_TYPES,
+} from '@/lib/sandbox/policy';
+import { safeFetch } from '@/lib/sandbox/safe-fetch';
 import type { ToolCall } from '@/lib/sandbox/parser';
 import type { LogLevel } from '@/lib/types/database.types';
+import type { RoomScope } from '@/lib/rooms/scope';
 
 const MAX_OUTPUT = 8_000; // chars persisted per stream
 const CMD_TIMEOUT_MS = 30_000;
+const WEB_FETCH_TIMEOUT_MS = 10_000;
+const WEB_FETCH_MAX_BYTES = 500_000;
 
 export interface StepResult {
   tool: ToolCall['tool'];
@@ -63,7 +75,12 @@ function runCommand(argv: string[]): Promise<{ code: number; stdout: string; std
   });
 }
 
-export async function executeStep(taskId: string, call: ToolCall): Promise<StepResult> {
+export async function executeStep(
+  taskId: string,
+  call: ToolCall,
+  rateLimitKey = 'unscoped',
+  roomScope: RoomScope = 'all'
+): Promise<StepResult> {
   switch (call.tool) {
     case 'view_file': {
       const check = confinePath(call.path, true);
@@ -124,16 +141,67 @@ export async function executeStep(taskId: string, call: ToolCall): Promise<StepR
         exitCode: code,
       };
     }
+
+    case 'web_fetch': {
+      const check = vetUrl(call.url, roomScope);
+      if (!check.ok) {
+        await log(taskId, 'error', `web_fetch DENIED ${call.url}: ${check.reason}`);
+        return { tool: 'web_fetch', ok: false, summary: `denied: ${check.reason}` };
+      }
+      const limit = checkWebFetchRateLimit(rateLimitKey);
+      if (!limit.ok) {
+        await log(taskId, 'error', `web_fetch DENIED ${call.url}: ${limit.reason}`);
+        return { tool: 'web_fetch', ok: false, summary: `denied: ${limit.reason}` };
+      }
+      try {
+        // safeFetch (not global fetch): validates the resolved IP at actual
+        // connect time (DNS-rebinding-safe), never follows redirects, and
+        // enforces the size cap during transfer rather than after.
+        const result = await safeFetch(check.url!, {
+          timeoutMs: WEB_FETCH_TIMEOUT_MS,
+          maxBytes: WEB_FETCH_MAX_BYTES,
+          userAgent: 'AgentFactory-Sandbox/1.0 (read-only tool)',
+          allowedContentTypes: ALLOWED_WEB_CONTENT_TYPES,
+        });
+        if (result.refusedReason) {
+          await log(taskId, 'error', `web_fetch DENIED ${call.url}: ${result.refusedReason}`);
+          return { tool: 'web_fetch', ok: false, summary: `denied: ${result.refusedReason}` };
+        }
+        if (result.status >= 300 && result.status < 400) {
+          // Never followed — report it and let the caller re-request the
+          // target explicitly (through the same allowlist + DNS check).
+          await log(taskId, 'error', `web_fetch ${call.url} → ${result.status} redirect (not followed)`, { url: call.url, status: result.status });
+          return { tool: 'web_fetch', ok: false, summary: `${call.url} → ${result.status} redirect (not followed)` };
+        }
+        const content = clip(result.body) + (result.truncated ? `\n…[truncated at ${WEB_FETCH_MAX_BYTES} bytes]` : '');
+        const ok = result.status >= 200 && result.status < 300;
+        await log(taskId, ok ? 'success' : 'error', `web_fetch ${call.url} → ${result.status}`, { url: call.url, status: result.status, truncated: result.truncated });
+        return { tool: 'web_fetch', ok, summary: `${call.url} → ${result.status}`, content };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        await log(taskId, 'error', `web_fetch FAILED ${call.url}: ${msg}`);
+        return { tool: 'web_fetch', ok: false, summary: msg };
+      }
+    }
   }
 }
 
 export const MAX_STEPS_PER_TASK = 8;
 
-/** Execute a batch of parsed calls in order, bounded, collecting results. */
-export async function executeToolCalls(taskId: string, calls: ToolCall[]): Promise<StepResult[]> {
+/** Execute a batch of parsed calls in order, bounded, collecting results.
+ *  `rateLimitKey` scopes web_fetch's rate limit (per agent by default via
+ *  the caller in api/tasks/execute) so one agent's usage can't starve
+ *  another's. `roomScope` selects web_fetch's per-room domain allowlist
+ *  (see ALLOWED_WEB_DOMAINS_BY_SCOPE in policy.ts). */
+export async function executeToolCalls(
+  taskId: string,
+  calls: ToolCall[],
+  rateLimitKey = 'unscoped',
+  roomScope: RoomScope = 'all'
+): Promise<StepResult[]> {
   const results: StepResult[] = [];
   for (const call of calls.slice(0, MAX_STEPS_PER_TASK)) {
-    results.push(await executeStep(taskId, call));
+    results.push(await executeStep(taskId, call, rateLimitKey, roomScope));
   }
   if (calls.length > MAX_STEPS_PER_TASK) {
     await log(taskId, 'warn', `step cap: ${calls.length - MAX_STEPS_PER_TASK} tool call(s) skipped (limit ${MAX_STEPS_PER_TASK})`);

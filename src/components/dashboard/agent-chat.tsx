@@ -21,6 +21,9 @@ interface ChatTurn {
   error?: boolean;
   /** live-table rows this reply produced (Tasks panel / Staged Orders) */
   materialized?: MaterializedArtifact[];
+  /** still-being-spoken STT partial (see useConverse.setInterim) — not yet a
+   *  submitted message, rendered with a distinct "speaking…" treatment. */
+  interim?: boolean;
 }
 
 /** AUTO lane routing — delegates to the shared central classifier so the
@@ -185,17 +188,24 @@ export function AgentChat({ variant = 'panel' }: { variant?: 'panel' | 'full' })
               <div
                 className={cn(
                   'max-w-[80%] rounded-lg px-2.5 py-1.5 text-xs leading-relaxed',
-                  isUser
-                    ? 'bg-surface-3 text-foreground'
-                    : turn.error
-                      ? 'border border-neon-red/30 bg-neon-red/[0.05] text-neon-red/90'
-                      : 'border border-border bg-surface-1 text-foreground/90'
+                  turn.interim
+                    ? 'border border-dashed border-neon-cyan/40 bg-neon-cyan/[0.05] text-foreground/70'
+                    : isUser
+                      ? 'bg-surface-3 text-foreground'
+                      : turn.error
+                        ? 'border border-neon-red/30 bg-neon-red/[0.05] text-neon-red/90'
+                        : 'border border-border bg-surface-1 text-foreground/90'
                 )}
               >
                 {!isUser && turn.agentId && (
                   <p className="mb-0.5 font-terminal text-[9px] uppercase tracking-wider text-muted-foreground/50">
                     {turn.agentId}
                     {turn.model ? ` · ${shortModel(turn.model)}` : ''}
+                  </p>
+                )}
+                {turn.interim && (
+                  <p className="mb-0.5 flex items-center gap-1 font-terminal text-[9px] uppercase tracking-wider text-neon-cyan/70">
+                    <span className="size-1 animate-pulse rounded-full bg-neon-cyan" aria-hidden /> speaking…
                   </p>
                 )}
                 <span className="whitespace-pre-wrap break-words">{turn.content}</span>

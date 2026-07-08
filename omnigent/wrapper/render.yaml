@@ -1,0 +1,26 @@
+# Render Blueprint for the Omnigent trigger wrapper + runner/host.
+# FOR REVIEW ONLY — not deployed. `render blueprint launch` (or the Render
+# dashboard's "New Blueprint") is a separate, explicit decision.
+#
+# This deploys ONLY the wrapper+runner side (omnigent/wrapper/Dockerfile).
+# The Omnigent SERVER itself is a separate service — deploy it first using
+# Omnigent's own deploy/render/README.md, then point OMNIGENT_SERVER_URL
+# below at its URL.
+
+services:
+  - type: web
+    name: omnigent-wrapper
+    runtime: docker
+    dockerfilePath: ./omnigent/wrapper/Dockerfile
+    dockerContext: ./omnigent/wrapper
+    plan: starter # 512MB — matches Omnigent's own documented memory floor
+    envVars:
+      - key: OMNIGENT_SERVER_URL
+        sync: false # set to the deployed Omnigent server's URL
+      - key: WRAPPER_AUTH_TOKEN
+        generateValue: true # Render mints and stores this secret itself
+      - key: WRAPPER_PORT
+        value: "7900"
+      - key: WRAPPER_TIMEOUT_MS
+        value: "30000"
+    healthCheckPath: /health

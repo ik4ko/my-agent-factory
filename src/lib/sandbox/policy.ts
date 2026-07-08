@@ -9,6 +9,8 @@
 //      so symlinks can't escape).
 import path from 'node:path';
 import fs from 'node:fs';
+import net from 'node:net';
+import type { RoomScope } from '@/lib/rooms/scope';
 
 export function sandboxRoot(): string {
   const root = process.env.SANDBOX_ROOT || path.join(process.cwd(), '.sandbox');
@@ -98,4 +100,120 @@ export function scrubbedEnv(): NodeJS.ProcessEnv {
     HOME: process.env.HOME ?? '/tmp',
     NODE_ENV: process.env.NODE_ENV ?? 'production',
   };
+}
+
+// web_fetch: read-only, domain-allowlisted, https-only. Narrow on purpose —
+// add hostnames here deliberately rather than opening this up to arbitrary
+// URLs. Exact hostname or a subdomain of one of these. Scoped per room
+// (RoomScope) so a trading task can't reach coding-only domains and vice
+// versa — reviewed and approved before wiring, see
+// docs/omnigent-integration-plan.md Phase B.
+export const ALLOWED_WEB_DOMAINS_BY_SCOPE: Record<RoomScope, ReadonlySet<string>> = {
+  // Unscoped/Control-Room tasks — deliberately the smallest set, not the
+  // union of every room's domains.
+  all: new Set(['en.wikipedia.org', 'finance.yahoo.com']),
+  trading: new Set(['finance.yahoo.com', 'www.sec.gov', 'fred.stlouisfed.org', 'www.federalreserve.gov']),
+  coding: new Set(['developer.mozilla.org', 'registry.npmjs.org', 'raw.githubusercontent.com', 'docs.python.org', 'nodejs.org']),
+  research: new Set(['en.wikipedia.org', 'arxiv.org']),
+};
+
+// Binary/executable content is never a legitimate result for a text-scrape
+// tool — reject anything outside this set rather than trying to enumerate
+// what to block.
+export const ALLOWED_WEB_CONTENT_TYPES: readonly string[] = ['text/html', 'application/json', 'text/plain'];
+
+const IP_LITERAL = /^(\d{1,3}\.){3}\d{1,3}$|^\[?[0-9a-f:]+\]?$/i;
+
+export interface UrlCheck {
+  ok: boolean;
+  url?: URL;
+  reason?: string;
+}
+
+export function vetUrl(raw: string, scope: RoomScope = 'all'): UrlCheck {
+  if (typeof raw !== 'string' || raw.length === 0) return { ok: false, reason: 'empty url' };
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return { ok: false, reason: 'not a valid URL' };
+  }
+  if (url.protocol !== 'https:') return { ok: false, reason: 'only https URLs are permitted' };
+  // Allowlist is for named public domains, not IP literals — blocks the
+  // simplest SSRF vector outright. DNS-rebinding protection for the *named*
+  // domains (a hostname that resolves to a private IP) lives in
+  // safe-fetch.ts's isDisallowedIp() check, applied at actual connect time.
+  if (IP_LITERAL.test(url.hostname)) return { ok: false, reason: 'IP-literal URLs are not permitted' };
+  const host = url.hostname.toLowerCase();
+  const domains = ALLOWED_WEB_DOMAINS_BY_SCOPE[scope];
+  const allowed = [...domains].some((d) => host === d || host.endsWith(`.${d}`));
+  if (!allowed) return { ok: false, reason: `domain not in ${scope} allowlist: ${host}` };
+  return { ok: true, url };
+}
+
+/**
+ * True if `ip` (as returned by dns.lookup) is loopback, link-local, private,
+ * CGNAT, documentation/benchmark, multicast, or otherwise non-public — the
+ * ranges an SSRF/DNS-rebinding attempt would target. Deliberately fails
+ * closed: anything unparseable is treated as disallowed.
+ *
+ * Not a full IPv6 classifier — it checks the well-known private prefixes by
+ * their leading hextet, which is sufficient for this SSRF-guard purpose
+ * without pulling in a general IP-range library for one check.
+ */
+export function isDisallowedIp(ip: string): boolean {
+  const family = net.isIP(ip);
+  if (family === 4) {
+    const parts = ip.split('.').map(Number);
+    if (parts.length !== 4 || parts.some((p) => !Number.isInteger(p) || p < 0 || p > 255)) return true;
+    const [a, b, c] = parts;
+    if (a === 0) return true; // "this network"
+    if (a === 10) return true; // private
+    if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
+    if (a === 127) return true; // loopback
+    if (a === 169 && b === 254) return true; // link-local
+    if (a === 172 && b >= 16 && b <= 31) return true; // private
+    if (a === 192 && b === 0 && (c === 0 || c === 2)) return true; // IETF / TEST-NET-1
+    if (a === 192 && b === 168) return true; // private
+    if (a === 198 && (b === 18 || b === 19)) return true; // benchmark
+    if (a === 198 && b === 51 && c === 100) return true; // TEST-NET-2
+    if (a === 203 && b === 0 && c === 113) return true; // TEST-NET-3
+    if (a >= 224) return true; // multicast (224-239) + reserved (240-255)
+    return false;
+  }
+  if (family === 6) {
+    const norm = ip.toLowerCase();
+    if (norm === '::1' || norm === '::') return true; // loopback / unspecified
+    const v4mapped = norm.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+    if (v4mapped) return isDisallowedIp(v4mapped[1]);
+    const firstToken = norm.split(':')[0];
+    const first = firstToken === '' ? 0 : parseInt(firstToken, 16);
+    if (Number.isNaN(first)) return true;
+    if (first >= 0xfe80 && first <= 0xfebf) return true; // link-local fe80::/10
+    if (first >= 0xfc00 && first <= 0xfdff) return true; // unique local fc00::/7
+    if (first >= 0xff00 && first <= 0xffff) return true; // multicast ff00::/8
+    return false;
+  }
+  return true; // not a recognizable IP — block rather than guess
+}
+
+// In-memory sliding-window rate limit, scoped per key (agent id today) so
+// one agent's usage can't starve another's — a global counter would let a
+// single busy agent lock everyone else out. Defense in depth alongside the
+// per-task MAX_STEPS_PER_TASK cap in runner.ts. Resets on process restart;
+// that's fine for a soft rate limit, not a security boundary on its own.
+const WEB_FETCH_WINDOW_MS = 60_000;
+const WEB_FETCH_MAX_PER_WINDOW = 20;
+const webFetchTimestampsByKey = new Map<string, number[]>();
+
+export function checkWebFetchRateLimit(key: string): { ok: boolean; reason?: string } {
+  const now = Date.now();
+  const existing = (webFetchTimestampsByKey.get(key) ?? []).filter((t) => now - t < WEB_FETCH_WINDOW_MS);
+  if (existing.length >= WEB_FETCH_MAX_PER_WINDOW) {
+    webFetchTimestampsByKey.set(key, existing);
+    return { ok: false, reason: `rate limit: ${WEB_FETCH_MAX_PER_WINDOW}/min exceeded for ${key}` };
+  }
+  existing.push(now);
+  webFetchTimestampsByKey.set(key, existing);
+  return { ok: true };
 }

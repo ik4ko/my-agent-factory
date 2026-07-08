@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import dynamic from 'next/dynamic';
 import { Reorder } from 'framer-motion';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { EyeOff, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
@@ -13,46 +12,39 @@ import { TaskFeed } from './task-feed';
 import { LiveTerminal } from './live-terminal';
 import { MemoryViewer } from './memory-viewer';
 import { StagedOrders } from './staged-orders';
+import { OmnigentActivity } from './omnigent-activity';
 import { WidgetErrorBoundary } from './widget-error-boundary';
 import type { Agent, Task, Log } from '@/lib/types/database.types';
 import { cn } from '@/lib/utils';
 
-// three.js touches window/document at import time — never server-render it.
-const SpatialWorkspace = dynamic(() => import('./SpatialWorkspace').then((m) => m.SpatialWorkspace), {
-  ssr: false,
-  loading: () => <div className="h-full w-full animate-pulse rounded-md bg-surface-2/30" />,
-});
-
-const PANE_IDS = ['spatial', 'fleet', 'tasks', 'orchestrate', 'consensus', 'tokens', 'terminal', 'approvals', 'memory'] as const;
+const PANE_IDS = ['orchestrate', 'fleet', 'tasks', 'terminal', 'consensus', 'tokens', 'memory', 'omnigent'] as const;
 export type PaneId = (typeof PANE_IDS)[number];
 
 const PANE_LABEL: Record<PaneId, string> = {
-  spatial: 'Spatial',
+  orchestrate: 'Main Chat',
   fleet: 'Fleet',
-  tasks: 'Tasks',
-  orchestrate: 'Orchestrate',
+  tasks: 'Tasks & Approvals',
   consensus: 'Consensus',
   tokens: 'Tokens',
   terminal: 'Terminal',
-  approvals: 'Staged Orders',
   memory: 'Memory',
+  omnigent: 'Omnigent',
 };
 
 const PANE_ACCENT: Record<PaneId, string> = {
-  spatial: 'text-neon-cyan',
+  orchestrate: 'text-primary',
   fleet: 'text-neon-green',
   tasks: 'text-warning',
-  orchestrate: 'text-primary',
   consensus: 'text-primary',
   tokens: 'text-neon-green',
   terminal: 'text-neon-cyan',
-  approvals: 'text-neon-orange',
   memory: 'text-neon-purple',
+  omnigent: 'text-neon-cyan',
 };
 
-// Consensus + Tokens start hidden — opt-in surfaces, not part of the default
-// tiling. Users bring them in from the tab strip.
-const DEFAULT_HIDDEN: PaneId[] = ['consensus', 'tokens'];
+// Consensus + Tokens + Omnigent start hidden — opt-in surfaces, not part of
+// the default tiling. Users bring them in from the tab strip.
+const DEFAULT_HIDDEN: PaneId[] = ['consensus', 'tokens', 'omnigent'];
 
 const LS_KEY = 'deck.layout.v1';
 
@@ -78,10 +70,19 @@ function loadState(): DeckState {
 }
 
 /** Chunk visible panes into balanced rows of at most three. */
-function toRows(visible: PaneId[]): PaneId[][] {
+function chunkRows(visible: PaneId[]): PaneId[][] {
   if (visible.length <= 3) return [visible];
   const split = Math.ceil(visible.length / 2);
   return [visible.slice(0, split), visible.slice(split)];
+}
+
+/** Main Chat is the dominant front-page surface: when visible it always gets
+ *  its own full-width top row (sized larger in the render pass below), with
+ *  every other visible pane chunked into the rows beneath it. */
+function toRows(visible: PaneId[]): PaneId[][] {
+  if (!visible.includes('orchestrate')) return chunkRows(visible);
+  const rest = visible.filter((id) => id !== 'orchestrate');
+  return rest.length === 0 ? [['orchestrate']] : [['orchestrate'], ...chunkRows(rest)];
 }
 
 function HandleH() {
@@ -151,15 +152,24 @@ export function WorkspaceDeck({
 
   const visible = useMemo(() => order.filter((id) => !hidden.includes(id)), [order, hidden]);
   const rows = useMemo(() => toRows(visible), [visible]);
+  const rowSizes = useMemo(() => computeRowSizes(rows), [rows]);
 
   const paneBody = (id: PaneId) => {
     switch (id) {
-      case 'spatial':
-        return <SpatialWorkspace />;
       case 'fleet':
-        return <AgentFleet initialAgents={initialAgents} />;
+        return <AgentFleet initialAgents={initialAgents} dense />;
       case 'tasks':
-        return <TaskFeed initialTasks={initialTasks} />;
+        // Task running state + manual-approval queue, unified: staged orders
+        // render nothing when the queue is empty, so this costs no extra
+        // layout until there's actually something to approve.
+        return (
+          <div className="flex h-full flex-col gap-2">
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <TaskFeed initialTasks={initialTasks} />
+            </div>
+            <StagedOrders />
+          </div>
+        );
       case 'orchestrate':
         return <AgentChat variant="panel" />;
       case 'consensus':
@@ -168,20 +178,10 @@ export function WorkspaceDeck({
         return <TokenStream />;
       case 'terminal':
         return <LiveTerminal initialLogs={initialLogs} />;
-      case 'approvals':
-        return (
-          <div className="flex h-full flex-col gap-1.5">
-            <span className="shrink-0 text-[10px] uppercase tracking-widest text-muted-foreground">Staged orders</span>
-            <p className="shrink-0 font-terminal text-[10px] text-muted-foreground/50">
-              Every proposal waits here for a human verdict — nothing auto-executes.
-            </p>
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <StagedOrders />
-            </div>
-          </div>
-        );
       case 'memory':
         return <MemoryViewer />;
+      case 'omnigent':
+        return <OmnigentActivity />;
     }
   };
 
@@ -268,7 +268,13 @@ export function WorkspaceDeck({
       ) : (
         <PanelGroup key={visible.join('|')} direction="vertical" className="min-h-0 flex-1 overflow-hidden">
           {rows.map((row, rowIdx) => (
-            <PaneRow key={row.join('|')} row={row} rowIdx={rowIdx} rowCount={rows.length} pane={pane} />
+            <PaneRow
+              key={row.join('|')}
+              row={row}
+              rowIdx={rowIdx}
+              defaultSize={rowSizes[rowIdx]}
+              pane={pane}
+            />
           ))}
         </PanelGroup>
       )}
@@ -276,21 +282,30 @@ export function WorkspaceDeck({
   );
 }
 
+/** Chat's own row (when present) dominates the vertical split; the rest
+ *  share what's left evenly. */
+function computeRowSizes(rows: PaneId[][]): number[] {
+  const isDominantChatRow = rows.length > 1 && rows[0].length === 1 && rows[0][0] === 'orchestrate';
+  if (!isDominantChatRow) return rows.map(() => 100 / rows.length);
+  const restCount = rows.length - 1;
+  return [55, ...Array.from({ length: restCount }, () => 45 / restCount)];
+}
+
 function PaneRow({
   row,
   rowIdx,
-  rowCount,
+  defaultSize,
   pane,
 }: {
   row: PaneId[];
   rowIdx: number;
-  rowCount: number;
+  defaultSize: number;
   pane: (id: PaneId) => React.ReactNode;
 }) {
   return (
     <>
       {rowIdx > 0 && <HandleV />}
-      <Panel defaultSize={100 / rowCount} minSize={18}>
+      <Panel defaultSize={defaultSize} minSize={18}>
         <PanelGroup direction="horizontal" className="h-full">
           {row.map((id, colIdx) => (
             <PaneCell key={id} id={id} colIdx={colIdx} colCount={row.length} pane={pane} />

@@ -373,7 +373,13 @@ export function TaskInput() {
         capturingRef.current = true;
         setWakeGlow(true);
       }
-      setValue(combined.replace(/^[\s,.:;-]+/, ''));
+      const cleaned = combined.replace(/^[\s,.:;-]+/, '');
+      setValue(cleaned);
+      // Stream every chunk into the shared conversation immediately (a
+      // proper state update, so the chat UI re-renders per chunk) instead of
+      // waiting for the silence-triggered dispatch below — that's the fix:
+      // previously this only ever touched TaskInput's own local `value`.
+      converse.setInterim(cleaned);
       armSilenceDispatch();
     };
 

@@ -13,6 +13,7 @@ import { agentLog } from '@/lib/hermes/hermes-logger';
 import { getAdminClient } from '@/lib/supabase/admin';
 import { extractTradeParams, buildStagedOrder, persistStagedOrder } from '@/lib/trading/stage';
 import { getActivePortfolioBalance } from '@/lib/market/portfolio';
+import { publishAgentEvent } from '@/lib/omnigent/bridge';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const REQUEST_TIMEOUT_MS = 60_000;
@@ -205,6 +206,14 @@ export async function dispatchAgent(rawInput: AgentDispatchInput): Promise<Agent
 
     await agentLog('success', agentId, `dispatch completed in ${latencyMs}ms · ${agent.model}`);
     const materialized = await materializeArtifacts(agentId, prompt, content, agent.model);
+
+    publishAgentEvent({
+      kind: 'agent.task_completed',
+      agentId,
+      taskId: null,
+      summary: `${prompt.slice(0, 120)} → ${content.slice(0, 160)}`,
+      ts: Date.now(),
+    });
 
     return {
       agentId,

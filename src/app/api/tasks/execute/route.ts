@@ -4,6 +4,7 @@ import { getAdminClient } from '@/lib/supabase/admin';
 import { hermesLog } from '@/lib/hermes/hermes-logger';
 import { parseToolCalls } from '@/lib/sandbox/parser';
 import { executeToolCalls, formatToolResults } from '@/lib/sandbox/runner';
+import { resolveTaskRoomScope } from '@/lib/rooms/scope';
 import type { Task } from '@/lib/types/database.types';
 
 const Schema = z.object({
@@ -51,7 +52,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ executed: 0, results: [], parseErrors: errors, feedback: '' });
     }
 
-    const results = await executeToolCalls(taskId, calls);
+    // Scope web_fetch's rate limit per agent (not global, so one busy agent
+    // can't starve another's) and its domain allowlist per room — reuses
+    // the same room-inference this app already uses everywhere else
+    // (TaskFeed, AgentFleet, …), not a bespoke rule for the sandbox.
+    const roomScope = resolveTaskRoomScope(task);
+    const results = await executeToolCalls(taskId, calls, task.agent_id ?? task.assigned_lane ?? 'unscoped', roomScope);
     const feedback = formatToolResults(results);
 
     return NextResponse.json({

@@ -78,6 +78,8 @@ export function TradingChart() {
   const lastTimeRef = useRef<number>(0);
 
   const [symbol, setSymbol] = useState<string | null>(null);
+  const [yahooQuote, setYahooQuote] = useState<{ price: number; ts: number } | null>(null);
+  const lastTickAtRef = useRef<number>(0);
 
   const symbols = useMemo(() => {
     const seen = new Set<string>();
@@ -163,6 +165,8 @@ export function TradingChart() {
   // Reset series when the charted symbol changes.
   useEffect(() => {
     lastTimeRef.current = 0;
+    lastTickAtRef.current = 0;
+    setYahooQuote(null);
     priceRef.current?.setData([]);
     rsiRef.current?.setData([]);
     macdRef.current?.setData([]);
@@ -182,6 +186,7 @@ export function TradingChart() {
       const time = Math.floor(tick.ts) as UTCTimestamp;
       if (time < lastTimeRef.current) continue;
       lastTimeRef.current = time;
+      lastTickAtRef.current = Date.now();
 
       price.update({ time, value: tick.price });
       if (tick.rsi !== null) rsiRef.current?.update({ time, value: tick.rsi });
@@ -197,10 +202,13 @@ export function TradingChart() {
     }
   }, [events, chartSymbol]);
 
-  // Poll the live Yahoo-backed quote endpoint so the price line stays real
-  // regardless of whether the local tick socket is connected. Timestamps
-  // share `lastTimeRef` with the tick ingestion above so neither feed can
-  // push the series backwards in time.
+  // Poll the live Yahoo-backed quote endpoint. Always recorded to state so
+  // it has its own guaranteed, labeled place in the UI (see the YAHOO badge
+  // below) — it must never depend on the tick socket to be visible. It only
+  // drives the chart's price LINE when the tick socket hasn't posted a tick
+  // for this symbol recently; otherwise the two feeds would fight over the
+  // same series (tick data — including this dev box's MOCK feed — winning
+  // by volume and burying the real Yahoo point).
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
@@ -212,8 +220,13 @@ export function TradingChart() {
         });
         if (!res.ok || cancelled) return;
         const data = (await res.json()) as LiveQuote;
+        if (typeof data.price !== 'number' || typeof data.ts !== 'number') return;
+
+        setYahooQuote({ price: data.price, ts: data.ts });
+
+        const tickIsLive = Date.now() - lastTickAtRef.current < QUOTE_POLL_MS * 2;
         const price = priceRef.current;
-        if (!price || typeof data.price !== 'number' || typeof data.ts !== 'number') return;
+        if (!price || tickIsLive) return;
 
         const time = Math.floor(data.ts / 1000) as UTCTimestamp;
         if (time < lastTimeRef.current) return;
@@ -260,14 +273,22 @@ export function TradingChart() {
             </button>
           ))}
         </div>
-        {latest && (
-          <div className="flex items-center gap-3 font-terminal text-xs">
-            <span className="text-foreground">${latest.price.toFixed(2)}</span>
-            <span className="text-[#a78bfa]">RSI {latest.rsi?.toFixed(1) ?? '—'}</span>
-            <span className="text-[#38bdf8]">MACD {latest.macd?.toFixed(3) ?? '—'}</span>
-            <Badge variant="muted">{latest.provider}</Badge>
-          </div>
-        )}
+        <div className="flex items-center gap-3 font-terminal text-xs">
+          {latest && (
+            <>
+              <span className="text-foreground">${latest.price.toFixed(2)}</span>
+              <span className="text-[#a78bfa]">RSI {latest.rsi?.toFixed(1) ?? '—'}</span>
+              <span className="text-[#38bdf8]">MACD {latest.macd?.toFixed(3) ?? '—'}</span>
+              <Badge variant="muted">{latest.provider}</Badge>
+            </>
+          )}
+          {yahooQuote && (
+            <span className="flex items-center gap-1.5 text-neon-green" title={`Yahoo Finance quote — ${new Date(yahooQuote.ts).toLocaleTimeString()}`}>
+              ${yahooQuote.price.toFixed(2)}
+              <Badge variant="cyan">YAHOO</Badge>
+            </span>
+          )}
+        </div>
       </div>
       <div ref={containerRef} className="h-[380px] w-full" />
       <span className="self-end font-terminal text-[9px] text-muted-foreground/30">

@@ -101,3 +101,15 @@ export function roomsByAgentId(agents: Agent[]): Map<string, Exclude<RoomScope, 
 export function scopeAgentIds(agents: Agent[], scope: RoomScope, tradingAgentIds?: ReadonlySet<string>): Set<string> {
   return new Set(agents.filter((a) => agentInScope(a, scope, tradingAgentIds)).map((a) => a.id));
 }
+
+const SCOPE_PRIORITY: Exclude<RoomScope, 'all'>[] = ['trading', 'coding', 'research'];
+
+/** Best-effort single room for a task — first matching scope wins (same
+ *  description/agent patterns as taskInScope), else 'all'. Used to select
+ *  scope-specific policies, e.g. the sandbox's web_fetch domain allowlist. */
+export function resolveTaskRoomScope(task: Task, roomsByAgentIdMap?: ReadonlyMap<string, Exclude<RoomScope, 'all'>[]>): RoomScope {
+  for (const scope of SCOPE_PRIORITY) {
+    if (taskInScope(task, scope, roomsByAgentIdMap)) return scope;
+  }
+  return 'all';
+}

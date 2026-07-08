@@ -44,7 +44,7 @@ export function GlobalControls() {
         aria-hidden={!chatOpen}
         aria-label="Ambient chat"
         className={cn(
-          'absolute right-0 top-11 bottom-0 z-40 flex w-[92vw] max-w-[380px] flex-col overflow-hidden surface-glass',
+          'absolute right-0 top-11 bottom-0 z-40 flex w-[92vw] max-w-[480px] flex-col overflow-hidden surface-glass',
           'transition-transform duration-200 ease-out',
           chatOpen ? 'translate-x-0' : 'pointer-events-none translate-x-[105%]'
         )}

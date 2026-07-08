@@ -1,0 +1,26 @@
+{
+  "_comment": "SCAFFOLD ONLY — placeholder values, not read by any code path yet. Copy to bridge.config.json (gitignored) and fill in real values once Omnigent is installed in WSL2. Never commit real endpoints, tokens, or credentials to this file.",
+
+  "runner": {
+    "transport": "ws",
+    "host": "localhost",
+    "port": 8899,
+    "_note": "[VERIFY] confirm real default port + transport against Omnigent's own docs; see omnigent/README.md for WSL2 networking caveats"
+  },
+
+  "session": {
+    "name": "my-agent-factory-dev",
+    "_note": "[VERIFY] Omnigent's actual shared-session naming/scoping model"
+  },
+
+  "publish": [
+    { "source": "agents.status",   "event": "agent.status_changed" },
+    { "source": "tasks.created",   "event": "agent.task_started" },
+    { "source": "tasks.completed", "event": "agent.task_completed" }
+  ],
+
+  "egressProxy": {
+    "enabled": false,
+    "_note": "Omnigent's egress proxy injects credentials only on approved outbound requests — the agent process itself never sees raw keys. Allowlist entries go here once defined; none configured yet."
+  }
+}

@@ -10,7 +10,8 @@
 export type ToolCall =
   | { tool: 'view_file'; path: string }
   | { tool: 'write_file'; path: string; content: string }
-  | { tool: 'execute_command'; command: string };
+  | { tool: 'execute_command'; command: string }
+  | { tool: 'web_fetch'; url: string };
 
 export interface ParseResult {
   calls: ToolCall[];
@@ -33,6 +34,9 @@ function asToolCall(raw: unknown): ToolCall | string {
     case 'execute_command':
       if (typeof o.command !== 'string') return 'execute_command requires string "command"';
       return { tool: 'execute_command', command: o.command };
+    case 'web_fetch':
+      if (typeof o.url !== 'string') return 'web_fetch requires string "url"';
+      return { tool: 'web_fetch', url: o.url };
     default:
       return `unknown tool: ${String(o.tool)}`;
   }
