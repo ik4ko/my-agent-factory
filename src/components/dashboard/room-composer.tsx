@@ -70,9 +70,12 @@ export function RoomComposer({
 
   return (
     <div className="space-y-1">
-      <div className="flex items-center gap-2 rounded-md border border-border bg-surface-1 px-3 py-2">
-        <span className={cn('shrink-0 font-terminal text-[10px] font-bold uppercase tracking-wider', accent)}>
-          → {agentLabel}
+      {/* Instrument Deck spec-composer treatment (Coding Room.dc.html §TASK
+          SPEC → CODEX): mono input in a deep well, agent-accent frame, QUEUE
+          SPEC action. Dispatch logic unchanged. */}
+      <div className="flex items-center gap-2 rounded-[6px] border border-agent-codex/25 bg-gradient-to-b from-[#14112a] to-background px-3 py-2">
+        <span className={cn('shrink-0 font-mono text-[9.5px] font-bold uppercase tracking-[0.2em]', accent)}>
+          ⌐ SPEC → {agentLabel}
         </span>
         <input
           ref={inputRef}
@@ -86,7 +89,7 @@ export function RoomComposer({
           aria-label={`Objective for ${agentLabel}`}
           autoComplete="off"
           spellCheck={false}
-          className="flex-1 bg-transparent font-terminal text-xs text-foreground placeholder:text-muted-foreground/25 outline-none disabled:opacity-60"
+          className="flex-1 rounded-[5px] border border-border/40 bg-surface-deep/70 px-3 py-1.5 font-mono text-[11px] text-ink-hi outline-none placeholder:text-ink-low/60 focus:border-agent-codex/50 disabled:opacity-60"
         />
         <button
           type="button"
@@ -94,16 +97,19 @@ export function RoomComposer({
           disabled={!value.trim() || pending}
           aria-label={`Dispatch objective to ${agentLabel}`}
           className={cn(
-            'shrink-0 rounded p-1 transition-colors',
-            value.trim() && !pending ? cn(accent, 'hover:bg-surface-2') : 'text-muted-foreground/25 cursor-not-allowed'
+            'flex shrink-0 items-center gap-1.5 rounded border px-3 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] transition-colors',
+            value.trim() && !pending
+              ? 'border-agent-codex/50 bg-agent-codex/[0.12] text-[#c4b5fd] hover:bg-agent-codex/[0.22]'
+              : 'cursor-not-allowed border-ink-low/20 text-ink-low/60',
           )}
         >
-          {pending ? <Loader2 className="size-3.5 animate-spin" /> : <SendHorizonal className="size-3.5" />}
+          {pending ? <Loader2 className="size-3 animate-spin" /> : <SendHorizonal className="size-3" />}
+          QUEUE SPEC
         </button>
       </div>
       {trace && (
-        <p className={cn('px-1 font-terminal text-[10px]', trace.kind === 'ok' ? 'text-neon-green' : 'text-neon-red')} role="status">
-          {trace.text}
+        <p className={cn('px-1 font-mono text-[10px]', trace.kind === 'ok' ? 'text-neon-green' : 'text-destructive')} role="status">
+          {trace.kind === 'ok' ? 'OK ' : ''}{trace.text}
         </p>
       )}
     </div>

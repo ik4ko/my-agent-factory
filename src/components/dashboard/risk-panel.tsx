@@ -33,9 +33,11 @@ export function RiskPanel() {
   const pnlUp = risk.realizedPnl >= 0;
 
   return (
-    <div className="rounded-md border border-border p-3">
+    <div className="relative rounded-[6px] border border-border/90 bg-surface-1 p-3">
+      <span aria-hidden className="pointer-events-none absolute left-[6px] top-[6px] h-3 w-3 border-l border-t border-primary/40" />
+      <span aria-hidden className="pointer-events-none absolute right-[6px] top-[6px] h-3 w-3 border-r border-t border-primary/40" />
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Execution safety</span>
+        <span className="font-mono text-[9.5px] tracking-[0.2em] text-[#4c6079]">⌐ RISK STATE</span>
 
         <span
           title="Master arm state (risk_state.trading_enabled). While disarmed, every order intent mock-executes as a dry_run audit row — nothing reaches a broker."

@@ -161,5 +161,8 @@
   "159": "settings-client.tsx",
   "160": "Claude ↔ Codex Local Handoff Spec",
   "161": "demo-seed.mts",
-  "162": "hermes.ts"
+  "162": "hermes.ts",
+  "165": "core-store.ts",
+  "166": "CODING AGENTS: READ THIS FIRST",
+  "167": "package.json"
 }

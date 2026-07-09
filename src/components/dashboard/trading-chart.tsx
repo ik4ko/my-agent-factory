@@ -247,14 +247,23 @@ export function TradingChart() {
   }, [chartSymbol]);
 
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+    <div className="relative flex flex-col gap-2 overflow-hidden rounded-[6px] border border-border/90 bg-gradient-to-b from-surface-2 to-background p-3">
+      {/* deck corner brackets */}
+      <span aria-hidden className="pointer-events-none absolute left-[6px] top-[6px] h-3 w-3 border-l border-t border-primary/40" />
+      <span aria-hidden className="pointer-events-none absolute right-[6px] top-[6px] h-3 w-3 border-r border-t border-primary/40" />
+
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[9.5px] tracking-[0.2em] text-[#4c6079]">
+            ⌐ {chartSymbol} · LIVE
+          </span>
+          {latest && (
+            <span className="tabular font-mono text-[13px] font-bold text-ink-hi">${latest.price.toFixed(2)}</span>
+          )}
           {symbols.length === 0 && (
-            <span className="flex items-center gap-2 text-xs text-muted-foreground" role="status">
-              <span className="size-1.5 shrink-0 rounded-full bg-neon-orange animate-pulse" aria-hidden />
-              Live tick bridge offline — RSI/MACD resume once it reconnects. Price ({chartSymbol}) stays
-              live via direct quote polling.
+            <span className="flex items-center gap-2 font-mono text-[10px] text-ink-mid" role="status">
+              <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-warning" aria-hidden />
+              tick bridge offline — RSI/MACD resume on reconnect; price stays live via quote polling
             </span>
           )}
           {symbols.map((s) => (
@@ -263,25 +272,25 @@ export function TradingChart() {
               type="button"
               onClick={() => setSymbol(s)}
               className={cn(
-                'rounded-md border border-border px-2 py-0.5 font-terminal text-xs transition-colors',
+                'rounded-[3px] border px-2 py-0.5 font-mono text-[10px] transition-colors',
                 s === chartSymbol
-                  ? 'border-neon-green/50 text-neon-green'
-                  : 'text-muted-foreground hover:text-foreground',
+                  ? 'border-primary/50 bg-primary/[0.06] text-primary-bright'
+                  : 'border-border/60 text-ink-mid hover:text-ink-hi',
               )}
             >
               {s}
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-3 font-terminal text-xs">
-          {latest && (
-            <>
-              <span className="text-foreground">${latest.price.toFixed(2)}</span>
-              <span className="text-[#a78bfa]">RSI {latest.rsi?.toFixed(1) ?? '—'}</span>
-              <span className="text-[#38bdf8]">MACD {latest.macd?.toFixed(3) ?? '—'}</span>
-              <Badge variant="muted">{latest.provider}</Badge>
-            </>
-          )}
+        <div className="flex items-center gap-[5px] font-mono text-[8.5px]">
+          <span className="rounded-[3px] border border-primary/35 bg-primary/[0.06] px-[7px] py-[2px] text-primary-bright">EMA-9</span>
+          <span className="rounded-[3px] border border-ink-low/25 px-[7px] py-[2px] text-agent-codex">
+            RSI-14 {latest?.rsi != null ? latest.rsi.toFixed(1) : '—'}
+          </span>
+          <span className="rounded-[3px] border border-ink-low/25 px-[7px] py-[2px] text-primary">
+            MACD {latest?.macd != null ? latest.macd.toFixed(3) : '—'}
+          </span>
+          {latest && <Badge variant="muted">{latest.provider}</Badge>}
           {yahooQuote && (
             <span className="flex items-center gap-1.5 text-neon-green" title={`Yahoo Finance quote — ${new Date(yahooQuote.ts).toLocaleTimeString()}`}>
               ${yahooQuote.price.toFixed(2)}
@@ -291,7 +300,7 @@ export function TradingChart() {
         </div>
       </div>
       <div ref={containerRef} className="h-[380px] w-full" />
-      <span className="self-end font-terminal text-[9px] text-muted-foreground/30">
+      <span className="self-end font-mono text-[9px] text-ink-low/40">
         charting by TradingView lightweight-charts™
       </span>
     </div>

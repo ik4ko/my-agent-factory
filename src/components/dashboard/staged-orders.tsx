@@ -1,23 +1,28 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ShieldCheck, ShieldX, Crosshair } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { subscribeWithReconnect } from '@/lib/supabase/realtime';
 import { useConnectionStore } from '@/lib/realtime/connection-store';
 import { pushSystemFeed } from '@/lib/fx/system-feed';
-import { cn } from '@/lib/utils';
+import { STAGED_ORDERS_KEY, useStagedOrders } from '@/hooks/use-staged-orders-query';
+import { PanelChrome, ApprovalGate, DataChip, StatusBadge } from '@/components/deck';
 import type { StagedOrderRow } from '@/lib/types/database.types';
 
-export const STAGED_ORDERS_KEY = ['staged-orders', 'pending'] as const;
+// Re-exported for existing importers (SpatialWorkspace's KellyGrid).
+export { STAGED_ORDERS_KEY };
+
 const CHANNEL = 'staged-orders-approval';
 
 /**
- * Human-in-the-loop approval track. Lists PENDING staged orders; the two
- * buttons record the human decision via PATCH /api/trading/action-order.
- * Renders nothing when the queue is empty — zero layout cost until the
- * pipeline actually stages a proposal.
+ * Human-in-the-loop approval GATE (Trading Room.dc.html §STAGED ORDERS).
+ *
+ * The presentation is the rose approval-gate treatment; the SAFETY LOGIC is
+ * unchanged from before the reskin: it lists real PENDING staged_orders rows,
+ * and APPROVE/REJECT record a human decision via PATCH
+ * /api/trading/action-order (with CAS-collision handling). Nothing
+ * auto-resolves — a real human click is required to clear the gate.
  */
 export function StagedOrders() {
   const supabase = useMemo(() => createClient(), []);
@@ -46,20 +51,7 @@ export function StagedOrders() {
     };
   }, [qc, supabase]);
 
-  const { data: pending = [] } = useQuery<StagedOrderRow[]>({
-    queryKey: STAGED_ORDERS_KEY,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('staged_orders')
-        .select('*')
-        .eq('human_approval_status', 'PENDING')
-        .order('created_at', { ascending: false })
-        .limit(8);
-      if (error) throw error;
-      return data;
-    },
-    staleTime: 30_000,
-  });
+  const { data: pending = [] } = useStagedOrders();
 
   const act = async (order: StagedOrderRow, action: 'APPROVED' | 'DENIED') => {
     if (actingId) return;
@@ -73,8 +65,6 @@ export function StagedOrders() {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (res.status === 409) {
         // CAS collision: another session/agent decided this order first.
-        // Badge briefly, then evict the stale row from the client cache —
-        // the realtime UPDATE will confirm, but the user shouldn't wait.
         setCollidedId(order.id);
         pushSystemFeed('SYSTEM', `Action collision avoided — ${order.underlying} ${order.option_type} ${order.strike} was already decided by another session`);
         setTimeout(() => {
@@ -101,76 +91,80 @@ export function StagedOrders() {
     }
   };
 
-  if (pending.length === 0) return null;
+  const hasPending = pending.length > 0;
 
   return (
-    <div className="shrink-0 border-t border-neon-green/20 bg-neon-green/[0.03] px-4 py-2">
-      <div className="flex items-center gap-1.5 pb-1.5">
-        <Crosshair className="size-3 text-neon-green" />
-        <span className="text-[10px] uppercase tracking-widest text-neon-green/80">
-          Approval Track
-        </span>
-        <span className="font-terminal text-[10px] text-muted-foreground/40">
-          {pending.length} staged · awaiting manual verification
-        </span>
-      </div>
-
-      <div className="space-y-1">
-        {pending.map((order) => (
-          <div
-            key={order.id}
-            className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border bg-surface-1 px-2.5 py-1.5 font-terminal text-[10px]"
-          >
-            <span className="font-semibold text-foreground">{order.underlying}</span>
-            <span className={order.option_type === 'CALL' ? 'text-neon-green' : 'text-neon-red'}>
-              {order.option_type} {order.strike}
-            </span>
-            <span className="text-muted-foreground/60">exp {order.expiration}</span>
-            <span className="text-muted-foreground/60">
-              LIMIT ${order.limit_price.toFixed(2)}
-            </span>
-            <span className="text-neon-cyan/80">
-              ${order.calculated_position_size_usd.toLocaleString()} ·{' '}
-              {(order.kelly_fraction * 100).toFixed(2)}% eq
-            </span>
-            <span className="text-neon-purple/70">E={order.expectancy.toFixed(2)}R</span>
-            <span
-              className={cn(
-                'rounded border px-1 py-px text-[9px] tracking-wider',
-                order.source === 'SANDBOX'
-                  ? 'border-neon-orange/40 text-neon-orange/80'
-                  : 'border-neon-cyan/40 text-neon-cyan/80',
-              )}
+    <PanelChrome
+      title="STAGED ORDERS"
+      accent={hasPending ? 'gate' : 'default'}
+      glow={hasPending}
+      headerRight={
+        hasPending ? (
+          <StatusBadge status="pending" className="border-gate/40 !text-gate">
+            {pending.length} · ACTION REQUIRED
+          </StatusBadge>
+        ) : (
+          <span className="font-mono text-[8.5px] tracking-[0.14em] text-ink-low">QUEUE CLEAR</span>
+        )
+      }
+      bodyClassName="p-[10px] flex flex-col gap-[10px]"
+    >
+      {!hasPending ? (
+        <div className="flex h-full min-h-[7rem] flex-col items-center justify-center gap-1.5 text-center">
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-low">No orders staged</span>
+          <span className="max-w-[15rem] text-[11px] leading-relaxed text-ink-mid">
+            Every proposal waits here for a human verdict — nothing auto-executes.
+          </span>
+        </div>
+      ) : (
+        pending.map((order) => {
+          const isCall = order.option_type === 'CALL';
+          const busy = actingId === order.id;
+          const collided = collidedId === order.id;
+          return (
+            <ApprovalGate
+              key={order.id}
+              tag="AWAITING YOUR APPROVAL"
+              busy={busy || collided}
+              approveLabel={order.source === 'LIVE' ? 'APPROVE' : 'APPROVE (SIM)'}
+              onApprove={() => void act(order, 'APPROVED')}
+              onReject={() => void act(order, 'DENIED')}
             >
-              {order.source}
-            </span>
-
-            <span className="ml-auto flex items-center gap-1.5">
-              {collidedId === order.id && (
-                <span className="rounded border border-neon-orange/50 bg-neon-orange/10 px-1.5 py-px text-[8px] tracking-wider text-neon-orange animate-fade-in-up">
+              <div className="flex items-center gap-[9px] font-mono">
+                <span
+                  className={`rounded-[3px] border px-2 py-[2px] text-[9px] font-bold tracking-[0.14em] ${
+                    isCall
+                      ? 'border-neon-green/45 bg-neon-green/10 text-neon-green'
+                      : 'border-destructive/45 bg-destructive/10 text-destructive'
+                  }`}
+                >
+                  {order.option_type}
+                </span>
+                <span className="text-[14px] font-bold text-ink-hi">
+                  {order.underlying} {order.strike}
+                </span>
+                <span className="text-[10px] text-ink-mid">@ ${order.limit_price.toFixed(2)}</span>
+                <span className="ml-auto tabular text-[10px] text-ink-mid">
+                  est ${Math.round(order.calculated_position_size_usd).toLocaleString()}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-[5px]">
+                <DataChip>½ Kelly · {(order.kelly_fraction * 100).toFixed(2)}% of book</DataChip>
+                <DataChip>E {order.expectancy.toFixed(2)}R · W {Math.round((order.win_rate > 1 ? order.win_rate / 100 : order.win_rate) * 100)}%</DataChip>
+                <DataChip tone={order.source === 'SANDBOX' ? 'muted' : 'primary'}>{order.source}</DataChip>
+              </div>
+              <span className="font-mono text-[8.5px] text-ink-low">
+                exp {order.expiration} · payoff {order.r_multiple.toFixed(1)}:1
+              </span>
+              {collided && (
+                <span className="animate-fade-in-up self-start rounded-[3px] border border-warning/50 bg-warning/10 px-[6px] py-px font-mono text-[8px] tracking-[0.12em] text-warning">
                   ACTION COLLISION AVOIDED
                 </span>
               )}
-              <button
-                type="button"
-                disabled={actingId !== null || collidedId === order.id}
-                onClick={() => void act(order, 'APPROVED')}
-                className="flex items-center gap-1 rounded border border-neon-green/40 bg-neon-green/10 px-2 py-1 text-[9px] font-semibold tracking-wider text-neon-green transition-colors hover:bg-neon-green/20 disabled:opacity-40"
-              >
-                <ShieldCheck className="size-3" /> [ APPROVE TRANSACTION ]
-              </button>
-              <button
-                type="button"
-                disabled={actingId !== null || collidedId === order.id}
-                onClick={() => void act(order, 'DENIED')}
-                className="flex items-center gap-1 rounded border border-neon-red/40 bg-neon-red/10 px-2 py-1 text-[9px] font-semibold tracking-wider text-neon-red transition-colors hover:bg-neon-red/20 disabled:opacity-40"
-              >
-                <ShieldX className="size-3" /> [ DENY TRANSACTION ]
-              </button>
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
+            </ApprovalGate>
+          );
+        })
+      )}
+    </PanelChrome>
   );
 }

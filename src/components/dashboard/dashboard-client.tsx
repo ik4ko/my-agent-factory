@@ -14,7 +14,15 @@ import { useAgentSocket } from '@/hooks/use-agent-socket';
 import { useWorkspaceInit } from '@/hooks/use-workspace-init';
 import type { Agent, Task, Log } from '@/lib/types/database.types';
 import { useQueryClient } from '@tanstack/react-query';
-import { CinematicCore } from './cinematic-core';
+import dynamic from 'next/dynamic';
+
+// The Brain Hub WebGL scene touches window/canvas — client-only, and the ONE
+// Three.js surface on the dashboard (perf constraint: heavy 3D is Brain Hub
+// only, so the old CinematicCore background canvas is retired).
+const SpatialWorkspace = dynamic(() => import('./SpatialWorkspace'), {
+  ssr: false,
+  loading: () => <div className="h-[420px] shrink-0 animate-pulse rounded-md border border-border bg-surface-2/40" />,
+});
 
 interface DashboardClientProps {
   initialAgents: Agent[];
@@ -70,6 +78,14 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
         <RoomStatusStrip />
       </WidgetErrorBoundary>
 
+      {/* BRAIN HUB — the Instrument Deck's WebGL signature: orbit the four
+          brains, click to fly in, rose beacon when an order awaits approval. */}
+      <div className="h-[420px] shrink-0 px-2 pt-2">
+        <WidgetErrorBoundary name="Brain Hub">
+          <SpatialWorkspace />
+        </WidgetErrorBoundary>
+      </div>
+
       {/* Multi-pane workspace deck: every orchestration surface on one screen,
           window-managed by the chip strip (drag to reorder, click to toggle,
           maximize to solo). */}
@@ -79,11 +95,6 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
 
       {/* Realtime degraded-state toast (overlay, non-shifting) */}
       <ConnectionBanner />
-
-      {/* BACKGROUND GRAPHICS: Floating WebGL Particle Field */}
-      <div className="absolute inset-0 z-0 pointer-events-none opacity-40 mix-blend-screen">
-        <CinematicCore isListening={false} focusTarget={null} intensity={1} />
-      </div>
 
       {/* Single terminal command dock — queues a pending task (lane-router flow) */}
       <TaskInput />

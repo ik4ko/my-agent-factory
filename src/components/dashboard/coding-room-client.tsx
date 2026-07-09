@@ -5,68 +5,89 @@ import { TaskOutputFeed } from './task-output-feed';
 import { AgentFleet } from './agent-fleet';
 import { TaskFeed } from './task-feed';
 import { LiveTerminal } from './live-terminal';
+import { PanelChrome } from '@/components/deck';
 import { WidgetErrorBoundary } from './widget-error-boundary';
 
 /**
- * Coding Room — Codex's workspace. Objectives dispatched here are pinned to
- * the coder agent type; the review panel shows the workers' real persisted
- * output (with diff-line highlighting when output is diff-shaped), and the
- * coding-scoped terminal doubles as the sandboxed tool-runner stream.
+ * Coding Room — CODEX's workspace, in the Instrument Deck layout
+ * (Coding Room.dc.html): SPEC → CODEX composer, the REVIEW panel (real
+ * persisted worker output with diff-line highlighting), RUNS · CODEX, and a
+ * bottom register with the SANDBOX RUNNER (the coding-scoped terminal IS the
+ * sandboxed tool-runner stream) and the coding fleet.
+ *
+ * Deviations from the mockup, flagged deliberately: the static file-tree pane
+ * and the jest/coverage sandbox-session tiles have no backing data source in
+ * this app (no coverage or tree tables) — nothing is fabricated; the real
+ * tool-runner stream carries that register instead.
  */
 export function CodingRoomClient() {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2 p-2">
       <WidgetErrorBoundary name="Composer">
         <RoomComposer
           agentType="coder"
-          agentLabel="Codex"
-          placeholder="Spec a build task for Codex… (routed to a coder agent, runs sandboxed)"
-          accent="text-neon-cyan"
+          agentLabel="CODEX"
+          placeholder="Describe the change: goal, constraints, files in scope, acceptance criteria…"
+          accent="text-agent-codex"
         />
       </WidgetErrorBoundary>
 
-      <div className="grid gap-3 lg:grid-cols-2">
-        {/* Patch frame — minified file-tree chrome around the review feed */}
-        <div className="min-w-0 rounded-md border border-neon-cyan/20 bg-surface-1/40">
-          <div className="border-b border-neon-cyan/15 px-2.5 py-1 font-terminal text-[9px] leading-relaxed text-neon-cyan/50">
-            <span className="text-neon-cyan/70">workspace/</span>
-            <br />├─ patches/&nbsp;&nbsp;<span className="text-muted-foreground/40">· execution-ready output frames</span>
-            <br />└─ sandbox/&nbsp;&nbsp;<span className="text-muted-foreground/40">· tool-runner stream →</span>
-          </div>
-          <div className="p-2.5">
+      {/* Row 1 — REVIEW (hero) + RUNS · CODEX */}
+      <div className="grid grid-cols-1 gap-2 xl:grid-cols-12">
+        <div className="min-h-[22rem] min-w-0 xl:col-span-8 xl:h-[26rem]">
+          <PanelChrome
+            title="REVIEW"
+            headerRight={
+              <span className="font-mono text-[8.5px] text-ink-low">latest CODEX output · diff-aware</span>
+            }
+            bodyClassName="p-2.5"
+            className="h-full"
+          >
             <WidgetErrorBoundary name="Code Review">
               <TaskOutputFeed
                 agentTypes={['coder', 'planner']}
-                title="Code review — latest Codex output"
-                accent="text-neon-cyan"
-                emptyText="No Codex output yet — dispatch a build task above and its generated code / review notes stream in here."
+                title=""
+                accent="text-agent-codex"
+                emptyText="No CODEX output yet — queue a spec above; generated code / review notes stream in here."
               />
             </WidgetErrorBoundary>
-          </div>
+          </PanelChrome>
         </div>
 
-        <section className="min-w-0">
-          <h2 className="mb-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
-            Tool-runner output
-          </h2>
-          <div className="h-[340px] rounded-md border border-border p-2.5">
+        <div className="min-h-[22rem] min-w-0 xl:col-span-4 xl:h-[26rem]">
+          <PanelChrome title="RUNS · CODEX" accent="agent" bodyClassName="p-0" className="h-full">
+            <WidgetErrorBoundary name="Coding Tasks">
+              <TaskFeed scope="coding" />
+            </WidgetErrorBoundary>
+          </PanelChrome>
+        </div>
+      </div>
+
+      {/* Row 2 — SANDBOX RUNNER (tool-runner stream) + FLEET */}
+      <div className="grid grid-cols-1 gap-2 xl:grid-cols-12">
+        <div className="h-[20rem] min-w-0 xl:col-span-8">
+          <PanelChrome
+            title="SANDBOX RUNNER"
+            headerRight={
+              <span className="rounded-[2px] border border-neon-green/40 px-[5px] font-mono text-[7.5px] font-bold tracking-[0.08em] text-neon-green">
+                ISOLATED
+              </span>
+            }
+            bodyClassName="p-0"
+            className="h-full bg-surface-deep"
+          >
             <WidgetErrorBoundary name="Coding Terminal">
               <LiveTerminal scope="coding" />
             </WidgetErrorBoundary>
-          </div>
-        </section>
-      </div>
-
-      <div className="grid gap-3 lg:grid-cols-2">
-        <div className="h-[320px] min-w-0 rounded-md border border-border p-2.5">
-          <WidgetErrorBoundary name="Coding Fleet">
-            <AgentFleet scope="coding" />
-          </WidgetErrorBoundary>
+          </PanelChrome>
         </div>
-        <div className="h-[320px] min-w-0 rounded-md border border-border p-2.5">
-          <WidgetErrorBoundary name="Coding Tasks">
-            <TaskFeed scope="coding" />
-          </WidgetErrorBoundary>
+
+        <div className="h-[20rem] min-w-0 xl:col-span-4">
+          <PanelChrome title="FLEET · CODING" bodyClassName="p-0" className="h-full">
+            <WidgetErrorBoundary name="Coding Fleet">
+              <AgentFleet scope="coding" />
+            </WidgetErrorBoundary>
+          </PanelChrome>
         </div>
       </div>
     </div>

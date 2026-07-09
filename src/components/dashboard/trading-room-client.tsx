@@ -3,77 +3,92 @@
 import dynamic from 'next/dynamic';
 import { useAgentSocket } from '@/hooks/use-agent-socket';
 import { SimulationBanner } from './simulation-banner';
+import { ExecutionSafetyBar } from './execution-safety-bar';
 import { RiskPanel } from './risk-panel';
 import { QuotesPanel } from './quotes-panel';
 import { StagedOrders } from './staged-orders';
+import { KellyInstrument } from './kelly-instrument';
 import { AgentFleet } from './agent-fleet';
-import { TaskFeed } from './task-feed';
 import { LiveTerminal } from './live-terminal';
+import { PanelChrome } from '@/components/deck';
 import { WidgetErrorBoundary } from './widget-error-boundary';
 
 // lightweight-charts touches window/canvas at import time, so the canvas
 // layer must never be server-rendered.
 const TradingChart = dynamic(() => import('./trading-chart'), {
   ssr: false,
-  loading: () => <div className="h-[440px] animate-pulse rounded-md border border-border bg-surface-2/40" />,
+  loading: () => <div className="h-[440px] animate-pulse rounded-[6px] border border-border/90 bg-surface-2/40" />,
 });
 
 /**
- * Trading Room — the full trading chrome extracted from the Control Room:
- * trust banner, risk/PnL panel, live chart, quotes, human-approval order
- * queue, and trading-scoped fleet/task/terminal instances. Mounts the local
- * agent socket itself (the Control Room shell only lives on /dashboard).
+ * Trading Room — the Instrument Deck layout (Trading Room.dc.html):
+ * Execution Safety bar → SIM quotes ticker → a hairline instrument grid of
+ * the rose Staged-Orders gate, the live price chart, and the Kelly-sizing
+ * instrument, over a trading-scoped Fleet / Terminal / Risk row.
+ *
+ * This is a visual reskin: every data binding and safety gate is preserved —
+ * the gate still records a real human verdict, the Kelly numbers are bound to
+ * the real staged order, and the kill switch opens the real E-Stop flow.
  */
 export function TradingRoomClient() {
   useAgentSocket();
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2 p-2">
       <WidgetErrorBoundary name="Simulation">
         <SimulationBanner />
       </WidgetErrorBoundary>
 
-      <WidgetErrorBoundary name="Risk">
-        <RiskPanel />
+      <WidgetErrorBoundary name="Execution Safety">
+        <ExecutionSafetyBar />
       </WidgetErrorBoundary>
 
-      <WidgetErrorBoundary name="Chart">
-        <TradingChart />
+      <WidgetErrorBoundary name="Quotes">
+        <QuotesPanel />
       </WidgetErrorBoundary>
 
-      <div className="grid gap-3 lg:grid-cols-2">
-        <section className="min-w-0">
-          <h2 className="mb-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">Quotes</h2>
-          <WidgetErrorBoundary name="Quotes">
-            <QuotesPanel />
-          </WidgetErrorBoundary>
-        </section>
-
-        <section className="min-w-0">
-          <h2 className="mb-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">Staged orders</h2>
-          <p className="mb-1.5 font-terminal text-[10px] text-muted-foreground/50">
-            Every proposal waits here for a human verdict — nothing auto-executes.
-          </p>
+      {/* Row 1 — the gate, the chart, the Kelly instrument */}
+      <div className="grid grid-cols-1 gap-2 xl:grid-cols-12">
+        <div className="min-h-[24rem] xl:col-span-3 xl:h-[30rem]">
           <WidgetErrorBoundary name="Staged Orders">
             <StagedOrders />
           </WidgetErrorBoundary>
-        </section>
+        </div>
+
+        <div className="min-w-0 xl:col-span-5 xl:h-[30rem]">
+          <WidgetErrorBoundary name="Chart">
+            <TradingChart />
+          </WidgetErrorBoundary>
+        </div>
+
+        <div className="min-h-[24rem] xl:col-span-4 xl:h-[30rem]">
+          <WidgetErrorBoundary name="Kelly Sizing">
+            <KellyInstrument />
+          </WidgetErrorBoundary>
+        </div>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-3">
-        <div className="h-[340px] min-w-0 rounded-md border border-border p-2.5">
-          <WidgetErrorBoundary name="Trading Fleet">
-            <AgentFleet scope="trading" />
-          </WidgetErrorBoundary>
+      {/* Row 2 — trading-scoped fleet / terminal / risk */}
+      <div className="grid grid-cols-1 gap-2 xl:grid-cols-12">
+        <div className="h-[21rem] min-w-0 xl:col-span-3">
+          <PanelChrome title="FLEET · TRADING" bodyClassName="p-0" className="h-full">
+            <WidgetErrorBoundary name="Trading Fleet">
+              <AgentFleet scope="trading" />
+            </WidgetErrorBoundary>
+          </PanelChrome>
         </div>
-        <div className="h-[340px] min-w-0 rounded-md border border-border p-2.5">
-          <WidgetErrorBoundary name="Trading Tasks">
-            <TaskFeed scope="trading" />
-          </WidgetErrorBoundary>
+
+        <div className="h-[21rem] min-w-0 xl:col-span-6">
+          <PanelChrome title="TERMINAL · TRADING" bodyClassName="p-0" className="h-full">
+            <WidgetErrorBoundary name="Trading Terminal">
+              <LiveTerminal scope="trading" />
+            </WidgetErrorBoundary>
+          </PanelChrome>
         </div>
-        <div className="h-[340px] min-w-0 rounded-md border border-border p-2.5">
-          <WidgetErrorBoundary name="Trading Terminal">
-            <LiveTerminal scope="trading" />
+
+        <div className="h-[21rem] min-w-0 overflow-y-auto xl:col-span-3">
+          <WidgetErrorBoundary name="Risk">
+            <RiskPanel />
           </WidgetErrorBoundary>
         </div>
       </div>
