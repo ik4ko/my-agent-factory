@@ -55,8 +55,13 @@ export function useSupabaseRealtime<Row extends Record<string, unknown>>({
   useEffect(() => {
     // Early safety exits — misconfiguration must degrade, not throw.
     if (typeof window === 'undefined') return;
-    if (!channel || !table) {
-      console.warn('[useSupabaseRealtime] missing channel/table — subscription skipped');
+    // An empty channel is the documented DISABLE switch: cache-only consumers
+    // pass `channelName: null` (→ '') on purpose so a single owning subscriber
+    // serves every observer. Bail silently — this is intentional, not a bug.
+    if (!channel) return;
+    // A channel WITHOUT a table, however, is a genuine misconfiguration.
+    if (!table) {
+      console.warn(`[useSupabaseRealtime:${channel}] missing table — subscription skipped`);
       return;
     }
 

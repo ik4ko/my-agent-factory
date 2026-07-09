@@ -1,8 +1,8 @@
 {
   ".claude/launch.json": {
-    "mtime": 1783575149.2251568,
-    "ast_hash": "47502aca0dd8b9f9ae1822b661382619",
-    "semantic_hash": ""
+    "mtime": 1783385199.0336082,
+    "ast_hash": "3944c2921ac1e002034f25a302c32332",
+    "semantic_hash": "3944c2921ac1e002034f25a302c32332"
   },
   ".claude/settings.json": {
     "mtime": 1783545683.8973074,
@@ -15,8 +15,8 @@
     "semantic_hash": "873b821cf4454bbd3e4191ef0fd31597"
   },
   "next.config.ts": {
-    "mtime": 1783575142.4446871,
-    "ast_hash": "568e85e6c8e6a1190f72b8663fbf0d4e",
+    "mtime": 1783551063.3798347,
+    "ast_hash": "012eb46956e2c4d2e5d7c1d0593dc6c6",
     "semantic_hash": ""
   },
   "package.json": {
@@ -290,8 +290,8 @@
     "semantic_hash": "aa8f8cace4cf9e4cade56c80911273bb"
   },
   "src/app/layout.tsx": {
-    "mtime": 1783574593.285286,
-    "ast_hash": "8cc993ef123487f53c6e14adc959b36f",
+    "mtime": 1783451013.9391294,
+    "ast_hash": "c34d876ee2aaf5226107add4c1bd9d66",
     "semantic_hash": ""
   },
   "src/app/login/page.tsx": {
@@ -1010,14 +1010,14 @@
     "semantic_hash": "0153be94b73b759a09f3b09bb9246a7e"
   },
   "tailwind.config.ts": {
-    "mtime": 1783574861.3993363,
-    "ast_hash": "332d5b05d8ab39331efad0c7f56ebc89",
-    "semantic_hash": ""
+    "mtime": 1783113557.9352338,
+    "ast_hash": "5246b6ab8b2b27ec6fda9bea4cb33629",
+    "semantic_hash": "5246b6ab8b2b27ec6fda9bea4cb33629"
   },
   "tsconfig.json": {
-    "mtime": 1783575288.482458,
-    "ast_hash": "f54ccab190e35253e480714744029a96",
-    "semantic_hash": ""
+    "mtime": 1780235127.9488802,
+    "ast_hash": "b14239aa42f5ced699f0358b7ea66f11",
+    "semantic_hash": "b14239aa42f5ced699f0358b7ea66f11"
   },
   "vercel.json": {
     "mtime": 1783178779.2711706,
@@ -1582,151 +1582,6 @@
   "docs/claude-codex-collaboration.md": {
     "mtime": 1783553354.6934605,
     "ast_hash": "3e560ec0625c5a8b0dca0e6a76f9425d",
-    "semantic_hash": ""
-  },
-  "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/handoff/src/components/dashboard/cinematic-core.tsx": {
-    "mtime": 1783573658.7195642,
-    "ast_hash": "88f0cdc285588d98f570f86fe7266d38",
-    "semantic_hash": ""
-  },
-  "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/handoff/src/components/dashboard/status-dot.tsx": {
-    "mtime": 1783573658.736243,
-    "ast_hash": "53032cc8c9d84ef9b3ef74680d01f053",
-    "semantic_hash": ""
-  },
-  "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/handoff/src/lib/fx/core-store.ts": {
-    "mtime": 1783573658.7747493,
-    "ast_hash": "512ca4464668d3b9e89a5752768f46c5",
-    "semantic_hash": ""
-  },
-  "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/support.js": {
-    "mtime": 1783573658.6208596,
-    "ast_hash": "843c817ed1abf0fa4deacf7162814833",
-    "semantic_hash": ""
-  },
-  "src/app/deck-gallery/page.tsx": {
-    "mtime": 1783574992.761809,
-    "ast_hash": "15a24595d42b9a15baf1f911d24eff85",
-    "semantic_hash": ""
-  },
-  "src/components/deck/approval-gate.tsx": {
-    "mtime": 1783574841.6680434,
-    "ast_hash": "63fffa271db77304cdeee6bab676f44f",
-    "semantic_hash": ""
-  },
-  "src/components/deck/data-chip.tsx": {
-    "mtime": 1783574873.3576577,
-    "ast_hash": "da04865e5f524d7942ab03eaa0688f23",
-    "semantic_hash": ""
-  },
-  "src/components/deck/deck-button.tsx": {
-    "mtime": 1783574762.4435518,
-    "ast_hash": "6bed5313adfd65e06d7ac9a533dafe55",
-    "semantic_hash": ""
-  },
-  "src/components/deck/index.ts": {
-    "mtime": 1783574883.194598,
-    "ast_hash": "2e9842dae91466ae6c8e4c973743139c",
-    "semantic_hash": ""
-  },
-  "src/components/deck/panel-chrome.tsx": {
-    "mtime": 1783574916.005708,
-    "ast_hash": "d95fe9e363eb8f97a4dd13ee22bdb1ff",
-    "semantic_hash": ""
-  },
-  "src/components/deck/status.tsx": {
-    "mtime": 1783574818.1711743,
-    "ast_hash": "5c42864edc0abb55c9d0033c119fca3a",
-    "semantic_hash": ""
-  },
-  "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/README.md": {
-    "mtime": 1783573658.3300605,
-    "ast_hash": "0d597adf1219fe63f09cd23cdcf3fcb3",
-    "semantic_hash": ""
-  },
-  "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/Agent Factory Console.dc.html": {
-    "mtime": 1783573658.3841517,
-    "ast_hash": "cf734f4f960701582ffe3146aae56783",
-    "semantic_hash": ""
-  },
-  "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/Brain Hub.dc.html": {
-    "mtime": 1783573658.403032,
-    "ast_hash": "e1bf13d9c94bf1f8bd4b99b50a3899ec",
-    "semantic_hash": ""
-  },
-  "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/Coding Room.dc.html": {
-    "mtime": 1783573658.4216301,
-    "ast_hash": "f5b27069c74a3938e2fdfe84f5c10408",
-    "semantic_hash": ""
-  },
-  "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/Control Room - 3 States.dc.html": {
-    "mtime": 1783573658.4379673,
-    "ast_hash": "53dd87d4b7165096e8406b4839a49474",
-    "semantic_hash": ""
-  },
-  "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/Control Room.dc.html": {
-    "mtime": 1783573658.4559686,
-    "ast_hash": "6e76d9d57ee0b1dde78ae068f7fd66ea",
-    "semantic_hash": ""
-  },
-  "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/Direction Board.dc.html": {
-    "mtime": 1783573658.4728878,
-    "ast_hash": "f3f7ce19aa3481e0be46631e8012bc14",
-    "semantic_hash": ""
-  },
-  "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/FleetPanel.dc.html": {
-    "mtime": 1783573658.488895,
-    "ast_hash": "92bc04522ceb5d38de4d12983450fa90",
-    "semantic_hash": ""
-  },
-  "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/Four Rooms - IA Review.dc.html": {
-    "mtime": 1783573658.5058947,
-    "ast_hash": "49ffd121d3ca8deb46063a1ef42a2749",
-    "semantic_hash": ""
-  },
-  "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/Global Chat.dc.html": {
-    "mtime": 1783573658.5228941,
-    "ast_hash": "3a04c4406505222183247bfd53d8665b",
-    "semantic_hash": ""
-  },
-  "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/Personal Room.dc.html": {
-    "mtime": 1783573658.5420237,
-    "ast_hash": "c2fdbe424cb3f4fa0e32ea82aa53607d",
-    "semantic_hash": ""
-  },
-  "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/Rooms.dc.html": {
-    "mtime": 1783573658.5585208,
-    "ast_hash": "e9c74d4d8e814833ad7a4d3c8809a61c",
-    "semantic_hash": ""
-  },
-  "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/RunCards.dc.html": {
-    "mtime": 1783573658.5740278,
-    "ast_hash": "99ba5718c465552f60a879f09c7d8282",
-    "semantic_hash": ""
-  },
-  "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/TerminalPanel.dc.html": {
-    "mtime": 1783573658.5902896,
-    "ast_hash": "ba3d84c9f5df1bedf74898005ba89bb6",
-    "semantic_hash": ""
-  },
-  "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/Trading Room.dc.html": {
-    "mtime": 1783573658.606124,
-    "ast_hash": "55ab11323ab710e480082139ba879b6e",
-    "semantic_hash": ""
-  },
-  "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/screenshots/brainhub-focus.png": {
-    "mtime": 1783573658.8069875,
-    "ast_hash": "1c891f6538a84670f08b523845a20488",
-    "semantic_hash": ""
-  },
-  "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/screenshots/chat-expanded.png": {
-    "mtime": 1783573658.8199975,
-    "ast_hash": "1559a59c34737d68527dbb3cbd0bce10",
-    "semantic_hash": ""
-  },
-  "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/uploads/pasted-1783557770424-0.png": {
-    "mtime": 1783573658.8571315,
-    "ast_hash": "bab3483b1bd165f93e0f3596d3fc0950",
     "semantic_hash": ""
   }
 }

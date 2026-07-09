@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #09090b; }
+    a { color: #06b6d4; text-decoration: none; }
+    a:hover { color: #22d3ee; }
+    ::selection { background: rgba(6,182,212,0.25); color: #e4e4e7; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 2px; }
+    @keyframes pulseFaint { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+    @keyframes pingDot { 75%, 100% { transform: scale(2.2); opacity: 0; } }
+  </style>
+</helmet>
+
+<div data-screen-label="Rooms shell" style="position: relative; isolation: isolate; display: flex; height: 100%; min-height: 640px; overflow: hidden; background: #09090b; color: #a1a1aa; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; box-sizing: border-box;">
+
+  <div ref="{{ canvasHostRef }}" aria-hidden="true" style="position: absolute; inset: 0; z-index: 0; pointer-events: none;"></div>
+
+  <!-- ── Nav rail — exactly ONE indicator lit, ever ──────── -->
+  <nav data-screen-label="Nav rail" style="position: relative; z-index: 2; display: flex; width: 42px; flex-shrink: 0; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0; border-right: 1px solid rgba(255,255,255,0.04); background: rgba(9,9,11,0.55); backdrop-filter: blur(12px);">
+    <div aria-hidden="true" style="display: flex; width: 26px; height: 26px; margin-bottom: 8px; align-items: center; justify-content: center; border-radius: 5px; border: 1px solid rgba(255,255,255,0.06); background: transparent;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"></path></svg>
+    </div>
+    <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="5">
+      <div style="position: relative;">
+        <button type="button" onClick="{{ n.onClick }}" onMouseEnter="{{ n.onEnter }}" onMouseLeave="{{ n.onLeave }}" aria-label="{{ n.label }}" style="display: flex; width: 30px; height: 30px; align-items: center; justify-content: center; border-radius: 5px; border: 1px solid {{ n.border }}; background: {{ n.bg }}; cursor: pointer; padding: 0;" style-hover="background: rgba(255,255,255,0.05);">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{ n.color }}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="{{ n.icon }}"></path></svg>
+        </button>
+        <sc-if value="{{ n.activeBar }}" hint-placeholder-val="{{ false }}">
+          <span style="position: absolute; left: -6px; top: 7px; width: 2px; height: 16px; border-radius: 1px; background: #06b6d4; box-shadow: 0 0 6px rgba(6,182,212,0.6);"></span>
+        </sc-if>
+        <sc-if value="{{ n.tipOn }}" hint-placeholder-val="{{ false }}">
+          <span style="position: absolute; left: 38px; top: 50%; transform: translateY(-50%); z-index: 30; white-space: nowrap; padding: 3px 8px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.08); background: #0d0d10; color: #e4e4e7; font-size: 9px; letter-spacing: 0.14em; box-shadow: 0 4px 16px rgba(0,0,0,0.6);">{{ n.label }}</span>
+        </sc-if>
+      </div>
+    </sc-for>
+  </nav>
+
+  <!-- ── Main column ─────────────────────────────────────── -->
+  <div style="position: relative; z-index: 1; display: flex; flex: 1; min-width: 0; flex-direction: column;">
+
+    <!-- Top bar -->
+    <header style="display: flex; height: 36px; flex-shrink: 0; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: 1px solid rgba(255,255,255,0.04); background: rgba(9,9,11,0.5); backdrop-filter: blur(12px);">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #e4e4e7;">MY AGENT FACTORY</span>
+        <span style="font-size: 9px; letter-spacing: 0.18em; color: #52525b;">{{ roomLabel }}</span>
+        <span style="padding: 1px 7px; border-radius: 3px; border: 1px solid {{ roomBadgeBorder }}; background: {{ roomBadgeBg }}; color: {{ roomBadgeColor }}; font-size: 8.5px; font-weight: 700; letter-spacing: 0.18em;">{{ roomBadgeText }}</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span style="display: flex; align-items: center; gap: 6px; color: {{ feedColor }}; font-size: 9px; letter-spacing: 0.14em;">
+          <span style="position: relative; display: inline-flex; width: 5px; height: 5px;">
+            <span style="position: absolute; inset: 0; border-radius: 50%; background: {{ feedColor }}; animation: pingDot 1.6s cubic-bezier(0,0,0.2,1) infinite;"></span>
+            <span style="position: relative; display: inline-flex; width: 5px; height: 5px; border-radius: 50%; background: {{ feedColor }};"></span>
+          </span>
+          {{ feedLabel }}
+        </span>
+        <span style="font-size: 10px; color: #52525b; font-variant-numeric: tabular-nums;">{{ clock }} UTC</span>
+      </div>
+    </header>
+
+    <!-- ════════ CONTROL ROOM (overview lobby) ════════ -->
+    <sc-if value="{{ isControl }}" hint-placeholder-val="{{ true }}">
+      <!-- Unified metrics (PnL removed — moved to Trading Room) -->
+      <div style="display: flex; height: 42px; flex-shrink: 0; align-items: stretch; border-bottom: 1px solid rgba(255,255,255,0.04); background: rgba(13,13,16,0.45); backdrop-filter: blur(12px);">
+        <sc-for list="{{ metrics }}" as="m" hint-placeholder-count="5">
+          <div style="display: flex; flex: 1; min-width: 0; align-items: center; gap: 8px; padding: 0 12px; border-right: 1px solid rgba(255,255,255,0.03);">
+            <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+              <span style="font-size: 8px; letter-spacing: 0.16em; color: #52525b; white-space: nowrap;">{{ m.label }}</span>
+              <span style="font-size: 12.5px; font-weight: 600; color: {{ m.color }}; font-variant-numeric: tabular-nums; white-space: nowrap;">{{ m.value }}<span style="font-size: 9px; font-weight: 400; color: #52525b;"> {{ m.unit }}</span></span>
+            </div>
+            <sc-if value="{{ m.spark }}" hint-placeholder-val="{{ false }}">
+              <svg width="52" height="18" viewBox="0 0 52 18" preserveAspectRatio="none" style="flex-shrink: 0; margin-left: auto; opacity: 0.85;"><polyline points="{{ m.spark }}" fill="none" stroke="{{ m.sparkColor }}" stroke-width="1"></polyline></svg>
+            </sc-if>
+            <sc-if value="{{ m.bar }}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; flex-direction: column; gap: 3px; margin-left: auto; width: 76px; flex-shrink: 0;">
+                <div style="position: relative; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.06);">
+                  <div style="position: absolute; inset: 0 auto 0 0; width: {{ m.barPct }}; border-radius: 2px; background: linear-gradient(90deg, rgba(6,182,212,0.5), #06b6d4);"></div>
+                  <div style="position: absolute; top: -2px; bottom: -2px; left: 100%; width: 1px; background: rgba(239,68,68,0.7);"></div>
+                </div>
+                <span style="font-size: 7.5px; letter-spacing: 0.08em; color: #3f3f46; white-space: nowrap;">{{ m.barNote }}</span>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- Cross-room status strip -->
+      <div data-screen-label="Room status strip" style="display: flex; flex-shrink: 0; align-items: stretch; gap: 6px; padding: 6px 6px 0;">
+        <sc-for list="{{ roomStrip }}" as="rs" hint-placeholder-count="3">
+          <div role="button" tabindex="0" onClick="{{ rs.onOpen }}" style="display: flex; flex: 1; min-width: 0; align-items: center; gap: 9px; padding: 7px 10px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.04); background: rgba(9,9,11,0.4); backdrop-filter: blur(12px); cursor: pointer; transition: border-color 0.15s;" style-hover="border-color: rgba(6,182,212,0.35); background: rgba(6,182,212,0.03);">
+            <span style="width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: {{ rs.dot }}; box-shadow: 0 0 6px {{ rs.glow }}; animation: {{ rs.anim }};"></span>
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+              <span style="display: flex; align-items: center; gap: 6px; font-size: 9px; font-weight: 700; letter-spacing: 0.16em; color: #e4e4e7;">{{ rs.name }}
+                <sc-if value="{{ rs.tag }}" hint-placeholder-val="{{ false }}"><span style="padding: 0 5px; border-radius: 2px; border: 1px solid {{ rs.tagBorder }}; color: {{ rs.tagColor }}; font-size: 7.5px; letter-spacing: 0.12em;">{{ rs.tag }}</span></sc-if>
+              </span>
+              <span style="font-size: 8.5px; color: #71717a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ rs.activity }}</span>
+            </div>
+            <span style="flex-shrink: 0; font-size: 8.5px; letter-spacing: 0.14em; color: #06b6d4;">OPEN →</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(12, 1fr); grid-template-rows: 12fr 9fr; gap: 6px; padding: 6px;">
+        <div style="grid-column: 1 / 5; grid-row: 1; min-height: 0; min-width: 0;"><dc-import name="FleetPanel" title="FLEET — ALL DOMAINS" active="{{ fleetActive }}" idle="{{ fleetIdle }}" stale="{{ fleetStale }}" summary="{{ fleetSummary }}" hint-size="100%,100%" style="width: 100%; height: 100%;"></dc-import></div>
+        <div style="grid-column: 5 / 10; grid-row: 1; min-height: 0; min-width: 0;"><dc-import name="RunCards" title="RUNS — CROSS-DOMAIN" runs="{{ controlRuns }}" hint-size="100%,100%" style="width: 100%; height: 100%;"></dc-import></div>
+
+        <section data-screen-label="Memory" style="grid-column: 10 / 13; grid-row: 1; position: relative; display: flex; flex-direction: column; min-height: 0; border-radius: 5px; border: 1px solid rgba(255,255,255,0.03); background: rgba(9,9,11,0.4); backdrop-filter: blur(12px);">
+          <div style="display: flex; flex-shrink: 0; align-items: center; gap: 6px; padding: 6px 9px; border-bottom: 1px solid rgba(255,255,255,0.03);">
+            <span style="font-size: 9px; letter-spacing: 0.2em; color: #71717a;">MEMORY</span>
+            <span style="font-size: 9px; color: #3f3f46;">({{ memCount }})</span>
+          </div>
+          <div style="flex-shrink: 0; padding: 6px 7px 0;">
+            <div style="display: flex; align-items: center; gap: 6px; padding: 4px 7px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.05); background: rgba(13,13,16,0.5);">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#52525b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+              <input value="{{ memQuery }}" onChange="{{ onMemQuery }}" placeholder="Search keys…" style="flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: #e4e4e7; font-family: inherit; font-size: 9.5px;">
+            </div>
+          </div>
+          <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 5px 7px; display: flex; flex-direction: column; gap: 2px;">
+            <sc-for list="{{ memories }}" as="m" hint-placeholder-count="6">
+              <div style="display: flex; align-items: flex-start; gap: 6px; padding: 4px 6px; border-radius: 3px; border: 1px solid transparent;" style-hover="border-color: rgba(255,255,255,0.05); background: rgba(255,255,255,0.015);">
+                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 9px; color: #06b6d4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ m.key }}</span>
+                  <span style="font-size: 8.5px; color: #52525b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ m.preview }}</span>
+                </div>
+                <span style="flex-shrink: 0; font-size: 8px; color: #3f3f46;">{{ m.ts }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+
+        <div style="grid-column: 1 / 13; grid-row: 2; min-height: 0; min-width: 0;"><dc-import name="TerminalPanel" title="TERMINAL — ALL DOMAINS" pool="{{ controlPool }}" hint-size="100%,100%" style="width: 100%; height: 100%;"></dc-import></div>
+      </div>
+
+      <!-- Command dock (cross-domain queue — stays in the lobby) -->
+      <div style="flex-shrink: 0; padding: 6px 10px; border-top: 1px solid rgba(255,255,255,0.04); background: rgba(9,9,11,0.6); backdrop-filter: blur(12px); display: flex; flex-direction: column; gap: 4px;">
+        <div style="display: flex; align-items: center; gap: 9px; padding: 6px 10px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.06); border-left: 2px solid #06b6d4; background: rgba(13,13,16,0.6);">
+          <span style="font-size: 12px; font-weight: 700; line-height: 1; color: #06b6d4; user-select: none;">&gt;</span>
+          <input value="{{ dockValue }}" onChange="{{ onDock }}" onKeyDown="{{ onDockKey }}" placeholder="Queue a cross-domain task — HERMES will route it to a room…" autocomplete="off" spellcheck="false" style="flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: #e4e4e7; font-family: inherit; font-size: 10.5px;">
+          <button type="button" onClick="{{ onDockQueue }}" style="flex-shrink: 0; background: none; border: none; padding: 0; font-family: inherit; font-size: 8.5px; letter-spacing: 0.2em; color: {{ dockQueueColor }}; cursor: pointer; user-select: none;">[ ENTER TO QUEUE ]</button>
+        </div>
+        <sc-if value="{{ dockTrace }}" hint-placeholder-val="{{ false }}">
+          <p style="margin: 0; padding: 0 4px; font-size: 9px; color: #10b981;">OK {{ dockTrace }}</p>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ════════ TRADING ROOM ════════ -->
+    <sc-if value="{{ isTrading }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Simulation banner" style="display: flex; flex-shrink: 0; align-items: center; gap: 10px; padding: 6px 12px; border-bottom: 1px solid rgba(245,158,11,0.5); background: repeating-linear-gradient(-45deg, rgba(245,158,11,0.10), rgba(245,158,11,0.10) 10px, rgba(245,158,11,0.03) 10px, rgba(245,158,11,0.03) 20px);">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>
+        <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.18em; color: #f59e0b;">SIMULATION — NO LIVE MARKET DATA</span>
+        <span style="font-size: 9px; color: rgba(245,158,11,0.8);">paper trading only · quotes are synthetic · no real orders can reach a broker</span>
+        <button type="button" onClick="{{ onReconnect }}" style="margin-left: auto; padding: 4px 10px; border-radius: 3px; border: 1px solid rgba(245,158,11,0.5); background: rgba(245,158,11,0.1); color: #f59e0b; font-family: inherit; font-size: 8.5px; font-weight: 700; letter-spacing: 0.14em; cursor: pointer; flex-shrink: 0;" style-hover="background: rgba(245,158,11,0.2);">CONNECT LIVE FEED</button>
+      </div>
+
+      <!-- Quote ticker (chart glyph fixed — was tofu) -->
+      <div data-screen-label="Ticker" style="display: flex; height: 34px; flex-shrink: 0; align-items: stretch; border-bottom: 1px solid rgba(255,255,255,0.04); background: rgba(13,13,16,0.45); backdrop-filter: blur(12px); overflow-x: auto;">
+        <div style="display: flex; flex-shrink: 0; align-items: center; gap: 6px; padding: 0 10px; border-right: 1px solid rgba(255,255,255,0.04);">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="m7 14 4-5 3 3 5-7"></path></svg>
+          <span style="font-size: 8px; letter-spacing: 0.16em; color: #52525b;">QUOTES</span>
+          <span style="padding: 0 5px; border-radius: 2px; border: 1px solid rgba(245,158,11,0.45); color: #f59e0b; font-size: 7.5px; font-weight: 700; letter-spacing: 0.1em;">SIM</span>
+        </div>
+        <sc-for list="{{ quotes }}" as="q" hint-placeholder-count="6">
+          <div style="display: flex; flex-shrink: 0; align-items: center; gap: 7px; padding: 0 12px; border-right: 1px solid rgba(255,255,255,0.03);">
+            <span style="font-size: 9.5px; font-weight: 700; color: #d4d4d8;">{{ q.sym }}</span>
+            <span style="font-size: 10px; color: #a1a1aa; font-variant-numeric: tabular-nums;">{{ q.px }}</span>
+            <span style="font-size: 8.5px; font-weight: 600; color: {{ q.deltaColor }}; font-variant-numeric: tabular-nums;">{{ q.delta }}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(12, 1fr); grid-template-rows: 11fr 9fr; gap: 6px; padding: 6px;">
+
+        <!-- Staged order approval -->
+        <section data-screen-label="Staged orders" style="grid-column: 1 / 5; grid-row: 1; position: relative; display: flex; flex-direction: column; min-height: 0; border-radius: 5px; border: 1px solid rgba(245,158,11,0.18); background: rgba(9,9,11,0.4); backdrop-filter: blur(12px);">
+          <div style="display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; padding: 6px 9px; border-bottom: 1px solid rgba(255,255,255,0.03);">
+            <span style="font-size: 9px; letter-spacing: 0.2em; color: #71717a;">STAGED ORDERS</span>
+            <span style="font-size: 9px; color: #f59e0b; animation: pulseFaint 2s ease-in-out infinite;">{{ stagedCount }} AWAITING APPROVAL</span>
+          </div>
+          <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 7px; display: flex; flex-direction: column; gap: 6px;">
+            <sc-for list="{{ orders }}" as="o" hint-placeholder-count="2">
+              <div style="display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: 4px; border: 1px solid {{ o.border }}; background: {{ o.bg }};">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="padding: 1px 7px; border-radius: 3px; border: 1px solid {{ o.sideBorder }}; background: {{ o.sideBg }}; color: {{ o.sideColor }}; font-size: 8.5px; font-weight: 700; letter-spacing: 0.14em;">{{ o.side }}</span>
+                  <span style="font-size: 11px; font-weight: 700; color: #e4e4e7;">{{ o.qty }} {{ o.sym }}</span>
+                  <span style="font-size: 9px; color: #71717a;">@ {{ o.px }}</span>
+                  <span style="margin-left: auto; font-size: 9px; color: #52525b; font-variant-numeric: tabular-nums;">est {{ o.est }}</span>
+                </div>
+                <span style="font-size: 8.5px; color: #52525b;">staged by <span style="color: {{ o.agentColor }};">{{ o.agent }}</span> · {{ o.reason }}</span>
+                <sc-if value="{{ o.pending }}" hint-placeholder-val="{{ true }}">
+                  <div style="display: flex; gap: 6px;">
+                    <button type="button" onClick="{{ o.onApprove }}" style="flex: 1; padding: 4px 0; border-radius: 3px; border: 1px solid rgba(16,185,129,0.4); background: rgba(16,185,129,0.08); color: #10b981; font-family: inherit; font-size: 8.5px; font-weight: 700; letter-spacing: 0.14em; cursor: pointer;" style-hover="background: rgba(16,185,129,0.18);">✓ APPROVE (SIM)</button>
+                    <button type="button" onClick="{{ o.onReject }}" style="flex: 1; padding: 4px 0; border-radius: 3px; border: 1px solid rgba(239,68,68,0.4); background: rgba(239,68,68,0.08); color: #ef4444; font-family: inherit; font-size: 8.5px; font-weight: 700; letter-spacing: 0.14em; cursor: pointer;" style-hover="background: rgba(239,68,68,0.18);">✕ REJECT</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ o.resolved }}" hint-placeholder-val="{{ false }}">
+                  <span style="align-self: flex-start; padding: 2px 8px; border-radius: 3px; border: 1px solid {{ o.resBorder }}; background: {{ o.resBg }}; color: {{ o.resColor }}; font-size: 8.5px; font-weight: 700; letter-spacing: 0.14em;">{{ o.resolution }}</span>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+
+        <div style="grid-column: 5 / 9; grid-row: 1; min-height: 0; min-width: 0;"><dc-import name="RunCards" title="RUNS — TRADING" runs="{{ tradingRuns }}" hint-size="100%,100%" style="width: 100%; height: 100%;"></dc-import></div>
+
+        <!-- Risk & PnL -->
+        <section data-screen-label="Risk and PnL" style="grid-column: 9 / 13; grid-row: 1; position: relative; display: flex; flex-direction: column; min-height: 0; border-radius: 5px; border: 1px solid rgba(255,255,255,0.03); background: rgba(9,9,11,0.4); backdrop-filter: blur(12px);">
+          <div style="display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; padding: 6px 9px; border-bottom: 1px solid rgba(255,255,255,0.03);">
+            <span style="font-size: 9px; letter-spacing: 0.2em; color: #71717a;">RISK · P&amp;L</span>
+            <span style="padding: 0 5px; border-radius: 2px; border: 1px solid rgba(245,158,11,0.45); color: #f59e0b; font-size: 7.5px; font-weight: 700; letter-spacing: 0.1em;">SIM</span>
+          </div>
+          <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 7px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+              <div style="display: flex; flex-direction: column; gap: 2px; padding: 7px 9px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.04); background: rgba(255,255,255,0.012);">
+                <span style="font-size: 8px; letter-spacing: 0.14em; color: #52525b;">REALIZED P&amp;L</span>
+                <span style="font-size: 14px; font-weight: 700; color: #10b981; font-variant-numeric: tabular-nums;">+$142.10</span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 2px; padding: 7px 9px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.04); background: rgba(255,255,255,0.012);">
+                <span style="font-size: 8px; letter-spacing: 0.14em; color: #52525b;">UNREALIZED</span>
+                <span style="font-size: 14px; font-weight: 700; color: #ef4444; font-variant-numeric: tabular-nums;">−$12.40</span>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 4px; border: 1px solid rgba(16,185,129,0.25); background: rgba(16,185,129,0.04);">
+              <span style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; animation: pulseFaint 2.4s ease-in-out infinite;"></span>
+              <div style="flex: 1; display: flex; flex-direction: column;">
+                <span style="font-size: 9px; font-weight: 700; letter-spacing: 0.12em; color: #10b981;">AUTO-HALT ARMED</span>
+                <span style="font-size: 8px; color: #52525b;">RL-07 drawdown limit −4.0% · current −0.4%</span>
+              </div>
+            </div>
+            <button type="button" onClick="{{ onKill }}" style="display: flex; align-items: center; justify-content: center; gap: 7px; padding: 9px 0; border-radius: 4px; border: 1px solid {{ killBorder }}; background: {{ killBg }}; color: {{ killColor }}; font-family: inherit; font-size: 10px; font-weight: 700; letter-spacing: 0.2em; cursor: pointer;" style-hover="filter: brightness(1.25);">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86L7.86 2z"></path><path d="M12 8v4M12 16h.01"></path></svg>
+              {{ killLabel }}
+            </button>
+            <!-- Operator-facing feed empty state (replaces raw dev shell command) -->
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 9px 10px; border-radius: 4px; border: 1px dashed rgba(245,158,11,0.35); background: rgba(245,158,11,0.03);">
+              <span style="display: flex; align-items: center; gap: 6px; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; color: #f59e0b;">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path></svg>
+                LIVE FEED OFFLINE
+              </span>
+              <span style="font-size: 8.5px; line-height: 1.5; color: #71717a;">Quotes shown are simulated. Reconnect the market data feed to resume live pricing — no configuration changes required.</span>
+              <button type="button" onClick="{{ onReconnect }}" style="align-self: flex-start; padding: 3px 10px; border-radius: 3px; border: 1px solid rgba(6,182,212,0.4); background: rgba(6,182,212,0.07); color: #06b6d4; font-family: inherit; font-size: 8.5px; font-weight: 700; letter-spacing: 0.14em; cursor: pointer;" style-hover="background: rgba(6,182,212,0.15);">↻ RECONNECT FEED</button>
+              <sc-if value="{{ feedTrace }}" hint-placeholder-val="{{ false }}">
+                <span style="font-size: 8.5px; color: #f59e0b;">{{ feedTrace }}</span>
+              </sc-if>
+            </div>
+          </div>
+        </section>
+
+        <div style="grid-column: 1 / 4; grid-row: 2; min-height: 0; min-width: 0;"><dc-import name="FleetPanel" title="FLEET — TRADING SCOPE" active="{{ tradingActive }}" idle="{{ tradingIdle }}" stale="{{ emptyList }}" summary="2 ACTIVE · 1 ARMED" hint-size="100%,100%" style="width: 100%; height: 100%;"></dc-import></div>
+        <div style="grid-column: 4 / 13; grid-row: 2; min-height: 0; min-width: 0;"><dc-import name="TerminalPanel" title="TERMINAL — TRADING" pool="{{ tradingPool }}" hint-size="100%,100%" style="width: 100%; height: 100%;"></dc-import></div>
+      </div>
+    </sc-if>
+
+    <!-- ════════ CODING ROOM ════════ -->
+    <sc-if value="{{ isCoding }}" hint-placeholder-val="{{ false }}">
+      <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(12, 1fr); grid-template-rows: 11fr 9fr; gap: 6px; padding: 6px;">
+
+        <!-- Spec composer -->
+        <section data-screen-label="Spec composer" style="grid-column: 1 / 4; grid-row: 1; position: relative; display: flex; flex-direction: column; min-height: 0; border-radius: 5px; border: 1px solid rgba(255,255,255,0.03); background: rgba(9,9,11,0.4); backdrop-filter: blur(12px);">
+          <div style="display: flex; flex-shrink: 0; align-items: center; gap: 6px; padding: 6px 9px; border-bottom: 1px solid rgba(255,255,255,0.03);">
+            <span style="font-size: 9px; letter-spacing: 0.2em; color: #71717a;">TASK SPEC → CODEX</span>
+          </div>
+          <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 7px; padding: 8px;">
+            <textarea value="{{ specValue }}" onChange="{{ onSpec }}" placeholder="Describe the change: goal, constraints, files in scope, acceptance criteria…" style="flex: 1; min-height: 0; resize: none; padding: 8px 9px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.06); background: rgba(13,13,16,0.6); color: #e4e4e7; font-family: inherit; font-size: 10px; line-height: 1.6; outline: none; box-sizing: border-box;" style-focus="border-color: rgba(168,85,247,0.4);"></textarea>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="padding: 1px 6px; border-radius: 3px; border: 1px solid rgba(168,85,247,0.3); background: rgba(168,85,247,0.07); color: #a855f7; font-size: 8px; font-weight: 700;">fable-5</span>
+              <span style="padding: 1px 6px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.02); color: #71717a; font-size: 8px;">sandbox: node-20</span>
+              <button type="button" onClick="{{ onSpecQueue }}" style="margin-left: auto; padding: 4px 12px; border-radius: 3px; border: 1px solid rgba(168,85,247,0.45); background: rgba(168,85,247,0.1); color: #a855f7; font-family: inherit; font-size: 8.5px; font-weight: 700; letter-spacing: 0.14em; cursor: pointer;" style-hover="background: rgba(168,85,247,0.2);">QUEUE SPEC →</button>
+            </div>
+            <sc-if value="{{ specTrace }}" hint-placeholder-val="{{ false }}">
+              <span style="font-size: 8.5px; color: #10b981;">OK {{ specTrace }}</span>
+            </sc-if>
+          </div>
+        </section>
+
+        <!-- Diff / review -->
+        <section data-screen-label="Code review" style="grid-column: 4 / 9; grid-row: 1; position: relative; display: flex; flex-direction: column; min-height: 0; border-radius: 5px; border: 1px solid rgba(255,255,255,0.03); background: rgba(9,9,11,0.4); backdrop-filter: blur(12px);">
+          <div style="display: flex; flex-shrink: 0; align-items: center; gap: 8px; padding: 6px 9px; border-bottom: 1px solid rgba(255,255,255,0.03);">
+            <span style="font-size: 9px; letter-spacing: 0.2em; color: #71717a;">REVIEW</span>
+            <span style="font-size: 9px; color: #06b6d4;">src/lib/model-router.ts</span>
+            <span style="font-size: 8.5px; color: #10b981;">+212</span>
+            <span style="font-size: 8.5px; color: #ef4444;">−87</span>
+            <span style="margin-left: auto; font-size: 8.5px; color: #52525b;">14 files · patch 3 of 3</span>
+          </div>
+          <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 6px 0; font-size: 9.5px; line-height: 1.7;">
+            <sc-for list="{{ diffLines }}" as="d" hint-placeholder-count="10">
+              <div style="display: flex; gap: 10px; padding: 0 10px; background: {{ d.bg }};">
+                <span style="flex-shrink: 0; width: 26px; text-align: right; color: #3f3f46; font-variant-numeric: tabular-nums; user-select: none;">{{ d.ln }}</span>
+                <span style="flex-shrink: 0; width: 8px; color: {{ d.signColor }}; user-select: none;">{{ d.sign }}</span>
+                <span style="white-space: pre; color: {{ d.color }};">{{ d.code }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display: flex; flex-shrink: 0; gap: 6px; padding: 7px 9px; border-top: 1px solid rgba(255,255,255,0.03);">
+            <button type="button" style="flex: 1; padding: 4px 0; border-radius: 3px; border: 1px solid rgba(16,185,129,0.4); background: rgba(16,185,129,0.08); color: #10b981; font-family: inherit; font-size: 8.5px; font-weight: 700; letter-spacing: 0.14em; cursor: pointer;" style-hover="background: rgba(16,185,129,0.18);">✓ APPROVE PATCH</button>
+            <button type="button" style="flex: 1; padding: 4px 0; border-radius: 3px; border: 1px solid rgba(245,158,11,0.4); background: rgba(245,158,11,0.07); color: #f59e0b; font-family: inherit; font-size: 8.5px; font-weight: 700; letter-spacing: 0.14em; cursor: pointer;" style-hover="background: rgba(245,158,11,0.15);">↺ REQUEST CHANGES</button>
+          </div>
+        </section>
+
+        <div style="grid-column: 9 / 13; grid-row: 1; min-height: 0; min-width: 0;"><dc-import name="RunCards" title="RUNS — CODEX ONLY" runs="{{ codexRuns }}" hint-size="100%,100%" style="width: 100%; height: 100%;"></dc-import></div>
+
+        <!-- Tool runner -->
+        <section data-screen-label="Tool runner" style="grid-column: 1 / 5; grid-row: 2; position: relative; display: flex; flex-direction: column; min-height: 0; border-radius: 5px; border: 1px solid rgba(255,255,255,0.03); background: rgba(9,9,11,0.4); backdrop-filter: blur(12px);">
+          <div style="display: flex; flex-shrink: 0; align-items: center; gap: 8px; padding: 6px 9px; border-bottom: 1px solid rgba(255,255,255,0.03);">
+            <span style="font-size: 9px; letter-spacing: 0.2em; color: #71717a;">SANDBOX RUNNER</span>
+            <span style="padding: 0 5px; border-radius: 2px; border: 1px solid rgba(16,185,129,0.4); color: #10b981; font-size: 7.5px; font-weight: 700; letter-spacing: 0.1em;">ISOLATED</span>
+            <span style="margin-left: auto; font-size: 8.5px; color: #52525b; font-variant-numeric: tabular-nums;">exit 0 · 8.4s</span>
+          </div>
+          <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 7px 10px; font-size: 9.5px; line-height: 1.7;">
+            <sc-for list="{{ runnerLines }}" as="r" hint-placeholder-count="8">
+              <div style="white-space: pre-wrap; word-break: break-word; color: {{ r.color }};">{{ r.text }}</div>
+            </sc-for>
+          </div>
+        </section>
+
+        <div style="grid-column: 5 / 13; grid-row: 2; min-height: 0; min-width: 0;"><dc-import name="TerminalPanel" title="TERMINAL — CODEX" pool="{{ codingPool }}" hint-size="100%,100%" style="width: 100%; height: 100%;"></dc-import></div>
+      </div>
+    </sc-if>
+
+    <!-- ════════ RESEARCH ROOM ════════ -->
+    <sc-if value="{{ isResearch }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Knowledge-source banner" style="display: flex; flex-shrink: 0; align-items: center; gap: 10px; padding: 6px 12px; border-bottom: 1px solid rgba(245,158,11,0.5); background: repeating-linear-gradient(-45deg, rgba(245,158,11,0.10), rgba(245,158,11,0.10) 10px, rgba(245,158,11,0.03) 10px, rgba(245,158,11,0.03) 20px);">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Zm0 0a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"></path></svg>
+        <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.18em; color: #f59e0b;">REASONING FROM TRAINED KNOWLEDGE — NOT LIVE WEB</span>
+        <span style="font-size: 9px; color: rgba(245,158,11,0.8);">findings may be stale · no browsing or retrieval is active · verify time-sensitive claims independently</span>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(12, 1fr); grid-template-rows: 11fr 9fr; gap: 6px; padding: 6px;">
+
+        <!-- Objective composer -->
+        <section data-screen-label="Objective composer" style="grid-column: 1 / 4; grid-row: 1; position: relative; display: flex; flex-direction: column; min-height: 0; border-radius: 5px; border: 1px solid rgba(255,255,255,0.03); background: rgba(9,9,11,0.4); backdrop-filter: blur(12px);">
+          <div style="display: flex; flex-shrink: 0; align-items: center; gap: 6px; padding: 6px 9px; border-bottom: 1px solid rgba(255,255,255,0.03);">
+            <span style="font-size: 9px; letter-spacing: 0.2em; color: #71717a;">OBJECTIVE → HERMES</span>
+          </div>
+          <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 7px; padding: 8px;">
+            <textarea value="{{ objValue }}" onChange="{{ onObj }}" placeholder="Research question: scope, depth, what a good answer looks like…" style="flex: 1; min-height: 0; resize: none; padding: 8px 9px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.06); background: rgba(13,13,16,0.6); color: #e4e4e7; font-family: inherit; font-size: 10px; line-height: 1.6; outline: none; box-sizing: border-box;" style-focus="border-color: rgba(6,182,212,0.4);"></textarea>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="padding: 1px 6px; border-radius: 3px; border: 1px solid rgba(6,182,212,0.3); background: rgba(6,182,212,0.07); color: #06b6d4; font-size: 8px; font-weight: 700;">opus-4</span>
+              <span style="padding: 1px 6px; border-radius: 3px; border: 1px solid rgba(245,158,11,0.35); background: rgba(245,158,11,0.05); color: #f59e0b; font-size: 8px;">trained knowledge</span>
+              <button type="button" onClick="{{ onObjQueue }}" style="margin-left: auto; padding: 4px 12px; border-radius: 3px; border: 1px solid rgba(6,182,212,0.45); background: rgba(6,182,212,0.1); color: #06b6d4; font-family: inherit; font-size: 8.5px; font-weight: 700; letter-spacing: 0.14em; cursor: pointer;" style-hover="background: rgba(6,182,212,0.2);">QUEUE →</button>
+            </div>
+            <sc-if value="{{ objTrace }}" hint-placeholder-val="{{ false }}">
+              <span style="font-size: 8.5px; color: #10b981;">OK {{ objTrace }}</span>
+            </sc-if>
+          </div>
+        </section>
+
+        <!-- Findings feed -->
+        <section data-screen-label="Findings" style="grid-column: 4 / 10; grid-row: 1; position: relative; display: flex; flex-direction: column; min-height: 0; border-radius: 5px; border: 1px solid rgba(255,255,255,0.03); background: rgba(9,9,11,0.4); backdrop-filter: blur(12px);">
+          <div style="display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; padding: 6px 9px; border-bottom: 1px solid rgba(255,255,255,0.03);">
+            <span style="font-size: 9px; letter-spacing: 0.2em; color: #71717a;">FINDINGS</span>
+            <span style="font-size: 9px; color: #52525b;">{{ findingCount }} this session</span>
+          </div>
+          <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 7px; display: flex; flex-direction: column; gap: 6px;">
+            <sc-for list="{{ findings }}" as="f" hint-placeholder-count="3">
+              <div style="display: flex; flex-direction: column; gap: 5px; padding: 8px 10px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.04); background: rgba(255,255,255,0.012);" style-hover="border-color: rgba(6,182,212,0.25);">
+                <span style="font-size: 10.5px; font-weight: 600; color: #e4e4e7; line-height: 1.4;">{{ f.title }}</span>
+                <span style="font-size: 9.5px; line-height: 1.55; color: #8b8b93;">{{ f.body }}</span>
+                <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                  <sc-for list="{{ f.chips }}" as="c" hint-placeholder-count="2">
+                    <span style="padding: 1px 7px; border-radius: 3px; border: 1px solid {{ c.border }}; background: {{ c.bg }}; color: {{ c.color }}; font-size: 8px; letter-spacing: 0.06em;">{{ c.label }}</span>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+
+        <div style="grid-column: 10 / 13; grid-row: 1; min-height: 0; min-width: 0;"><dc-import name="RunCards" title="RUNS — HERMES ONLY" runs="{{ researchRuns }}" hint-size="100%,100%" style="width: 100%; height: 100%;"></dc-import></div>
+
+        <div style="grid-column: 1 / 13; grid-row: 2; min-height: 0; min-width: 0;"><dc-import name="TerminalPanel" title="TERMINAL — RESEARCH" pool="{{ researchPool }}" hint-size="100%,100%" style="width: 100%; height: 100%;"></dc-import></div>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;room&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;control&quot;, &quot;trading&quot;, &quot;coding&quot;, &quot;research&quot;], &quot;default&quot;: &quot;control&quot;, &quot;tsType&quot;: &quot;'control' | 'trading' | 'coding' | 'research'&quot;, &quot;section&quot;: &quot;Room&quot; },
+  &quot;particleOpacity&quot;: { &quot;editor&quot;: &quot;range&quot;, &quot;default&quot;: 0.12, &quot;min&quot;: 0.02, &quot;max&quot;: 0.4, &quot;step&quot;: 0.01, &quot;tsType&quot;: &quot;number&quot;, &quot;section&quot;: &quot;Surface&quot; }
+}">
+class Component extends DCLogic {
+  state = {
+    clock: '', navHover: -1, memQuery: '',
+    dockValue: '', dockTrace: null,
+    specValue: '', specTrace: null,
+    objValue: '', objTrace: null,
+    feedTrace: null, killed: false,
+    orders: [
+      { side: 'BUY', qty: 40, sym: 'NVDA', px: 'MKT', est: '$7,284', agent: 'CODEX', reason: 'quant-momentum v3 · gap+volume signal 0.82', status: 'STAGED' },
+      { side: 'SELL', qty: 120, sym: 'AAPL', px: 'LMT 228.40', est: '$27,408', agent: 'HERMES', reason: 'scout rebalance · overweight tech 4.2%', status: 'STAGED' },
+    ],
+    quotes: [
+      { sym: 'SPY', px: 612.44, d: 0.32 }, { sym: 'NVDA', px: 182.11, d: 1.84 },
+      { sym: 'AAPL', px: 228.36, d: -0.41 }, { sym: 'TSLA', px: 341.02, d: -1.12 },
+      { sym: 'BTC-USD', px: 118240, d: 0.77 }, { sym: 'ETH-USD', px: 4182.5, d: 1.21 },
+    ],
+    controlRuns: null, codexRuns: null, researchRuns: null,
+  };
+
+  ICONS = {
+    control:  'M3 9h18M3 15h18M9 3v18M15 3v18',
+    trading:  'M3 3v16a2 2 0 0 0 2 2h16M7 14l4-5 3 3 5-7',
+    coding:   'm18 16 4-4-4-4M6 8l-4 4 4 4m14.5-12-5 16',
+    research: 'M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM21 21l-4.3-4.3',
+    settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7.4-3a7.4 7.4 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2-1.2L14.5 3h-5l-.4 2.6a7.5 7.5 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2 1.2l.4 2.6h5l.4-2.6a7.5 7.5 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.07-.4.1-.8.1-1.2Z',
+  };
+
+  ROOMS = ['control', 'trading', 'coding', 'research'];
+
+  POOLS = {
+    control: [
+      ['DBG', 'heartbeat: fleet ack 9/9 (42ms)', true],
+      ['INF', 'hermes: routed run R-2214 step 3 → codex (fable-5)', false],
+      ['DBG', 'heartbeat: realtime channel tasks ok (38ms)', true],
+      [' OK', 'codex: patch applied — model-router.ts +212 −87', false],
+      ['INF', 'grok: 14 source deltas → memory.research.deltas', false],
+      ['DBG', 'heartbeat: supabase pool 4/20 conns', true],
+      ['WRN', 'fable-5: model share 71% of cap — throttle armed', false],
+      ['INF', 'gemini: context compacted 118k → 64k tokens', false],
+      ['DBG', 'heartbeat: cronos tick 4481', true],
+      [' OK', 'aegis: guardrail sweep clean — 0 violations / 500 ops', false],
+    ],
+    trading: [
+      ['DBG', 'heartbeat: sim feed tick ok (12ms)', true],
+      ['INF', 'hermes[scout]: momentum scan — 8 candidates, 2 staged', false],
+      ['DBG', 'heartbeat: paper-broker session alive', true],
+      ['WRN', 'quote NVDA: synthetic spread widened 2.1bp (sim jitter)', false],
+      [' OK', 'codex[quant]: backtest v3 complete — sharpe 1.42', false],
+      ['INF', 'aegis: order BUY 40 NVDA within risk envelope', false],
+      ['DBG', 'heartbeat: risk monitor tick — drawdown −0.4%', true],
+      ['INF', 'ledger(sim): position snapshot written', false],
+    ],
+    coding: [
+      ['DBG', 'heartbeat: sandbox node-20 alive (mem 212MB)', true],
+      ['INF', 'codex: analyzing spec — 3 files in scope', false],
+      [' OK', 'sandbox: pnpm jest — 42 passed, 0 failed (8.4s)', false],
+      ['DBG', 'heartbeat: fs watcher — 0 dirty files', true],
+      ['INF', 'codex: streaming patch 3/3 — model-router.ts', false],
+      ['WRN', 'lint: 2 warnings (no-floating-promises) — non-blocking', false],
+      [' OK', 'typecheck: clean — 0 errors across 14 files', false],
+    ],
+    research: [
+      ['DBG', 'heartbeat: hermes reasoning session alive', true],
+      ['INF', 'hermes: decomposed objective into 4 sub-questions', false],
+      ['WRN', 'knowledge boundary: post-2025 events unavailable — flagged in finding F-3', false],
+      [' OK', 'finding F-2 committed → memory.research.lanes', false],
+      ['INF', 'hermes: cross-checking claim against memory.research.deltas', false],
+      ['DBG', 'heartbeat: memory io 3 reads / 1 write', true],
+      ['INF', 'gemini: summarizing finding set for digest', false],
+    ],
+  };
+
+  MEMS = [
+    { key: 'research.competitor.deltas', preview: '{"acme":"pricing rewrite","nova":"agents beta"…', ts: '3m' },
+    { key: 'hermes.routing.thresholds', preview: '{"opus_depth_max":3,"fallback":"fable-5"…', ts: '9m' },
+    { key: 'aegis.risk.limits', preview: '{"RL-07":{"max_drawdown":-0.04,"armed":true}…', ts: '12m' },
+    { key: 'quant.momentum.v3.params', preview: '{"threshold_bp":12,"sharpe":1.42,"window":"20d"}', ts: '18m' },
+    { key: 'fleet.codex.style_guide', preview: '{"imports":"sorted","tests":"colocated"…', ts: '26m' },
+    { key: 'cronos.schedule.active', preview: '[{"22:00":"ledger.reconcile"},{"*/15":"sweep"}]', ts: '41m' },
+  ];
+
+  DIFF = [
+    ['142', ' ', 'export function routeTask(task: AgentTask) {', 'ctx'],
+    ['143', '-', '  const lane = pickLane(task);', 'del'],
+    ['143', '+', '  const depth = queueDepth("opus-4");', 'add'],
+    ['144', '+', '  const lane = depth > OPUS_DEPTH_MAX', 'add'],
+    ['145', '+', '    ? FALLBACK_LANE            // seat on fable-5 under load', 'add'],
+    ['146', '+', '    : pickLane(task);', 'add'],
+    ['147', ' ', '  emitTelemetry("lane.route", { lane, depth });', 'ctx'],
+    ['148', ' ', '  return route(task, lane);', 'ctx'],
+    ['149', ' ', '}', 'ctx'],
+    ['150', '-', 'const OPUS_DEPTH_MAX = 5;', 'del'],
+    ['150', '+', 'const OPUS_DEPTH_MAX = 3;   // aegis-approved threshold', 'add'],
+  ];
+
+  RUNNER = [
+    ['$ pnpm jest src/lib/orchestrator --coverage', '#71717a'],
+    ['PASS src/lib/orchestrator/lane-router.test.ts (2.1s)', '#10b981'],
+    ['PASS src/lib/orchestrator/queue-depth.test.ts (1.4s)', '#10b981'],
+    ['PASS src/lib/orchestrator/fallback.test.ts (3.2s)', '#10b981'],
+    ['', '#71717a'],
+    ['Tests:       42 passed, 42 total', '#10b981'],
+    ['Coverage:    94.2% statements · 88.1% branches', '#a1a1aa'],
+    ['Time:        8.4s · exit code 0', '#71717a'],
+  ];
+
+  FINDINGS = [
+    { title: 'Lane-routing under load favors depth-based fallback over latency-based', body: 'Across comparable orchestration systems, queue-depth thresholds outperform latency triggers because latency lags the congestion signal by 2–3 ticks. Depth > 3 is a defensible default for a two-lane pool.', chips: [['TRAINED · pre-2025', 'trained'], ['memory.research.lanes', 'memory']] },
+    { title: 'Competitor agents betas converge on run-grouping UI', body: 'Acme and Nova both group multi-agent work into expandable run cards rather than flat task rows — consistent with the pattern adopted in the Control Room redesign.', chips: [['memory.research.deltas', 'memory'], ['TRAINED · pre-2025', 'trained']] },
+    { title: 'Paper-trading disclosure norms require persistent visual state', body: 'Regulatory guidance for simulated trading UIs consistently requires an always-visible indicator, not a dismissible toast — supports the striped banner treatment used in the Trading Room.', chips: [['TRAINED · pre-2025', 'trained'], ['⚠ verify against current regs', 'warn']] },
+  ];
+
+  _room() {
+    if (this.props.room !== this._lastPropRoom) {
+      this._lastPropRoom = this.props.room;
+      this._roomOverride = null;
+    }
+    return this._roomOverride ?? this.props.room ?? 'control';
+  }
+
+  componentDidMount() {
+    const pad = (n) => String(n).padStart(2, '0');
+    this._clockId = setInterval(() => {
+      const d = new Date();
+      this.setState({ clock: pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds()) });
+    }, 1000);
+    const d = new Date();
+    this.setState({ clock: pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds()) });
+
+    this._quoteId = setInterval(() => {
+      this.setState((s) => ({
+        quotes: s.quotes.map((q) => {
+          const jitter = (Math.random() - 0.5) * 0.0016;
+          return { ...q, px: q.px * (1 + jitter), d: q.d + jitter * 100 };
+        }),
+      }));
+    }, 2000);
+
+    this._initDust();
+  }
+
+  componentWillUnmount() {
+    clearInterval(this._clockId);
+    clearInterval(this._quoteId);
+    clearTimeout(this._traceId);
+    if (this._dust) this._dust();
+  }
+
+  _initDust() {
+    const host = this._hostEl;
+    if (!host) return;
+    const canvas = document.createElement('canvas');
+    canvas.style.cssText = 'display:block;width:100%;height:100%';
+    host.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let w = 1, h = 1, raf = 0, running = true;
+    const N = 1600, GA = Math.PI * (3 - Math.sqrt(5));
+    const P = [];
+    for (let i = 0; i < N; i++) {
+      const t = i / (N - 1), inc = Math.acos(1 - 2 * t), az = GA * i;
+      const seed = Math.abs(Math.sin(i * 0.1031) * 43758.5453) % 1;
+      P.push({ sx: Math.sin(inc) * Math.cos(az), sy: Math.cos(inc), sz: Math.sin(inc) * Math.sin(az),
+        seed, size: seed > 0.85 ? 2 : 1, color: seed > 0.72 ? '#a855f7' : seed > 0.5 ? '#22d3ee' : '#06b6d4' });
+    }
+    const resize = () => {
+      const r = host.getBoundingClientRect();
+      w = Math.max(1, r.width); h = Math.max(1, r.height);
+      canvas.width = w * dpr; canvas.height = h * dpr;
+    };
+    const ro = new ResizeObserver(resize);
+    ro.observe(host); resize();
+    const t0 = performance.now();
+    const frame = () => {
+      if (!running) return;
+      raf = requestAnimationFrame(frame);
+      const t = (performance.now() - t0) / 1000;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      const op = Math.max(0.02, Math.min(0.4, this.props.particleOpacity ?? 0.12));
+      const cx = w * 0.55, cy = h * 0.42, R = Math.min(w, h) * 0.3;
+      const rot = t * 0.06, cos = Math.cos(rot), sin = Math.sin(rot);
+      for (let i = 0; i < N; i++) {
+        const p = P[i];
+        const br = 1 + 0.04 * Math.sin(t * 0.7 + p.seed * 6.2831);
+        const x3 = (p.sx * cos - p.sz * sin) * br, z3 = (p.sx * sin + p.sz * cos) * br, y3 = p.sy * br;
+        const sc = 1 / (1 + z3 * 0.32);
+        ctx.globalAlpha = Math.min(1, op * (0.55 + 0.45 * Math.sin(t * 1.6 + p.seed * 12.56)) * (0.5 + 0.5 * sc));
+        ctx.fillStyle = p.color;
+        ctx.fillRect(cx + x3 * R * sc, cy + y3 * R * sc, p.size, p.size);
+      }
+    };
+    raf = requestAnimationFrame(frame);
+    this._dust = () => { running = false; cancelAnimationFrame(raf); ro.disconnect(); canvas.remove(); };
+  }
+
+  _tint(hex, a) {
+    const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+  }
+
+  _trace(key, msg) {
+    this.setState({ [key]: msg });
+    clearTimeout(this._traceId);
+    this._traceId = setTimeout(() => this.setState({ [key]: null }), 5000);
+  }
+
+  renderVals() {
+    const s = this.state;
+    const room = this._room();
+    const setRoom = (r) => { this._roomOverride = r; this.forceUpdate(); };
+
+    const labels = { control: 'CONTROL ROOM', trading: 'TRADING ROOM', coding: 'CODING ROOM', research: 'RESEARCH ROOM' };
+    const navItems = [...this.ROOMS.map((r, i) => ({
+      label: labels[r], icon: this.ICONS[r],
+      color: room === r ? '#06b6d4' : '#52525b',
+      border: room === r ? 'rgba(6,182,212,0.3)' : 'transparent',
+      bg: room === r ? 'rgba(6,182,212,0.07)' : 'transparent',
+      activeBar: room === r, tipOn: s.navHover === i,
+      onClick: () => setRoom(r),
+      onEnter: () => this.setState({ navHover: i }),
+      onLeave: () => this.setState({ navHover: -1 }),
+    })), {
+      label: 'SETTINGS', icon: this.ICONS.settings,
+      color: '#52525b', border: 'transparent', bg: 'transparent',
+      activeBar: false, tipOn: s.navHover === 4,
+      onClick: () => {},
+      onEnter: () => this.setState({ navHover: 4 }),
+      onLeave: () => this.setState({ navHover: -1 }),
+    }];
+
+    const sp = (pts) => pts.map((v, i) => (i * (52 / (pts.length - 1))).toFixed(1) + ',' + (16 - v * 14 + 1).toFixed(1)).join(' ');
+
+    // ── Control data ──
+    const metrics = [
+      { label: 'TOKENS · 24H', value: '2.41', unit: 'M', color: '#e4e4e7', spark: sp([0.2, 0.35, 0.3, 0.5, 0.45, 0.7, 0.6, 0.85, 1]), sparkColor: this._tint('#06b6d4', 0.8) },
+      { label: 'EST COST · 24H', value: '$18.42', unit: '', color: '#e4e4e7', spark: sp([0.3, 0.32, 0.4, 0.38, 0.5, 0.55, 0.6, 0.72, 0.8]), sparkColor: this._tint('#06b6d4', 0.5) },
+      { label: 'ACTIVE RUNS', value: '3', unit: '/ 4', color: '#a855f7' },
+      { label: 'ERROR RATE · 1H', value: '0.8', unit: '%', color: '#10b981', spark: sp([0.3, 0.2, 0.25, 0.15, 0.2, 0.1, 0.15, 0.1, 0.12]), sparkColor: this._tint('#10b981', 0.6) },
+      { label: 'FABLE-5 SHARE', value: '14.2', unit: '% of pool', color: '#06b6d4', bar: true, barPct: '71%', barNote: 'cap 20% — red line' },
+    ];
+
+    const roomStrip = [
+      { name: 'TRADING', dot: '#f59e0b', glow: 'rgba(245,158,11,0.5)', anim: 'pulseFaint 2s ease-in-out infinite', tag: 'SIM', tagColor: '#f59e0b', tagBorder: 'rgba(245,158,11,0.45)', activity: 'paper trading · 2 staged orders awaiting approval', onOpen: () => setRoom('trading') },
+      { name: 'CODING', dot: '#a855f7', glow: 'rgba(168,85,247,0.5)', anim: 'none', tag: null, activity: 'CODEX streaming patch — model-router.ts +212 −87', onOpen: () => setRoom('coding') },
+      { name: 'RESEARCH', dot: '#06b6d4', glow: 'rgba(6,182,212,0.45)', anim: 'pulseFaint 2.4s ease-in-out infinite', tag: 'TRAINED', tagColor: '#f59e0b', tagBorder: 'rgba(245,158,11,0.45)', activity: 'HERMES synthesizing lane-routing findings — 3 committed', onOpen: () => setRoom('research') },
+    ];
+
+    const fleetActive = [
+      { name: 'HERMES', role: 'CORE ORCHESTRATION · ROUTING', status: 'BUSY', model: 'opus-4', latency: '420ms', ops: '1,204' },
+      { name: 'CODEX', role: 'CODE GENERATION · SCRIPTING', status: 'BUSY', model: 'fable-5', latency: '610ms', ops: '342' },
+      { name: 'GROK', role: 'REAL-TIME DATA SYNTHESIS', status: 'BUSY', model: 'grok-3', latency: '380ms', ops: '998' },
+      { name: 'SCOUT', role: 'WEB SCRAPING · TARGET RECON', status: 'BUSY' },
+    ];
+    const fleetIdle = [
+      { name: 'GEMINI', role: 'MULTIMODAL REASONING', status: 'IDLE', note: 'idle 12m' },
+      { name: 'AEGIS', role: 'COMPLIANCE · GUARDRAILS', status: 'ARMED', note: 'guardrails armed', noteColor: 'rgba(16,185,129,0.7)' },
+      { name: 'CRONOS', role: 'SCHEDULER · TIME-SERIES', status: 'IDLE', note: 'next tick 14m' },
+    ];
+    const fleetStale = [
+      { name: 'PHANTOM', role: 'STEALTH EXECUTION', status: 'STALE', note: '9d ago' },
+      { name: 'LEDGER', role: 'TRANSACTION · STATE LOGS', status: 'STALE', note: '21d ago' },
+    ];
+
+    const controlRuns = s.controlRuns ?? [
+      { objective: 'Rebalance lane-routing thresholds across model pool', agents: ['HERMES', 'CODEX', 'AEGIS'], status: 'RUNNING', pct: 64, elapsed: '18m', steps: [['HERMES', 'DONE', 'queue-depth model updated — opus trend 3→5'], ['CODEX', 'STREAMING', 'model-router.ts +212 −87 across 14 files'], ['AEGIS', 'QUEUED', 'guardrail review pending patch completion']] },
+      { objective: 'Sweep competitor changelogs → memory.research.deltas', agents: ['GROK', 'SCOUT', 'GEMINI'], status: 'RUNNING', pct: 41, elapsed: '11m', steps: [['GROK', 'DONE', '14 sources ranked by delta significance'], ['SCOUT', 'RUNNING', 'crawling 14 targets — 9 complete'], ['GEMINI', 'QUEUED', 'summarization awaits crawl']] },
+      { objective: 'Nightly ledger reconciliation + state snapshot', agents: ['CRONOS', 'LEDGER'], status: 'DONE', pct: 100, elapsed: '22:00', steps: [['CRONOS', 'DONE', 'trigger fired on time (drift 0.2s)'], ['LEDGER', 'DONE', 'snapshot 2.4MB — 0 discrepancies']] },
+    ];
+
+    // ── Trading data ──
+    const quotes = s.quotes.map((q) => ({
+      sym: q.sym,
+      px: q.px >= 1000 ? q.px.toLocaleString('en-US', { maximumFractionDigits: 0 }) : q.px.toFixed(2),
+      delta: (q.d >= 0 ? '+' : '') + q.d.toFixed(2) + '%',
+      deltaColor: q.d >= 0 ? '#10b981' : '#ef4444',
+    }));
+
+    const orders = s.orders.map((o, i) => {
+      const buy = o.side === 'BUY';
+      const sideC = buy ? '#10b981' : '#ef4444';
+      const pending = o.status === 'STAGED';
+      const approved = o.status === 'APPROVED';
+      return {
+        ...o,
+        sideColor: sideC, sideBorder: this._tint(sideC, 0.4), sideBg: this._tint(sideC, 0.08),
+        agentColor: o.agent === 'CODEX' ? '#a855f7' : '#06b6d4',
+        border: pending ? 'rgba(245,158,11,0.35)' : 'rgba(255,255,255,0.05)',
+        bg: pending ? 'rgba(245,158,11,0.04)' : 'rgba(255,255,255,0.012)',
+        pending, resolved: !pending,
+        resolution: approved ? '✓ FILLED (SIM) — paper broker' : '✕ REJECTED — returned to agent',
+        resColor: approved ? '#10b981' : '#ef4444',
+        resBorder: this._tint(approved ? '#10b981' : '#ef4444', 0.35),
+        resBg: this._tint(approved ? '#10b981' : '#ef4444', 0.07),
+        onApprove: () => this.setState((st) => ({ orders: st.orders.map((x, j) => j === i ? { ...x, status: 'APPROVED' } : x) })),
+        onReject: () => this.setState((st) => ({ orders: st.orders.map((x, j) => j === i ? { ...x, status: 'REJECTED' } : x) })),
+      };
+    });
+
+    const tradingRuns = [
+      { objective: 'Scan pre-market momentum candidates (paper)', agents: ['HERMES'], status: 'RUNNING', pct: 52, elapsed: '9m', steps: [['HERMES', 'RUNNING', 'ranked 8 tickers by gap+volume — 2 staged for entry']] },
+      { objective: 'Backtest quant-momentum v3 threshold sweep', agents: ['CODEX'], status: 'DONE', pct: 100, elapsed: '1h', steps: [['CODEX', 'DONE', 'sharpe 1.42 @ 12bp — params → memory.quant.momentum.v3']] },
+    ];
+    const tradingActive = [
+      { name: 'HERMES', role: 'MARKET SCOUT · SIGNAL RECON', status: 'BUSY', model: 'opus-4', latency: '420ms', ops: '86' },
+      { name: 'CODEX', role: 'QUANT ANGLES · BACKTESTS', status: 'BUSY', model: 'fable-5', latency: '610ms', ops: '31' },
+    ];
+    const tradingIdle = [
+      { name: 'AEGIS', role: 'RISK GUARDRAILS', status: 'ARMED', note: 'RL-07 armed', noteColor: 'rgba(16,185,129,0.7)' },
+    ];
+
+    // ── Coding data ──
+    const codexRuns = s.codexRuns ?? [
+      { objective: 'Patch model-router: depth-based lane fallback', agents: ['CODEX'], status: 'STREAMING', pct: 78, elapsed: '18m', steps: [['CODEX', 'STREAMING', 'patch 3/3 — awaiting review approval']] },
+      { objective: 'Add jest coverage for orchestrator fallback paths', agents: ['CODEX'], status: 'DONE', pct: 100, elapsed: '2h', steps: [['CODEX', 'DONE', '42 tests · 94.2% statements']] },
+    ];
+    const diffLines = this.DIFF.map((d) => ({
+      ln: d[0], sign: d[1], code: d[2],
+      bg: d[3] === 'add' ? 'rgba(16,185,129,0.06)' : d[3] === 'del' ? 'rgba(239,68,68,0.06)' : 'transparent',
+      signColor: d[3] === 'add' ? '#10b981' : d[3] === 'del' ? '#ef4444' : '#3f3f46',
+      color: d[3] === 'add' ? '#a7f3d0' : d[3] === 'del' ? '#fca5a5' : '#8b8b93',
+    }));
+    const runnerLines = this.RUNNER.map((r) => ({ text: r[0] || ' ', color: r[1] }));
+
+    // ── Research data ──
+    const researchRuns = s.researchRuns ?? [
+      { objective: 'Synthesize lane-routing best practices for two-lane pools', agents: ['HERMES'], status: 'RUNNING', pct: 70, elapsed: '26m', steps: [['HERMES', 'RUNNING', 'finding F-3 in progress — knowledge boundary flagged']] },
+      { objective: 'Digest competitor delta sweep into weekly brief', agents: ['HERMES', 'GEMINI'], status: 'QUEUED', pct: 0, elapsed: '—', steps: [['HERMES', 'QUEUED', 'awaits GROK sweep completion'], ['GEMINI', 'QUEUED', 'digest formatting']] },
+    ];
+    const chipStyle = {
+      trained: { border: 'rgba(245,158,11,0.35)', bg: 'rgba(245,158,11,0.05)', color: '#f59e0b' },
+      memory: { border: 'rgba(6,182,212,0.3)', bg: 'rgba(6,182,212,0.05)', color: '#06b6d4' },
+      warn: { border: 'rgba(239,68,68,0.35)', bg: 'rgba(239,68,68,0.05)', color: '#ef4444' },
+    };
+    const findings = this.FINDINGS.map((f) => ({
+      title: f.title, body: f.body,
+      chips: f.chips.map((c) => ({ label: c[0], ...chipStyle[c[1]] })),
+    }));
+
+    // ── Room chrome ──
+    const chrome = {
+      control:  { label: '— CONTROL ROOM · OVERVIEW', badge: 'LOBBY', bColor: '#06b6d4', feed: 'LIVE', fColor: '#10b981' },
+      trading:  { label: '— TRADING ROOM', badge: 'SIMULATION', bColor: '#f59e0b', feed: 'SIM FEED', fColor: '#f59e0b' },
+      coding:   { label: '— CODING ROOM', badge: 'CODEX', bColor: '#a855f7', feed: 'SANDBOX OK', fColor: '#10b981' },
+      research: { label: '— RESEARCH ROOM', badge: 'HERMES', bColor: '#06b6d4', feed: 'TRAINED KNOWLEDGE', fColor: '#f59e0b' },
+    }[room];
+
+    return {
+      canvasHostRef: (el) => { this._hostEl = el; },
+      clock: s.clock,
+      navItems,
+      isControl: room === 'control', isTrading: room === 'trading',
+      isCoding: room === 'coding', isResearch: room === 'research',
+      roomLabel: chrome.label,
+      roomBadgeText: chrome.badge, roomBadgeColor: chrome.bColor,
+      roomBadgeBorder: this._tint(chrome.bColor, 0.45), roomBadgeBg: this._tint(chrome.bColor, 0.08),
+      feedLabel: chrome.feed, feedColor: chrome.fColor,
+
+      metrics, roomStrip,
+      fleetActive, fleetIdle, fleetStale,
+      fleetSummary: '4 ACTIVE · 3 IDLE · 2 INACTIVE',
+      controlRuns,
+      controlPool: this.POOLS.control, tradingPool: this.POOLS.trading,
+      codingPool: this.POOLS.coding, researchPool: this.POOLS.research,
+      emptyList: [],
+
+      memories: s.memQuery.trim() ? this.MEMS.filter((m) => m.key.toLowerCase().includes(s.memQuery.trim().toLowerCase())) : this.MEMS,
+      memCount: this.MEMS.length, memQuery: s.memQuery,
+      onMemQuery: (e) => this.setState({ memQuery: e.target.value }),
+
+      dockValue: s.dockValue, dockTrace: s.dockTrace,
+      onDock: (e) => this.setState({ dockValue: e.target.value }),
+      onDockKey: (e) => { if (e.key === 'Enter') this._queueDock(); },
+      onDockQueue: () => this._queueDock(),
+      dockQueueColor: s.dockValue.trim() ? 'rgba(6,182,212,0.8)' : '#3f3f46',
+
+      quotes, orders,
+      stagedCount: s.orders.filter((o) => o.status === 'STAGED').length,
+      tradingRuns, tradingActive, tradingIdle,
+      onKill: () => this.setState({ killed: !s.killed }),
+      killLabel: s.killed ? 'FLEET HALTED — TAP TO RE-ARM' : 'KILL SWITCH — HALT ALL TRADING',
+      killColor: '#ef4444',
+      killBorder: s.killed ? 'rgba(239,68,68,0.7)' : 'rgba(239,68,68,0.4)',
+      killBg: s.killed ? 'rgba(239,68,68,0.25)' : 'rgba(239,68,68,0.08)',
+      onReconnect: () => this._trace('feedTrace', 'connection attempt failed — broker endpoint unreachable (expected in sim)'),
+      feedTrace: s.feedTrace,
+
+      specValue: s.specValue, specTrace: s.specTrace,
+      onSpec: (e) => this.setState({ specValue: e.target.value }),
+      onSpecQueue: () => {
+        const v = s.specValue.trim();
+        if (!v) return;
+        this.setState({ specValue: '', codexRuns: [{ objective: v, agents: ['CODEX'], status: 'PENDING', pct: 0, elapsed: 'now', steps: [['CODEX', 'QUEUED', 'awaiting sandbox slot']] }, ...(s.codexRuns ?? codexRuns)] });
+        this._trace('specTrace', 'spec queued — CODEX will pick up next slot');
+      },
+
+      objValue: s.objValue, objTrace: s.objTrace,
+      onObj: (e) => this.setState({ objValue: e.target.value }),
+      onObjQueue: () => {
+        const v = s.objValue.trim();
+        if (!v) return;
+        this.setState({ objValue: '', researchRuns: [{ objective: v, agents: ['HERMES'], status: 'PENDING', pct: 0, elapsed: 'now', steps: [['HERMES', 'QUEUED', 'objective decomposition pending']] }, ...(s.researchRuns ?? researchRuns)] });
+        this._trace('objTrace', 'objective queued to HERMES — trained knowledge only');
+      },
+
+      diffLines, runnerLines,
+      codexRuns, researchRuns, findings,
+      findingCount: findings.length,
+    };
+  }
+
+  _queueDock() {
+    const v = this.state.dockValue.trim();
+    if (!v) return;
+    const id = Math.random().toString(16).slice(2, 8);
+    this.setState((st) => ({
+      dockValue: '',
+      controlRuns: [{ objective: v, agents: ['HERMES'], status: 'PENDING', pct: 0, elapsed: 'now', steps: [['HERMES', 'QUEUED', 'routing to a room — domain classification pending']] }, ...(st.controlRuns ?? [])],
+    }));
+    this._trace('dockTrace', 'queued run ' + id + ' — HERMES routing');
+  }
+}
+</script>
+</body>
+</html>

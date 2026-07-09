@@ -56,7 +56,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: 'cover',
-  themeColor: '#09090c',
+  themeColor: '#0b1220',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -66,6 +66,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`dark h-full ${inter.variable} ${mono.variable} ${display.variable}`}
       suppressHydrationWarning
     >
+      <head>
+        {/* General Sans (display/body) — Fontshare. JetBrains Mono for all
+            data/terminal/numeric content is loaded via next/font above. */}
+        <link rel="preconnect" href="https://api.fontshare.com" />
+        <link
+          rel="stylesheet"
+          href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap"
+        />
+      </head>
       <body className="h-full antialiased">
         <QueryProvider>
           {/* Desktop-shell flex column: TitleBar (h-8, Tauri-only — renders

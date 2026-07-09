@@ -10,8 +10,11 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body:     ['var(--font-inter)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        headline: ['var(--font-display)', 'var(--font-inter)', 'ui-sans-serif', 'sans-serif'],
+        /* General Sans (Fontshare) is the display/body face; Inter is the
+           loaded next/font fallback until General Sans arrives. */
+        body:     ['General Sans', 'var(--font-inter)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        headline: ['General Sans', 'var(--font-display)', 'var(--font-inter)', 'ui-sans-serif', 'sans-serif'],
+        sans:     ['General Sans', 'var(--font-inter)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         mono:     ['var(--font-mono)', 'JetBrains Mono', 'Fira Mono', 'ui-monospace', 'monospace'],
         code:     ['var(--font-mono)', 'JetBrains Mono', 'ui-monospace', 'monospace'],
       },
@@ -30,6 +33,7 @@ export default {
         primary: {
           DEFAULT:    'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
+          bright:     'hsl(var(--primary-bright))',
         },
         secondary: {
           DEFAULT:    'hsl(var(--secondary))',
@@ -55,11 +59,33 @@ export default {
         input:  'hsl(var(--input))',
         ring:   'hsl(var(--ring))',
 
+        /* ── Approval gate — ROSE (dedicated to "action required") ── */
+        gate: {
+          DEFAULT:    'hsl(var(--gate))',
+          foreground: 'hsl(var(--gate-foreground))',
+          soft:       'hsl(var(--gate-soft))',
+        },
+
+        /* ── Agent identity / live-status ────────────────── */
+        agent: {
+          codex:  'hsl(var(--agent-codex))',
+          active: 'hsl(var(--agent-active))',
+          idle:   'hsl(var(--agent-idle))',
+        },
+
+        /* ── Text tiers (ink) ────────────────────────────── */
+        ink: {
+          hi:  'hsl(var(--ink-hi))',
+          mid: 'hsl(var(--ink-mid))',
+          low: 'hsl(var(--ink-low))',
+        },
+
         /* ── Surface depth ───────────────────────────────── */
         surface: {
           '1': 'hsl(var(--surface-1))',
           '2': 'hsl(var(--surface-2))',
           '3': 'hsl(var(--surface-3))',
+          deep: 'hsl(var(--deep))',
         },
 
         /* ── Neon palette ────────────────────────────────── */
@@ -107,6 +133,8 @@ export default {
         'neon-red':    '0 0 8px hsl(var(--neon-red) / 0.5), 0 0 24px hsl(var(--neon-red) / 0.2)',
         'neon-sm':     '0 0 4px currentColor',
         'card-lift':   '0 4px 24px hsl(0 0% 0% / 0.4)',
+        'gate':        '0 0 6px hsl(var(--gate) / 0.6), 0 0 22px hsl(var(--gate) / 0.28)',
+        'gate-col':    '0 0 32px -10px hsl(var(--gate) / 0.5)',
       },
       keyframes: {
         /* ── Existing ──────────────────────────────────────── */
@@ -147,6 +175,16 @@ export default {
           '0%, 100%': { transform: 'scaleY(0.3)' },
           '50%':      { transform: 'scaleY(1)' },
         },
+        /* ── Rose approval-gate edge pulse (~1.3s) ──────────── */
+        'gate-pulse': {
+          '0%, 100%': { boxShadow: '0 0 0 1px hsl(var(--gate) / 0.55), 0 0 22px -6px hsl(var(--gate) / 0.5)' },
+          '50%':      { boxShadow: '0 0 0 1px hsl(var(--gate) / 0.9), 0 0 34px -4px hsl(var(--gate) / 0.75)' },
+        },
+        /* ── Live "action required" dot blink ───────────────── */
+        'dot-blink': {
+          '0%, 100%': { opacity: '1' },
+          '50%':      { opacity: '0.35' },
+        },
       },
       animation: {
         'accordion-down':   'accordion-down 0.2s ease-out',
@@ -158,6 +196,8 @@ export default {
         'slide-in-right':   'slide-in-right 0.25s ease-out both',
         shimmer:            'shimmer 2s linear infinite',
         waveform:           'waveform 0.9s ease-in-out infinite',
+        'gate-pulse':       'gate-pulse 1.3s ease-in-out infinite',
+        'dot-blink':        'dot-blink 1.4s ease-in-out infinite',
       },
     },
   },

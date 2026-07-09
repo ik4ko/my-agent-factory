@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://api.fontshare.com">
+  <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #070c15; }
+    * { box-sizing: border-box; }
+    a { color: #7dd3fc; text-decoration: none; }
+    a:hover { color: #bae6fd; }
+    ::selection { background: rgba(56,189,248,0.25); color: #e8eef7; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #1c2942; border-radius: 3px; }
+    :focus-visible { outline: 2px solid #7dd3fc; outline-offset: 1px; }
+    @keyframes dotBlink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+    @keyframes streamPulse { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }
+    @keyframes gatePulseCyan { 0%,100% { box-shadow: inset 0 0 0 1.5px rgba(56,189,248,0.55), 0 0 24px -8px rgba(56,189,248,0.5); } 50% { box-shadow: inset 0 0 0 1.5px rgba(56,189,248,0.85), 0 0 40px -6px rgba(56,189,248,0.8); } }
+    @keyframes panelIn { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @media (prefers-reduced-motion: reduce) { * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; } }
+  </style>
+</helmet>
+
+<div data-screen-label="Personal Room" style="position: relative; width: 1600px; height: 1000px; display: flex; overflow: hidden; border-radius: 8px; border: 1px solid rgba(148,163,184,0.1); background: #0b1220; color: #94a3b8; font-family: 'General Sans', ui-sans-serif, system-ui, sans-serif; font-size: 12px; box-shadow: 0 40px 120px -30px rgba(0,0,0,0.9);">
+
+  <!-- ── Nav rail ── -->
+  <nav data-screen-label="Nav rail" style="position: relative; z-index: 3; display: flex; width: 50px; flex-shrink: 0; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0; border-right: 1px solid rgba(148,163,184,0.08); background: #090f1a;">
+    <div aria-hidden="true" style="display: flex; width: 30px; height: 30px; margin-bottom: 10px; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid rgba(56,189,248,0.25); background: rgba(56,189,248,0.06);">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"></path></svg>
+    </div>
+    <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="4">
+      <div style="position: relative; display: flex; justify-content: center;">
+        <button type="button" onClick="{{ n.onClick }}" title="{{ n.label }}" style="display: flex; width: 34px; height: 34px; align-items: center; justify-content: center; border-radius: 7px; border: 1px solid {{ n.border }}; background: {{ n.bg }}; cursor: pointer; padding: 0;" style-hover="background: rgba(148,163,184,0.06);">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{ n.color }}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="{{ n.icon }}"></path></svg>
+        </button>
+        <sc-if value="{{ n.active }}" hint-placeholder-val="{{ false }}">
+          <span style="position: absolute; left: -10px; top: 9px; width: 2px; height: 16px; border-radius: 1px; background: #38bdf8; box-shadow: 0 0 8px rgba(56,189,248,0.7);"></span>
+        </sc-if>
+      </div>
+    </sc-for>
+    <div style="margin-top: auto;">
+      <button type="button" title="Settings" style="display: flex; width: 34px; height: 34px; align-items: center; justify-content: center; border-radius: 7px; border: 1px solid transparent; background: transparent; cursor: pointer; padding: 0;" style-hover="background: rgba(148,163,184,0.06);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#56657c" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v2M12 19v2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M3 12h2M19 12h2M5.6 18.4 7 17M17 7l1.4-1.4"></path></svg>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ── Main column ── -->
+  <div style="position: relative; z-index: 1; display: flex; flex: 1; min-width: 0; flex-direction: column;">
+
+    <!-- Instrument top bar -->
+    <header style="display: flex; height: 40px; flex-shrink: 0; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid rgba(148,163,184,0.08); background: #090f1a;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: #e8eef7;">MY AGENT FACTORY</span>
+        <span style="width: 1px; height: 12px; background: rgba(148,163,184,0.18);"></span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.22em; color: #56657c;">PERSONAL ROOM</span>
+        <span style="padding: 1px 8px; border-radius: 3px; border: 1px solid rgba(56,189,248,0.45); background: rgba(56,189,248,0.08); color: #7dd3fc; font-family: 'JetBrains Mono', monospace; font-size: 8.5px; font-weight: 700; letter-spacing: 0.18em;">PRIVATE</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <span style="display: flex; align-items: center; gap: 7px; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.14em; color: #34d399;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #34d399; box-shadow: 0 0 8px rgba(52,211,153,0.7); animation: dotBlink 2.4s ease-in-out infinite;"></span>VAULT SYNCED</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #56657c; font-variant-numeric: tabular-nums;">{{ clock }} UTC</span>
+      </div>
+    </header>
+
+    <!-- Privacy banner -->
+    <div data-screen-label="Privacy banner" style="display: flex; flex-shrink: 0; align-items: center; gap: 10px; height: 30px; padding: 0 14px; border-bottom: 1px solid rgba(56,189,248,0.28); background: repeating-linear-gradient(-45deg, rgba(56,189,248,0.08), rgba(56,189,248,0.08) 9px, rgba(56,189,248,0.02) 9px, rgba(56,189,248,0.02) 18px);">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7dd3fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"></path></svg>
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 700; letter-spacing: 0.16em; color: #7dd3fc;">PRIVATE VAULT — DATA STAYS ON DEVICE</span>
+      <span style="font-size: 10.5px; color: rgba(125,211,252,0.75);">agents act only within approved scopes · nothing leaves the vault or sends without your approval</span>
+    </div>
+
+    <!-- Day summary bar -->
+    <div data-screen-label="Day summary" style="display: flex; height: 56px; flex-shrink: 0; align-items: stretch; border-bottom: 1px solid rgba(148,163,184,0.08); background: #0e1626;">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 0 16px; border-right: 1px solid rgba(148,163,184,0.06);">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.2em; color: #4c6079;">⌐&nbsp;{{ today }}</span>
+        <div style="display: flex; align-items: center; gap: 7px; padding: 4px 10px; border-radius: 4px; border: 1px solid rgba(56,189,248,0.4); background: rgba(56,189,248,0.07);">
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #38bdf8; box-shadow: 0 0 8px rgba(56,189,248,0.7); animation: dotBlink 2.4s ease-in-out infinite;"></span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; color: #7dd3fc;">ON TRACK</span>
+        </div>
+      </div>
+      <div style="display: flex; flex: 1; align-items: center; gap: 26px; padding: 0 18px;">
+        <div style="display: flex; flex-direction: column; gap: 1px;">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.14em; color: #56657c;">EVENTS TODAY</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 700; color: #e8eef7; font-variant-numeric: tabular-nums;">6 <span style="font-size: 9px; color: #56657c;">· 2 agent-managed</span></span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 1px;">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.14em; color: #56657c;">AWAITING YOU</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 700; color: #fbbf24; font-variant-numeric: tabular-nums;">{{ stagedCount }} <span style="font-size: 9px; color: #56657c;">to approve</span></span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 1px;">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.14em; color: #56657c;">INBOX · TRIAGED</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 700; color: #34d399; font-variant-numeric: tabular-nums;">18 <span style="font-size: 9px; color: #56657c;">/ 21 by MUSE</span></span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 3px; min-width: 150px;">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.14em; color: #56657c;">GYM STREAK · 12 DAYS</span>
+          <div style="position: relative; height: 5px; border-radius: 3px; background: rgba(148,163,184,0.1);">
+            <div style="position: absolute; inset: 0 auto 0 0; width: 80%; border-radius: 3px; background: linear-gradient(90deg, rgba(52,211,153,0.45), #34d399);"></div>
+            <div style="position: absolute; top: -2px; bottom: -2px; left: 100%; width: 1px; background: rgba(56,189,248,0.6);"></div>
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; padding: 0 16px; border-left: 1px solid rgba(148,163,184,0.06);">
+        <span style="display: flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #34d399;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #34d399;"></span>privacy armed</span>
+        <span style="width: 1px; height: 12px; background: rgba(148,163,184,0.12);"></span>
+        <span style="display: flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #7dd3fc;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #7dd3fc;"></span>3 vaults</span>
+      </div>
+    </div>
+
+    <!-- ── Main grid ── -->
+    <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(12, 1fr); grid-template-rows: 1.18fr 0.82fr; gap: 8px; padding: 8px;">
+
+      <!-- INTENT COMPOSER → HERMES -->
+      <section data-screen-label="Intent composer" style="position: relative; grid-column: 1 / 4; grid-row: 1; display: flex; flex-direction: column; min-height: 0; border-radius: 6px; border: 1px solid rgba(56,189,248,0.18); background: linear-gradient(180deg, #0e1a2e, #0b1220);">
+        <span style="position: absolute; top: 6px; left: 6px; width: 12px; height: 12px; border-top: 1px solid rgba(56,189,248,0.4); border-left: 1px solid rgba(56,189,248,0.4);"></span>
+        <span style="position: absolute; top: 6px; right: 6px; width: 12px; height: 12px; border-top: 1px solid rgba(56,189,248,0.4); border-right: 1px solid rgba(56,189,248,0.4);"></span>
+        <div style="display: flex; flex-shrink: 0; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid rgba(148,163,184,0.08);">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.2em; color: #4c6079;">⌐ ASSISTANT → HERMES</span>
+        </div>
+        <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 9px; padding: 11px;">
+          <textarea value="{{ intentValue }}" onChange="{{ onIntent }}" placeholder="Ask your assistant to handle something — schedule, reply, remind, book, budget…" style="flex: 1; min-height: 0; resize: none; padding: 10px 11px; border-radius: 5px; border: 1px solid rgba(148,163,184,0.12); background: rgba(8,13,22,0.7); color: #e8eef7; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; line-height: 1.6; outline: none;" style-focus="border-color: rgba(56,189,248,0.5);"></textarea>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.14em; color: #56657c;">QUICK INTENTS</span>
+            <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+              <sc-for list="{{ intentChips }}" as="c" hint-placeholder-count="4">
+                <button type="button" onClick="{{ c.onClick }}" style="padding: 3px 9px; border-radius: 3px; border: 1px solid rgba(148,163,184,0.16); background: rgba(255,255,255,0.012); color: #94a3b8; font-family: 'JetBrains Mono', monospace; font-size: 8.5px; cursor: pointer;" style-hover="border-color: rgba(125,211,252,0.5); color: #7dd3fc;">{{ c.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="padding: 2px 8px; border-radius: 3px; border: 1px solid rgba(56,189,248,0.3); background: rgba(56,189,248,0.07); color: #7dd3fc; font-family: 'JetBrains Mono', monospace; font-size: 8.5px; font-weight: 700;">opus-4</span>
+            <span style="padding: 2px 8px; border-radius: 3px; border: 1px solid rgba(148,163,184,0.14); background: rgba(255,255,255,0.02); color: #7e90a8; font-family: 'JetBrains Mono', monospace; font-size: 8.5px;">private scope</span>
+            <button type="button" onClick="{{ onIntentQueue }}" style="margin-left: auto; padding: 6px 13px; border-radius: 4px; border: 1px solid rgba(56,189,248,0.5); background: rgba(56,189,248,0.12); color: #7dd3fc; font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; cursor: pointer;" style-hover="background: rgba(56,189,248,0.22);">DELEGATE →</button>
+          </div>
+          <sc-if value="{{ intentTrace }}" hint-placeholder-val="{{ false }}">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #34d399;">OK {{ intentTrace }}</span>
+          </sc-if>
+        </div>
+      </section>
+
+      <!-- TODAY · AGENDA (hero) -->
+      <section data-screen-label="Today agenda" style="position: relative; grid-column: 4 / 9; grid-row: 1; display: flex; flex-direction: column; min-height: 0; border-radius: 6px; border: 1px solid rgba(148,163,184,0.1); background: linear-gradient(180deg, #0e1a2e, #0b1220); overflow: hidden;">
+        <span style="position: absolute; top: 6px; left: 6px; width: 12px; height: 12px; border-top: 1px solid rgba(56,189,248,0.4); border-left: 1px solid rgba(56,189,248,0.4);"></span>
+        <span style="position: absolute; top: 6px; right: 6px; width: 12px; height: 12px; border-top: 1px solid rgba(56,189,248,0.4); border-right: 1px solid rgba(56,189,248,0.4);"></span>
+        <div style="display: flex; flex-shrink: 0; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid rgba(148,163,184,0.08);">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.2em; color: #4c6079;">⌐ TODAY · TIMELINE</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #7e90a8;">{{ today }}</span>
+          <span style="margin-left: auto; display: flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #38bdf8;"><span style="width: 5px; height: 5px; border-radius: 50%; background: #38bdf8; animation: dotBlink 1.6s ease-in-out infinite;"></span>NOW {{ nowLabel }}</span>
+        </div>
+        <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column;">
+          <sc-for list="{{ agenda }}" as="e" hint-placeholder-count="6">
+            <div style="display: flex; gap: 12px; align-items: stretch;">
+              <div style="flex-shrink: 0; width: 46px; display: flex; flex-direction: column; align-items: flex-end; padding-top: 2px;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: {{ e.timeColor }}; font-variant-numeric: tabular-nums;">{{ e.time }}</span>
+              </div>
+              <div style="flex-shrink: 0; width: 12px; display: flex; flex-direction: column; align-items: center;">
+                <span style="width: 9px; height: 9px; border-radius: 50%; border: 2px solid {{ e.railColor }}; background: {{ e.dotFill }}; margin-top: 2px;"></span>
+                <span style="flex: 1; width: 1px; background: rgba(148,163,184,0.14);"></span>
+              </div>
+              <div style="flex: 1; min-width: 0; padding-bottom: 14px;">
+                <div style="display: flex; flex-direction: column; gap: 6px; padding: 9px 11px; border-radius: 6px; border: 1px solid {{ e.cardBorder }}; border-left: 3px solid {{ e.railColor }}; background: {{ e.cardBg }};">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 12px; font-weight: 600; color: #e8eef7;">{{ e.title }}</span>
+                    <sc-if value="{{ e.agent }}" hint-placeholder-val="{{ false }}">
+                      <span style="padding: 1px 7px; border-radius: 3px; border: 1px solid {{ e.agentBorder }}; background: {{ e.agentBg }}; color: {{ e.agentColor }}; font-family: 'JetBrains Mono', monospace; font-size: 7.5px; font-weight: 700; letter-spacing: 0.08em;">{{ e.agent }}</span>
+                    </sc-if>
+                    <sc-if value="{{ e.staged }}" hint-placeholder-val="{{ false }}">
+                      <span style="margin-left: auto; display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 3px; border: 1px solid rgba(251,191,36,0.45); background: rgba(251,191,36,0.08); color: #fbbf24; font-family: 'JetBrains Mono', monospace; font-size: 7.5px; font-weight: 700; letter-spacing: 0.1em;"><span style="width: 4px; height: 4px; border-radius: 50%; background: #fbbf24; animation: dotBlink 1.4s ease-in-out infinite;"></span>NEEDS OK</span>
+                    </sc-if>
+                  </div>
+                  <sc-if value="{{ e.note }}" hint-placeholder-val="{{ false }}">
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 8.5px; color: #7e90a8; line-height: 1.5;">{{ e.note }}</span>
+                  </sc-if>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <!-- STAGED ACTIONS — THE GATE -->
+      <section data-screen-label="Staged actions" style="position: relative; grid-column: 9 / 13; grid-row: 1; display: flex; flex-direction: column; min-height: 0; border-radius: 6px; border: 1px solid rgba(56,189,248,0.4); background: linear-gradient(180deg, #0d1930, #0b1220); box-shadow: 0 0 40px -22px rgba(56,189,248,0.6);">
+        <span style="position: absolute; top: 6px; left: 6px; width: 12px; height: 12px; border-top: 1px solid rgba(56,189,248,0.5); border-left: 1px solid rgba(56,189,248,0.5);"></span>
+        <span style="position: absolute; top: 6px; right: 6px; width: 12px; height: 12px; border-top: 1px solid rgba(56,189,248,0.5); border-right: 1px solid rgba(56,189,248,0.5);"></span>
+        <div style="display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; padding: 9px 12px; border-bottom: 1px solid rgba(56,189,248,0.15);">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.2em; color: #7dd3fc;">⌐ STAGED ACTIONS</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 3px; border: 1px solid rgba(56,189,248,0.4); background: rgba(56,189,248,0.08); font-family: 'JetBrains Mono', monospace; font-size: 8.5px; font-weight: 700; letter-spacing: 0.1em; color: #7dd3fc;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #38bdf8; animation: dotBlink 1.4s ease-in-out infinite;"></span>{{ stagedCount }} · YOUR CALL</span>
+        </div>
+        <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 9px;">
+          <sc-for list="{{ actions }}" as="a" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 11px 12px; border-radius: 6px; border: 1px solid {{ a.cardBorder }}; border-left: 3px solid {{ a.accent }}; background: {{ a.cardBg }}; animation: {{ a.anim }};">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="display: flex; width: 24px; height: 24px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 5px; border: 1px solid {{ a.iconBorder }}; background: {{ a.iconBg }}; color: {{ a.iconColor }};">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ a.icon }}"></path></svg>
+                </span>
+                <span style="font-size: 12px; font-weight: 600; color: #e8eef7; line-height: 1.3;">{{ a.title }}</span>
+              </div>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 8.5px; color: #7e90a8; line-height: 1.5;">staged by <span style="color: {{ a.agentColor }};">{{ a.agent }}</span> · {{ a.detail }}</span>
+              <sc-if value="{{ a.pending }}" hint-placeholder-val="{{ true }}">
+                <div style="display: flex; gap: 7px;">
+                  <button type="button" onClick="{{ a.onApprove }}" style="flex: 1.4; padding: 8px 0; border-radius: 4px; border: 1px solid #38bdf8; background: rgba(56,189,248,0.14); color: #7dd3fc; font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; letter-spacing: 0.12em; cursor: pointer;" style-hover="background: rgba(56,189,248,0.26);">{{ a.approveLabel }}</button>
+                  <button type="button" onClick="{{ a.onDismiss }}" style="flex: 1; padding: 8px 0; border-radius: 4px; border: 1px solid rgba(148,163,184,0.25); background: transparent; color: #94a3b8; font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; letter-spacing: 0.12em; cursor: pointer;" style-hover="border-color: rgba(248,113,113,0.6); color: #f87171;">DISMISS</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ a.resolved }}" hint-placeholder-val="{{ false }}">
+                <span style="align-self: flex-start; padding: 3px 9px; border-radius: 3px; border: 1px solid {{ a.resBorder }}; background: {{ a.resBg }}; color: {{ a.resColor }}; font-family: 'JetBrains Mono', monospace; font-size: 8.5px; font-weight: 700; letter-spacing: 0.1em;">{{ a.resolution }}</span>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <!-- FLEET · PERSONAL -->
+      <section data-screen-label="Personal fleet" style="grid-column: 1 / 4; grid-row: 2; display: flex; flex-direction: column; min-height: 0; border-radius: 6px; border: 1px solid rgba(148,163,184,0.1); background: linear-gradient(180deg, #0e1a2e, #0b1220);">
+        <div style="display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; padding: 9px 12px; border-bottom: 1px solid rgba(148,163,184,0.08);">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.2em; color: #4c6079;">⌐ FLEET · PERSONAL</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 8.5px; color: #56657c;">2 BUSY · 2 ARMED</span>
+        </div>
+        <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px;">
+          <sc-for list="{{ fleet }}" as="a" hint-placeholder-count="4">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 5px; border: 1px solid rgba(148,163,184,0.06); background: rgba(255,255,255,0.012);">
+              <span style="width: 7px; height: 7px; flex-shrink: 0; border-radius: 50%; background: {{ a.dot }}; box-shadow: 0 0 7px {{ a.glow }};"></span>
+              <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: #cdd9e8;">{{ a.name }}</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; color: #56657c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ a.role }}</span>
+              </div>
+              <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 8.5px; font-weight: 600; color: {{ a.statusColor }}; letter-spacing: 0.08em;">{{ a.status }}</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; color: #56657c; font-variant-numeric: tabular-nums;">{{ a.meta }}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <!-- TERMINAL · PERSONAL -->
+      <section data-screen-label="Terminal" style="grid-column: 4 / 10; grid-row: 2; display: flex; flex-direction: column; min-height: 0; border-radius: 6px; border: 1px solid rgba(148,163,184,0.1); background: #080d16;">
+        <div style="display: flex; flex-shrink: 0; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid rgba(148,163,184,0.08);">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.2em; color: #4c6079;">⌐ TERMINAL · PERSONAL</span>
+          <span style="margin-left: auto; display: flex; align-items: center; gap: 5px;">
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: #34d399;"></span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; color: #56657c;">stream live</span>
+          </span>
+        </div>
+        <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 8px 12px; display: flex; flex-direction: column; gap: 2px;">
+          <sc-for list="{{ terminal }}" as="t" hint-placeholder-count="8">
+            <div style="display: flex; gap: 9px; font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.55;">
+              <span style="flex-shrink: 0; color: #3d4a5c; font-variant-numeric: tabular-nums;">{{ t.ts }}</span>
+              <span style="flex-shrink: 0; width: 26px; font-weight: 700; color: {{ t.lvlColor }};">{{ t.lvl }}</span>
+              <span style="color: {{ t.color }};">{{ t.msg }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <!-- VAULT · MEMORY -->
+      <section data-screen-label="Vault memory" style="grid-column: 10 / 13; grid-row: 2; display: flex; flex-direction: column; min-height: 0; border-radius: 6px; border: 1px solid rgba(148,163,184,0.1); background: linear-gradient(180deg, #0e1a2e, #0b1220);">
+        <div style="display: flex; flex-shrink: 0; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid rgba(148,163,184,0.08);">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.2em; color: #4c6079;">⌐ VAULT</span>
+          <span style="margin-left: auto; padding: 0 5px; border-radius: 2px; border: 1px solid rgba(56,189,248,0.4); color: #7dd3fc; font-family: 'JetBrains Mono', monospace; font-size: 7.5px; font-weight: 700;">PRIVATE</span>
+        </div>
+        <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px;">
+          <sc-for list="{{ vault }}" as="v" hint-placeholder-count="6">
+            <div style="display: flex; align-items: flex-start; gap: 7px; padding: 7px 9px; border-radius: 5px; border: 1px solid transparent;" style-hover="border-color: rgba(148,163,184,0.08); background: rgba(255,255,255,0.012);">
+              <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #7dd3fc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ v.key }}</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; color: #56657c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ v.preview }}</span>
+              </div>
+              <span style="flex-shrink: 0; font-family: 'JetBrains Mono', monospace; font-size: 8px; color: #3d4a5c;">{{ v.ts }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- ══ Global Chat — docked orchestrate overlay (scope PERSONAL) ══ -->
+  <sc-if value="{{ chatDocked }}" hint-placeholder-val="{{ true }}">
+    <sc-if value="{{ chatCollapsed }}" hint-placeholder-val="{{ true }}">
+      <div style="position: absolute; bottom: 18px; right: 18px; z-index: 40; width: 452px;">
+        <button type="button" onClick="{{ onChatExpand }}" style="width: 100%; display: flex; align-items: center; gap: 11px; padding: 12px 14px; border-radius: 8px; border: 1px solid rgba(56,189,248,0.25); border-left: 2px solid #38bdf8; background: rgba(11,18,32,0.92); backdrop-filter: blur(14px); cursor: pointer; box-shadow: 0 20px 50px -20px rgba(0,0,0,0.85); text-align: left;" style-hover="border-color: rgba(56,189,248,0.5);">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; color: #38bdf8; line-height: 1;">&gt;</span>
+          <span style="flex: 1; font-size: 12px; color: #6b7c96;">Orchestrate across agents…</span>
+          <span style="display: flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 8.5px; letter-spacing: 0.08em; color: #34d399;"><span style="width: 5px; height: 5px; border-radius: 50%; background: #34d399; animation: dotBlink 2s ease-in-out infinite;"></span>HERMES · 4 AGENTS</span>
+          <span style="padding: 3px 8px; border-radius: 3px; border: 1px solid rgba(56,189,248,0.35); background: rgba(56,189,248,0.06); font-family: 'JetBrains Mono', monospace; font-size: 8px; font-weight: 700; letter-spacing: 0.1em; color: #7dd3fc;">SCOPE · {{ chatScope }}</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#56657c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"></path></svg>
+        </button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ chatExpanded }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; bottom: 18px; right: 18px; z-index: 40; width: 462px; height: 620px; display: flex; flex-direction: column; border-radius: 10px; border: 1px solid rgba(56,189,248,0.2); background: linear-gradient(180deg, rgba(12,20,34,0.96), rgba(8,13,22,0.98)); backdrop-filter: blur(16px); box-shadow: 0 40px 90px -30px rgba(0,0,0,0.9); overflow: hidden; animation: panelIn 0.28s cubic-bezier(0.2,0.7,0.2,1);">
+        <div style="display: flex; flex-shrink: 0; align-items: center; gap: 9px; padding: 12px 14px; border-bottom: 1px solid rgba(148,163,184,0.08);">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: #38bdf8; line-height: 1;">&gt;</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.2em; color: #e8eef7;">ORCHESTRATE</span>
+          <span style="display: flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 8.5px; letter-spacing: 0.1em; color: #34d399;"><span style="width: 5px; height: 5px; border-radius: 50%; background: #34d399; animation: dotBlink 2s ease-in-out infinite;"></span>HERMES ROUTING</span>
+          <div style="margin-left: auto; display: flex; align-items: center; gap: 6px;">
+            <div style="display: flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; border: 1px solid rgba(148,163,184,0.16); font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.08em; color: #94a3b8;">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#56657c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"></path></svg>
+              SCOPE · {{ chatScope }}
+            </div>
+            <button type="button" onClick="{{ onChatCollapse }}" title="Collapse" style="display: flex; width: 26px; height: 26px; align-items: center; justify-content: center; border-radius: 5px; border: 1px solid rgba(148,163,184,0.16); background: transparent; color: #94a3b8; cursor: pointer;" style-hover="border-color: rgba(125,211,252,0.5); color: #7dd3fc;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
+          </div>
+        </div>
+
+        <div ref="{{ threadRef }}" style="flex: 1; min-height: 0; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 14px;">
+          <sc-for list="{{ messages }}" as="m" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column; gap: 5px; align-items: {{ m.align }};">
+              <sc-if value="{{ m.showName }}" hint-placeholder-val="{{ true }}">
+                <div style="display: flex; align-items: center; gap: 7px;">
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; letter-spacing: 0.1em; color: {{ m.nameColor }};">{{ m.name }}</span>
+                  <sc-if value="{{ m.role2 }}" hint-placeholder-val="{{ false }}"><span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; color: #56657c;">{{ m.role2 }}</span></sc-if>
+                  <sc-if value="{{ m.streaming }}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; gap: 2px;"><span style="width: 3px; height: 3px; border-radius: 50%; background: #7dd3fc; animation: streamPulse 1s ease-in-out infinite;"></span><span style="width: 3px; height: 3px; border-radius: 50%; background: #7dd3fc; animation: streamPulse 1s ease-in-out 0.2s infinite;"></span><span style="width: 3px; height: 3px; border-radius: 50%; background: #7dd3fc; animation: streamPulse 1s ease-in-out 0.4s infinite;"></span></span></sc-if>
+                </div>
+              </sc-if>
+              <div style="max-width: 86%; padding: 9px 12px; border-radius: 8px; border: 1px solid {{ m.bubbleBorder }}; background: {{ m.bubbleBg }}; color: {{ m.textColor }}; font-size: 12px; line-height: 1.55; {{ m.bubbleExtra }}">{{ m.text }}</div>
+              <sc-if value="{{ m.hasChips }}" hint-placeholder-val="{{ false }}">
+                <div style="display: flex; flex-wrap: wrap; gap: 5px; max-width: 86%;">
+                  <sc-for list="{{ m.chips }}" as="c" hint-placeholder-count="1">
+                    <a href="{{ c.href }}" style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 3px; border: 1px solid {{ c.border }}; background: {{ c.bg }}; color: {{ c.color }}; font-family: 'JetBrains Mono', monospace; font-size: 8.5px; font-weight: 600; letter-spacing: 0.06em;">{{ c.label }}</a>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="flex-shrink: 0; padding: 10px 12px 12px; border-top: 1px solid rgba(148,163,184,0.08); display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+            <sc-for list="{{ quickChips }}" as="q" hint-placeholder-count="5">
+              <button type="button" onClick="{{ q.onClick }}" style="padding: 3px 9px; border-radius: 3px; border: 1px solid {{ q.border }}; background: {{ q.bg }}; color: {{ q.color }}; font-family: 'JetBrains Mono', monospace; font-size: 8.5px; font-weight: 600; cursor: pointer;" style-hover="border-color: rgba(125,211,252,0.5);">{{ q.label }}</button>
+            </sc-for>
+          </div>
+          <div style="display: flex; align-items: flex-end; gap: 9px; padding: 9px 11px; border-radius: 6px; border: 1px solid rgba(56,189,248,0.22); border-left: 2px solid #38bdf8; background: rgba(8,13,22,0.7);">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: #38bdf8; line-height: 1.4;">&gt;</span>
+            <textarea value="{{ draft }}" onChange="{{ onDraft }}" onKeyDown="{{ onKey }}" placeholder="Orchestrate across agents — HERMES will route it to the right room…" rows="1" style="flex: 1; min-width: 0; resize: none; max-height: 80px; background: transparent; border: none; outline: none; color: #e8eef7; font-family: 'General Sans', sans-serif; font-size: 12px; line-height: 1.5;"></textarea>
+            <button type="button" onClick="{{ onSend }}" title="Send" style="display: flex; width: 30px; height: 30px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 5px; border: 1px solid {{ sendBorder }}; background: {{ sendBg }}; color: {{ sendColor }}; cursor: pointer;" style-hover="filter: brightness(1.15);">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"></path><path d="M22 2 11 13"></path></svg>
+            </button>
+          </div>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; color: #3d4a5c; letter-spacing: 0.06em;">↵ send · ⇧↵ newline · scoped to PERSONAL — nothing sends without approval</span>
+        </div>
+      </div>
+    </sc-if>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1600, &quot;height&quot;: 1000 },
+  &quot;dockChat&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Chat&quot; }
+}">
+class Component extends DCLogic {
+  state = {
+    clock: '',
+    intentValue: '', intentTrace: null,
+    actionStatus: {},
+    chatCollapsed: true,
+    chatScope: 'PERSONAL',
+    draft: '',
+    messages: [
+      { role: 'user', text: 'Sort out my week — dentist, the landlord email, and that overdue electric bill.' },
+      { role: 'hermes', text: 'Scoped to PERSONAL. Delegated: CRONOS → dentist booking, MUSE → landlord reply, LEDGER → electric bill. 3 actions staged for your approval — nothing sends until you say so.',
+        chips: [['3 STAGED → ACTIONS', 'room', '#']] },
+      { role: 'agent', name: 'MUSE', color: '#f472b6', role2: 'drafting', streaming: true,
+        text: 'Drafted a warm reply to your landlord confirming the Aug 1 renewal at the current rate, and asking about the leaking tap. Ready for your review before it sends.',
+        chips: [['REVIEW DRAFT', 'code', '#']] },
+    ],
+  };
+
+  ICONS = {
+    hub: 'M3 9h18M3 15h18M9 3v18M15 3v18',
+    trading: 'M3 3v16a2 2 0 0 0 2 2h16M7 14l4-5 3 3 5-7',
+    coding: 'm18 16 4-4-4-4M6 8l-4 4 4 4m14.5-12-5 16',
+    personal: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0',
+    mail: 'M4 4h16v16H4zM4 6l8 6 8-6',
+    calendar: 'M8 2v4M16 2v4M3 8h18M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+    card: 'M2 7h20v10H2zM2 11h20',
+  };
+
+  AGENDA = [
+    { time: '09:00', title: 'Team standup', cat: 'work', agent: 'CRONOS', note: 'moved from 09:30 by CRONOS — clears your morning focus block', past: true },
+    { time: '10:00', title: 'Focus block — deep work', cat: 'personal', note: 'notifications muted · agents queue non-urgent items', past: true },
+    { time: '11:00', title: 'Dentist — cleaning', cat: 'health', agent: 'CRONOS', staged: true, note: 'CRONOS holds 11:00 slot — confirm to book', now: true },
+    { time: '12:30', title: 'Lunch with Priya', cat: 'personal', note: 'Bar Vito · she is running ~10 min late (text 11:41)' },
+    { time: '14:00', title: 'Review CODEX patch R-2214', cat: 'work', note: 'model-router fallback — awaiting your review in Coding Room' },
+    { time: '16:00', title: 'Reply to landlord', cat: 'comms', agent: 'MUSE', staged: true, note: 'MUSE drafted renewal confirmation — review before it sends' },
+    { time: '18:30', title: 'Gym — pull day', cat: 'health', note: 'streak 12 days · keep it alive' },
+  ];
+
+  ACTIONS = [
+    { id: 'mail', title: 'Send reply to landlord', agent: 'MUSE', agentColor: '#f472b6', detail: 'confirms Aug 1 renewal · flags leaking tap · 2 min read', icon: this.ICONS.mail, tone: 'comms', approve: 'REVIEW & SEND' },
+    { id: 'cal', title: 'Book dentist · Wed 11:00', agent: 'CRONOS', agentColor: '#fbbf24', detail: 'Dr Osei · holds slot 30 min · adds to calendar + reminder', icon: this.ICONS.calendar, tone: 'health', approve: 'APPROVE BOOKING' },
+    { id: 'pay', title: 'Pay electric bill · $84.20', agent: 'LEDGER', agentColor: '#7dd3fc', detail: 'due tomorrow · from Everyday account · one-off, not autopay', icon: this.ICONS.card, tone: 'admin', approve: 'APPROVE PAYMENT' },
+  ];
+
+  FLEET = [
+    { name: 'HERMES', role: 'ASSISTANT · ROUTING', status: 'BUSY', statusColor: '#38bdf8', meta: '410ms · 62', dot: '#38bdf8', glow: 'rgba(56,189,248,0.6)' },
+    { name: 'MUSE', role: 'COMMS · DRAFTING · INBOX', status: 'BUSY', statusColor: '#f472b6', meta: '18 triaged', dot: '#f472b6', glow: 'rgba(244,114,182,0.6)' },
+    { name: 'CRONOS', role: 'SCHEDULER · CALENDAR', status: 'ARMED', statusColor: '#fbbf24', meta: 'next 11:00', dot: '#fbbf24', glow: 'rgba(251,191,36,0.6)' },
+    { name: 'LEDGER', role: 'PERSONAL FINANCE · BILLS', status: 'ARMED', statusColor: '#34d399', meta: '1 due', dot: '#34d399', glow: 'rgba(52,211,153,0.6)' },
+    { name: 'AEGIS', role: 'PRIVACY GUARDRAILS', status: 'ARMED', statusColor: '#34d399', meta: 'scopes ok', dot: '#34d399', glow: 'rgba(52,211,153,0.6)' },
+  ];
+
+  TERMINAL = [
+    ['09:47:20', 'DBG', 'heartbeat: vault sync ok — 3 stores (28ms)', '#56657c'],
+    ['09:47:12', 'INF', 'muse: inbox triaged 18/21 — 3 need you', '#94a3b8'],
+    ['09:46:58', ' OK', 'cronos: standup moved 09:30 → 09:00 (accepted)', '#34d399'],
+    ['09:46:41', 'INF', 'muse: drafted landlord reply — staged for approval', '#94a3b8'],
+    ['09:46:20', 'INF', 'cronos: dentist 11:00 held — staged for approval', '#94a3b8'],
+    ['09:45:55', 'WRN', 'ledger: electric bill $84.20 due in 1 day', '#fbbf24'],
+    ['09:45:30', ' OK', 'aegis: all agent actions within approved scopes', '#34d399'],
+    ['09:45:02', 'DBG', 'heartbeat: no data left the vault (0 egress)', '#56657c'],
+  ];
+
+  VAULT = [
+    { key: 'personal.routines.morning', preview: '{"focus":"10:00-12:00","mute":true,"gym":"18:30"}', ts: '2m' },
+    { key: 'personal.contacts.dentist', preview: '{"name":"Dr Osei","pref":"late morning","last":"6mo"}', ts: '14m' },
+    { key: 'personal.finance.accounts', preview: '{"everyday":"···4821","autopay":["rent","phone"]}', ts: '22m' },
+    { key: 'personal.prefs.comms', preview: '{"tone":"warm-brief","signoff":"— A","review_before_send":true}', ts: '31m' },
+    { key: 'personal.travel.prefs', preview: '{"seat":"aisle","hotel":"quiet-high-floor"}', ts: '1h' },
+    { key: 'personal.health.streaks', preview: '{"gym":12,"steps_goal":8000,"sleep_target":"23:30"}', ts: '2h' },
+  ];
+
+  CAT = {
+    work:     ['#7dd3fc', 'rgba(56,189,248,0.28)', 'rgba(56,189,248,0.06)'],
+    health:   ['#34d399', 'rgba(52,211,153,0.28)', 'rgba(52,211,153,0.06)'],
+    admin:    ['#fbbf24', 'rgba(251,191,36,0.28)', 'rgba(251,191,36,0.06)'],
+    comms:    ['#f472b6', 'rgba(244,114,182,0.28)', 'rgba(244,114,182,0.06)'],
+    personal: ['#56657c', 'rgba(148,163,184,0.16)', 'rgba(255,255,255,0.012)'],
+  };
+
+  componentDidMount() {
+    const pad = (n) => String(n).padStart(2, '0');
+    const tick = () => { const d = new Date(); this.setState({ clock: pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds()) }); };
+    tick(); this._clockId = setInterval(tick, 1000);
+  }
+  componentWillUnmount() { clearInterval(this._clockId); clearTimeout(this._traceId); clearTimeout(this._reply); }
+  componentDidUpdate() { if (this._thread && !this.state.chatCollapsed) this._thread.scrollTop = this._thread.scrollHeight; }
+
+  _tint(hex, a) { const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16); return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')'; }
+
+  _trace(msg) { this.setState({ intentTrace: msg }); clearTimeout(this._traceId); this._traceId = setTimeout(() => this.setState({ intentTrace: null }), 5000); }
+
+  _sendChat() {
+    const v = this.state.draft.trim();
+    if (!v) return;
+    this.setState((s) => ({ draft: '', messages: [...s.messages, { role: 'user', text: v }] }));
+    clearTimeout(this._reply);
+    this._reply = setTimeout(() => {
+      this.setState((s) => ({ messages: [...s.messages, { role: 'hermes', text: 'On it. Scoped to PERSONAL — I will delegate to the right agent and stage anything that touches the outside world for your approval.', chips: [['ROUTING…', 'plain', '#']] }] }));
+    }, 700);
+  }
+
+  renderVals() {
+    const s = this.state;
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const monNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const today = dayNames[now.getDay()].toUpperCase() + ' ' + monNames[now.getMonth()].toUpperCase() + ' ' + now.getDate();
+    const nowLabel = pad(now.getHours()) + ':' + pad(now.getMinutes());
+
+    const navItems = [
+      { key: 'hub', label: 'BRAIN HUB', icon: this.ICONS.hub, active: false },
+      { key: 'trading', label: 'TRADING ROOM', icon: this.ICONS.trading, active: false },
+      { key: 'coding', label: 'CODING ROOM', icon: this.ICONS.coding, active: false },
+      { key: 'personal', label: 'PERSONAL ROOM', icon: this.ICONS.personal, active: true },
+    ].map((nv) => ({ ...nv,
+      color: nv.active ? '#38bdf8' : '#56657c',
+      border: nv.active ? 'rgba(56,189,248,0.3)' : 'transparent',
+      bg: nv.active ? 'rgba(56,189,248,0.07)' : 'transparent',
+      onClick: () => {},
+    }));
+
+    const agenda = this.AGENDA.map((e) => {
+      const [rail, aBorder, aBg] = this.CAT[e.cat];
+      return {
+        time: e.time, title: e.title, note: e.note, agent: e.agent, staged: !!e.staged,
+        timeColor: e.now ? '#38bdf8' : e.past ? '#3d4a5c' : '#7e90a8',
+        railColor: rail, dotFill: e.now ? rail : e.past ? 'transparent' : '#0b1220',
+        cardBorder: e.now ? this._tint(rail, 0.4) : 'rgba(148,163,184,0.08)',
+        cardBg: e.now ? this._tint(rail, 0.06) : 'rgba(255,255,255,0.012)',
+        agentColor: rail, agentBorder: aBorder, agentBg: aBg,
+      };
+    });
+
+    const toneMap = { comms: '#f472b6', health: '#34d399', admin: '#fbbf24' };
+    const actions = this.ACTIONS.map((a) => {
+      const st = s.actionStatus[a.id];
+      const pending = !st;
+      const approved = st === 'APPROVED';
+      const accent = pending ? '#38bdf8' : approved ? '#34d399' : 'rgba(148,163,184,0.2)';
+      const tone = toneMap[a.tone] || '#7dd3fc';
+      return {
+        title: a.title, agent: a.agent, agentColor: a.agentColor, detail: a.detail, icon: a.icon, approveLabel: a.approve,
+        iconColor: tone, iconBorder: this._tint(tone, 0.35), iconBg: this._tint(tone, 0.08),
+        cardBorder: pending ? 'rgba(56,189,248,0.5)' : 'rgba(148,163,184,0.1)',
+        cardBg: pending ? 'linear-gradient(180deg, rgba(56,189,248,0.08), rgba(56,189,248,0.02))' : 'rgba(255,255,255,0.012)',
+        accent, anim: pending ? 'gatePulseCyan 1.6s ease-in-out infinite' : 'none',
+        pending, resolved: !pending,
+        resolution: approved ? '✓ ' + (a.id === 'mail' ? 'SENT' : a.id === 'cal' ? 'BOOKED · added to calendar' : 'PAID · logged to LEDGER') : '✕ DISMISSED — returned to agent',
+        resColor: approved ? '#34d399' : '#f87171',
+        resBorder: this._tint(approved ? '#34d399' : '#f87171', 0.4), resBg: this._tint(approved ? '#34d399' : '#f87171', 0.08),
+        onApprove: () => this.setState((prev) => ({ actionStatus: { ...prev.actionStatus, [a.id]: 'APPROVED' } })),
+        onDismiss: () => this.setState((prev) => ({ actionStatus: { ...prev.actionStatus, [a.id]: 'DISMISSED' } })),
+      };
+    });
+    const stagedCount = this.ACTIONS.filter((a) => !s.actionStatus[a.id]).length;
+
+    const terminal = this.TERMINAL.map((r) => ({ ts: r[0], lvl: r[1], msg: r[2], color: r[3], lvlColor: r[1] === ' OK' ? '#34d399' : r[1] === 'WRN' ? '#fbbf24' : r[1] === 'INF' ? '#7dd3fc' : '#3d4a5c' }));
+
+    const intentChips = [
+      { label: '＋ remind me', v: 'Remind me to ' },
+      { label: '✎ draft a reply', v: 'Draft a reply to ' },
+      { label: '◷ find time', v: 'Find time this week for ' },
+      { label: '⤢ book', v: 'Book ' },
+    ].map((c) => ({ label: c.label, onClick: () => this.setState((st) => ({ intentValue: (st.intentValue ? st.intentValue + ' ' : '') + c.v })) }));
+
+    // ── chat ──
+    const chipStyle = {
+      room: { border: 'rgba(56,189,248,0.35)', bg: 'rgba(56,189,248,0.06)', color: '#7dd3fc' },
+      code: { border: 'rgba(244,114,182,0.35)', bg: 'rgba(244,114,182,0.06)', color: '#f9a8d4' },
+      plain: { border: 'rgba(148,163,184,0.2)', bg: 'transparent', color: '#94a3b8' },
+    };
+    const messages = s.messages.map((m) => {
+      const isUser = m.role === 'user';
+      const isHermes = m.role === 'hermes';
+      return {
+        align: isUser ? 'flex-end' : 'flex-start',
+        showName: !isUser,
+        name: isUser ? 'YOU' : isHermes ? 'HERMES' : m.name,
+        nameColor: isUser ? '#94a3b8' : isHermes ? '#38bdf8' : m.color,
+        role2: m.role2 || (isHermes ? 'orchestrator' : ''),
+        streaming: !!m.streaming,
+        text: m.text,
+        textColor: isUser ? '#e8eef7' : '#cdd9e8',
+        bubbleBorder: isUser ? 'rgba(56,189,248,0.25)' : isHermes ? 'rgba(56,189,248,0.16)' : 'rgba(148,163,184,0.1)',
+        bubbleBg: isUser ? 'rgba(56,189,248,0.08)' : isHermes ? 'rgba(56,189,248,0.03)' : 'rgba(255,255,255,0.014)',
+        bubbleExtra: isHermes ? 'border-left: 2px solid rgba(56,189,248,0.5);' : '',
+        hasChips: !!(m.chips && m.chips.length),
+        chips: (m.chips || []).map((c) => ({ label: c[0], href: c[2] || '#', ...chipStyle[c[1]] })),
+      };
+    });
+    const quickChips = [
+      { label: '@HERMES', kind: 'a' }, { label: '@MUSE', kind: 'a' }, { label: '@CRONOS', kind: 'a' },
+      { label: '#calendar', kind: 'r' }, { label: '#inbox', kind: 'r' },
+    ].map((q) => ({ label: q.label, border: q.kind === 'r' ? 'rgba(56,189,248,0.25)' : 'rgba(148,163,184,0.18)', bg: q.kind === 'r' ? 'rgba(56,189,248,0.05)' : 'rgba(255,255,255,0.012)', color: q.kind === 'r' ? '#7dd3fc' : '#94a3b8', onClick: () => this.setState((st) => ({ draft: (st.draft ? st.draft + ' ' : '') + q.label + ' ' })) }));
+    const hasDraft = !!s.draft.trim();
+
+    return {
+      clock: s.clock, navItems, today, nowLabel,
+      agenda, actions, stagedCount, fleet: this.FLEET, terminal, vault: this.VAULT, intentChips,
+
+      intentValue: s.intentValue, intentTrace: s.intentTrace,
+      onIntent: (e) => this.setState({ intentValue: e.target.value }),
+      onIntentQueue: () => { const v = s.intentValue.trim(); if (!v) return; this.setState({ intentValue: '' }); this._trace('delegated to HERMES — anything outbound will be staged for approval'); },
+
+      chatDocked: this.props.dockChat ?? true,
+      chatCollapsed: s.chatCollapsed, chatExpanded: !s.chatCollapsed,
+      chatScope: s.chatScope, messages, quickChips, draft: s.draft,
+      threadRef: (el) => { this._thread = el; },
+      onDraft: (e) => this.setState({ draft: e.target.value }),
+      onKey: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this._sendChat(); } },
+      onSend: () => this._sendChat(),
+      onChatExpand: () => this.setState({ chatCollapsed: false }),
+      onChatCollapse: () => this.setState({ chatCollapsed: true }),
+      sendBorder: hasDraft ? '#38bdf8' : 'rgba(148,163,184,0.16)',
+      sendBg: hasDraft ? 'rgba(56,189,248,0.15)' : 'transparent',
+      sendColor: hasDraft ? '#7dd3fc' : '#56657c',
+    };
+  }
+}
+</script>
+</body>
+</html>

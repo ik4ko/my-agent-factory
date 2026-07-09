@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://api.fontshare.com">
+  <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #070c15; }
+    * { box-sizing: border-box; }
+    a { color: #7dd3fc; text-decoration: none; }
+    a:hover { color: #bae6fd; }
+    ::selection { background: rgba(56,189,248,0.25); color: #e8eef7; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #1c2942; border-radius: 3px; }
+    :focus-visible { outline: 2px solid #7dd3fc; outline-offset: 1px; }
+    @keyframes dotBlink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+    @keyframes streamPulse { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }
+    @keyframes caretBlink { 0%,49% { opacity: 1; } 50%,100% { opacity: 0; } }
+    @keyframes panelIn { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @media (prefers-reduced-motion: reduce) { * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; } }
+  </style>
+</helmet>
+
+<div data-screen-label="Coding Room" style="position: relative; width: 1600px; height: 1000px; display: flex; overflow: hidden; border-radius: 8px; border: 1px solid rgba(148,163,184,0.1); background: #0b1220; color: #94a3b8; font-family: 'General Sans', ui-sans-serif, system-ui, sans-serif; font-size: 12px; box-shadow: 0 40px 120px -30px rgba(0,0,0,0.9);">
+
+  <!-- ── Nav rail ── -->
+  <nav data-screen-label="Nav rail" style="position: relative; z-index: 3; display: flex; width: 50px; flex-shrink: 0; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0; border-right: 1px solid rgba(148,163,184,0.08); background: #090f1a;">
+    <div aria-hidden="true" style="display: flex; width: 30px; height: 30px; margin-bottom: 10px; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid rgba(56,189,248,0.25); background: rgba(56,189,248,0.06);">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"></path></svg>
+    </div>
+    <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="4">
+      <div style="position: relative; display: flex; justify-content: center;">
+        <button type="button" onClick="{{ n.onClick }}" title="{{ n.label }}" style="display: flex; width: 34px; height: 34px; align-items: center; justify-content: center; border-radius: 7px; border: 1px solid {{ n.border }}; background: {{ n.bg }}; cursor: pointer; padding: 0;" style-hover="background: rgba(148,163,184,0.06);">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{ n.color }}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="{{ n.icon }}"></path></svg>
+        </button>
+        <sc-if value="{{ n.active }}" hint-placeholder-val="{{ false }}">
+          <span style="position: absolute; left: -10px; top: 9px; width: 2px; height: 16px; border-radius: 1px; background: #38bdf8; box-shadow: 0 0 8px rgba(56,189,248,0.7);"></span>
+        </sc-if>
+      </div>
+    </sc-for>
+    <div style="margin-top: auto;">
+      <button type="button" title="Settings" style="display: flex; width: 34px; height: 34px; align-items: center; justify-content: center; border-radius: 7px; border: 1px solid transparent; background: transparent; cursor: pointer; padding: 0;" style-hover="background: rgba(148,163,184,0.06);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#56657c" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v2M12 19v2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M3 12h2M19 12h2M5.6 18.4 7 17M17 7l1.4-1.4"></path></svg>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ── Main column ── -->
+  <div style="position: relative; z-index: 1; display: flex; flex: 1; min-width: 0; flex-direction: column;">
+
+    <!-- Instrument top bar -->
+    <header style="display: flex; height: 40px; flex-shrink: 0; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid rgba(148,163,184,0.08); background: #090f1a;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: #e8eef7;">MY AGENT FACTORY</span>
+        <span style="width: 1px; height: 12px; background: rgba(148,163,184,0.18);"></span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.22em; color: #56657c;">CODING ROOM</span>
+        <span style="padding: 1px 8px; border-radius: 3px; border: 1px solid rgba(167,139,250,0.45); background: rgba(167,139,250,0.08); color: #a78bfa; font-family: 'JetBrains Mono', monospace; font-size: 8.5px; font-weight: 700; letter-spacing: 0.18em;">CODEX</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <span style="display: flex; align-items: center; gap: 7px; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.14em; color: #34d399;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #34d399; box-shadow: 0 0 8px rgba(52,211,153,0.7); animation: dotBlink 2.4s ease-in-out infinite;"></span>SANDBOX OK</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #56657c; font-variant-numeric: tabular-nums;">{{ clock }} UTC</span>
+      </div>
+    </header>
+
+    <!-- Sandbox session bar -->
+    <sc-if value="{{ sandboxBanner }}" hint-placeholder-val="{{ true }}">
+    <div data-screen-label="Sandbox session" style="display: flex; height: 56px; flex-shrink: 0; align-items: stretch; border-bottom: 1px solid rgba(148,163,184,0.08); background: #0e1626;">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 0 16px; border-right: 1px solid rgba(148,163,184,0.06);">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.2em; color: #4c6079;">⌐&nbsp;SANDBOX&nbsp;SESSION</span>
+        <div style="display: flex; align-items: center; gap: 7px; padding: 4px 10px; border-radius: 4px; border: 1px solid rgba(52,211,153,0.4); background: rgba(52,211,153,0.07);">
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #34d399; box-shadow: 0 0 8px rgba(52,211,153,0.7); animation: dotBlink 2.4s ease-in-out infinite;"></span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; color: #34d399;">ISOLATED</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 1px;">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.12em; color: #56657c;">RUNTIME</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #94a3b8;">node-20 · mem 212MB</span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex: 1; align-items: center; gap: 24px; padding: 0 18px;">
+        <div style="display: flex; flex-direction: column; gap: 1px;">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.14em; color: #56657c;">MODEL</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: #a78bfa;">fable-5</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 1px;">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.14em; color: #56657c;">PATCH</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: #e8eef7; font-variant-numeric: tabular-nums;">3 / 3 <span style="font-size: 9px; color: #56657c;">streaming</span></span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 1px;">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.14em; color: #56657c;">TESTS · SANDBOX</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: #34d399; font-variant-numeric: tabular-nums;">42 passed <span style="font-size: 9px; color: #56657c;">0 failed</span></span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 3px; min-width: 168px;">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.14em; color: #56657c;">COVERAGE · 94.2% <span style="color: #4c6079;">/ gate 90%</span></span>
+          <div style="position: relative; height: 5px; border-radius: 3px; background: rgba(148,163,184,0.1);">
+            <div style="position: absolute; inset: 0 auto 0 0; width: 94.2%; border-radius: 3px; background: linear-gradient(90deg, rgba(52,211,153,0.45), #34d399);"></div>
+            <div style="position: absolute; top: -2px; bottom: -2px; left: 90%; width: 1px; background: rgba(56,189,248,0.8);"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 8px; padding: 0 16px; border-left: 1px solid rgba(148,163,184,0.06);">
+        <span style="display: flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #34d399;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #34d399;"></span>typecheck clean</span>
+        <span style="width: 1px; height: 12px; background: rgba(148,163,184,0.12);"></span>
+        <span style="display: flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #fbbf24;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #fbbf24;"></span>2 lint warn</span>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ── Main grid ── -->
+    <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(12, 1fr); grid-template-rows: 1.18fr 0.82fr; gap: 8px; padding: 8px;">
+
+      <!-- SPEC COMPOSER → CODEX -->
+      <section data-screen-label="Spec composer" style="position: relative; grid-column: 1 / 4; grid-row: 1; display: flex; flex-direction: column; min-height: 0; border-radius: 6px; border: 1px solid rgba(167,139,250,0.22); background: linear-gradient(180deg, #14112a, #0b1220);">
+        <span style="position: absolute; top: 6px; left: 6px; width: 12px; height: 12px; border-top: 1px solid rgba(167,139,250,0.5); border-left: 1px solid rgba(167,139,250,0.5);"></span>
+        <span style="position: absolute; top: 6px; right: 6px; width: 12px; height: 12px; border-top: 1px solid rgba(167,139,250,0.5); border-right: 1px solid rgba(167,139,250,0.5);"></span>
+        <div style="display: flex; flex-shrink: 0; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid rgba(148,163,184,0.08);">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.2em; color: #b39df5;">⌐ TASK SPEC → CODEX</span>
+        </div>
+        <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 9px; padding: 11px;">
+          <textarea value="{{ specValue }}" onChange="{{ onSpec }}" placeholder="Describe the change: goal, constraints, files in scope, acceptance criteria…" style="flex: 1; min-height: 0; resize: none; padding: 10px 11px; border-radius: 5px; border: 1px solid rgba(148,163,184,0.12); background: rgba(8,13,22,0.7); color: #e8eef7; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; line-height: 1.6; outline: none;" style-focus="border-color: rgba(167,139,250,0.5);"></textarea>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="padding: 2px 8px; border-radius: 3px; border: 1px solid rgba(167,139,250,0.35); background: rgba(167,139,250,0.08); color: #a78bfa; font-family: 'JetBrains Mono', monospace; font-size: 8.5px; font-weight: 700;">fable-5</span>
+            <span style="padding: 2px 8px; border-radius: 3px; border: 1px solid rgba(148,163,184,0.14); background: rgba(255,255,255,0.02); color: #7e90a8; font-family: 'JetBrains Mono', monospace; font-size: 8.5px;">sandbox: node-20</span>
+            <button type="button" onClick="{{ onSpecQueue }}" style="margin-left: auto; padding: 6px 13px; border-radius: 4px; border: 1px solid rgba(167,139,250,0.5); background: rgba(167,139,250,0.12); color: #c4b5fd; font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; cursor: pointer;" style-hover="background: rgba(167,139,250,0.22);">QUEUE SPEC →</button>
+          </div>
+          <sc-if value="{{ specTrace }}" hint-placeholder-val="{{ false }}">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #34d399;">OK {{ specTrace }}</span>
+          </sc-if>
+        </div>
+      </section>
+
+      <!-- REVIEW / DIFF -->
+      <section data-screen-label="Code review" style="position: relative; grid-column: 4 / 9; grid-row: 1; display: flex; flex-direction: column; min-height: 0; border-radius: 6px; border: 1px solid rgba(148,163,184,0.1); background: linear-gradient(180deg, #0e1a2e, #0b1220); overflow: hidden;">
+        <span style="position: absolute; top: 6px; left: 6px; width: 12px; height: 12px; border-top: 1px solid rgba(56,189,248,0.4); border-left: 1px solid rgba(56,189,248,0.4);"></span>
+        <span style="position: absolute; top: 6px; right: 6px; width: 12px; height: 12px; border-top: 1px solid rgba(56,189,248,0.4); border-right: 1px solid rgba(56,189,248,0.4);"></span>
+        <div style="display: flex; flex-shrink: 0; align-items: center; gap: 9px; padding: 9px 12px; border-bottom: 1px solid rgba(148,163,184,0.08);">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.2em; color: #4c6079;">⌐ REVIEW</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #7dd3fc;">{{ activeFile }}</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 600; color: #34d399;">+212</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 600; color: #f87171;">−87</span>
+          <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #56657c;">14 files · patch 3 of 3</span>
+        </div>
+        <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 8px 0; font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.72;">
+          <sc-for list="{{ diffLines }}" as="d" hint-placeholder-count="11">
+            <div style="display: flex; gap: 12px; padding: 0 12px; background: {{ d.bg }}; border-left: 2px solid {{ d.edge }};">
+              <span style="flex-shrink: 0; width: 26px; text-align: right; color: #3d4a5c; font-variant-numeric: tabular-nums; user-select: none;">{{ d.ln }}</span>
+              <span style="flex-shrink: 0; width: 8px; color: {{ d.signColor }}; user-select: none;">{{ d.sign }}</span>
+              <span style="white-space: pre; color: {{ d.color }};">{{ d.code }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display: flex; flex-shrink: 0; gap: 8px; padding: 9px 12px; border-top: 1px solid rgba(148,163,184,0.08);">
+          <button type="button" onClick="{{ onApprovePatch }}" style="flex: 1.4; padding: 8px 0; border-radius: 4px; border: 1px solid {{ approveBorder }}; background: {{ approveBg }}; color: {{ approveColor }}; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em; cursor: pointer;" style-hover="filter: brightness(1.15);">{{ approveLabel }}</button>
+          <button type="button" onClick="{{ onRequestChanges }}" style="flex: 1; padding: 8px 0; border-radius: 4px; border: 1px solid rgba(148,163,184,0.25); background: transparent; color: #94a3b8; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em; cursor: pointer;" style-hover="border-color: rgba(251,191,36,0.6); color: #fbbf24;">↺ REQUEST CHANGES</button>
+        </div>
+      </section>
+
+      <!-- RUNS — CODEX -->
+      <section data-screen-label="Runs" style="position: relative; grid-column: 9 / 13; grid-row: 1; display: flex; flex-direction: column; min-height: 0; border-radius: 6px; border: 1px solid rgba(148,163,184,0.1); background: linear-gradient(180deg, #0e1a2e, #0b1220);">
+        <span style="position: absolute; bottom: 6px; right: 6px; width: 12px; height: 12px; border-bottom: 1px solid rgba(167,139,250,0.4); border-right: 1px solid rgba(167,139,250,0.4);"></span>
+        <div style="display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; padding: 9px 12px; border-bottom: 1px solid rgba(148,163,184,0.08);">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.2em; color: #4c6079;">⌐ RUNS · CODEX</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 8.5px; color: #56657c;">{{ runSummary }}</span>
+        </div>
+        <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 7px;">
+          <sc-for list="{{ runView }}" as="r" hint-placeholder-count="2">
+            <div style="border-radius: 5px; border: 1px solid {{ r.border }}; background: {{ r.bg }}; overflow: hidden;">
+              <div role="button" tabindex="0" onClick="{{ r.onToggle }}" style="display: flex; align-items: center; gap: 9px; padding: 9px 10px; cursor: pointer;" style-hover="background: rgba(255,255,255,0.02);">
+                <span style="display: inline-block; flex-shrink: 0; transform: {{ r.chev }}; transition: transform 0.15s; font-size: 8px; color: #56657c;">▶</span>
+                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px;">
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #cdd9e8; line-height: 1.35;">{{ r.objective }}</span>
+                  <div style="display: flex; align-items: center; gap: 7px;">
+                    <span style="display: flex; width: 17px; height: 17px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 3px; border: 1px solid rgba(167,139,250,0.28); background: rgba(167,139,250,0.1); color: #a78bfa; font-family: 'JetBrains Mono', monospace; font-size: 7px; font-weight: 700;">CX</span>
+                    <div style="position: relative; flex: 1; max-width: 110px; height: 3px; border-radius: 2px; background: rgba(148,163,184,0.1);">
+                      <div style="position: absolute; inset: 0 auto 0 0; width: {{ r.pctW }}; border-radius: 2px; background: {{ r.pctColor }};"></div>
+                    </div>
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; color: #3d4a5c; font-variant-numeric: tabular-nums;">{{ r.elapsed }}</span>
+                  </div>
+                </div>
+                <span style="flex-shrink: 0; padding: 2px 8px; border-radius: 3px; border: 1px solid {{ r.badgeBorder }}; background: {{ r.badgeBg }}; color: {{ r.statusColor }}; font-family: 'JetBrains Mono', monospace; font-size: 8px; font-weight: 700; letter-spacing: 0.12em; animation: {{ r.badgeAnim }};">{{ r.status }}</span>
+              </div>
+              <sc-if value="{{ r.expanded }}" hint-placeholder-val="{{ true }}">
+                <div style="border-top: 1px solid rgba(148,163,184,0.06); padding: 7px 10px 9px 27px; display: flex; flex-direction: column; gap: 6px;">
+                  <sc-for list="{{ r.stepView }}" as="st" hint-placeholder-count="1">
+                    <div style="display: flex; align-items: baseline; gap: 8px;">
+                      <span style="width: 5px; height: 5px; flex-shrink: 0; border-radius: 50%; background: {{ st.color }}; transform: translateY(-1px); animation: {{ st.anim }};"></span>
+                      <span style="flex-shrink: 0; width: 44px; font-family: 'JetBrains Mono', monospace; font-size: 8.5px; font-weight: 700; color: {{ st.color }};">{{ st.agent }}</span>
+                      <span style="flex-shrink: 0; width: 62px; font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.08em; color: #56657c;">{{ st.status }}</span>
+                      <span style="min-width: 0; font-family: 'JetBrains Mono', monospace; font-size: 8.5px; color: #7e90a8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ st.result }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <!-- FILE TREE (minified) -->
+      <section data-screen-label="File tree" style="grid-column: 1 / 3; grid-row: 2; display: flex; flex-direction: column; min-height: 0; border-radius: 6px; border: 1px solid rgba(148,163,184,0.1); background: #080d16;">
+        <div style="display: flex; flex-shrink: 0; align-items: center; gap: 7px; padding: 9px 11px; border-bottom: 1px solid rgba(148,163,184,0.08);">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.18em; color: #4c6079;">⌐ TREE</span>
+          <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 8px; color: #56657c;">14 · <span style="color:#fbbf24;">4 dirty</span></span>
+        </div>
+        <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 6px 4px; display: flex; flex-direction: column;">
+          <sc-for list="{{ tree }}" as="f" hint-placeholder-count="12">
+            <div style="display: flex; align-items: center; gap: 5px; height: 20px; padding: 0 6px 0 {{ f.pad }}; border-radius: 3px; background: {{ f.bg }};" style-hover="background: rgba(255,255,255,0.02);">
+              <span style="flex-shrink: 0; color: {{ f.iconColor }};">{{ f.icon }}</span>
+              <span style="min-width: 0; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: {{ f.color }}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ f.name }}</span>
+              <sc-if value="{{ f.badge }}" hint-placeholder-val="{{ false }}">
+                <span style="margin-left: auto; flex-shrink: 0; font-family: 'JetBrains Mono', monospace; font-size: 7.5px; font-weight: 700; color: {{ f.badgeColor }};">{{ f.badge }}</span>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <!-- SANDBOX RUNNER -->
+      <section data-screen-label="Sandbox runner" style="grid-column: 3 / 7; grid-row: 2; display: flex; flex-direction: column; min-height: 0; border-radius: 6px; border: 1px solid rgba(148,163,184,0.1); background: #080d16;">
+        <div style="display: flex; flex-shrink: 0; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid rgba(148,163,184,0.08);">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.2em; color: #4c6079;">⌐ SANDBOX RUNNER</span>
+          <span style="padding: 0 5px; border-radius: 2px; border: 1px solid rgba(52,211,153,0.4); color: #34d399; font-family: 'JetBrains Mono', monospace; font-size: 7.5px; font-weight: 700; letter-spacing: 0.08em;">ISOLATED</span>
+          <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 8.5px; color: #56657c; font-variant-numeric: tabular-nums;">exit 0 · 8.4s</span>
+        </div>
+        <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 9px 12px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; line-height: 1.72;">
+          <sc-for list="{{ runnerLines }}" as="r" hint-placeholder-count="8">
+            <div style="white-space: pre-wrap; word-break: break-word; color: {{ r.color }};">{{ r.text }}</div>
+          </sc-for>
+          <div style="display: flex; align-items: center; gap: 7px; margin-top: 2px;">
+            <span style="color: #a78bfa;">$</span>
+            <span style="width: 7px; height: 13px; background: #7dd3fc; animation: caretBlink 1.1s step-end infinite;"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- TERMINAL — CODEX -->
+      <section data-screen-label="Terminal" style="grid-column: 7 / 13; grid-row: 2; display: flex; flex-direction: column; min-height: 0; border-radius: 6px; border: 1px solid rgba(148,163,184,0.1); background: #080d16;">
+        <div style="display: flex; flex-shrink: 0; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid rgba(148,163,184,0.08);">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.2em; color: #4c6079;">⌐ TERMINAL · CODEX</span>
+          <span style="margin-left: auto; display: flex; align-items: center; gap: 5px;">
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: #34d399;"></span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; color: #56657c;">stream live</span>
+          </span>
+        </div>
+        <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 8px 12px; display: flex; flex-direction: column; gap: 2px;">
+          <sc-for list="{{ terminal }}" as="t" hint-placeholder-count="7">
+            <div style="display: flex; gap: 9px; font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.55;">
+              <span style="flex-shrink: 0; color: #3d4a5c; font-variant-numeric: tabular-nums;">{{ t.ts }}</span>
+              <span style="flex-shrink: 0; width: 26px; font-weight: 700; color: {{ t.lvlColor }};">{{ t.lvl }}</span>
+              <span style="color: {{ t.color }};">{{ t.msg }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- ══ Global Chat — docked orchestrate overlay (scope CODING) ══ -->
+  <sc-if value="{{ chatDocked }}" hint-placeholder-val="{{ true }}">
+
+    <!-- COLLAPSED PILL -->
+    <sc-if value="{{ chatCollapsed }}" hint-placeholder-val="{{ true }}">
+      <div style="position: absolute; bottom: 18px; right: 18px; z-index: 40; width: 452px;">
+        <button type="button" onClick="{{ onChatExpand }}" style="width: 100%; display: flex; align-items: center; gap: 11px; padding: 12px 14px; border-radius: 8px; border: 1px solid rgba(56,189,248,0.25); border-left: 2px solid #38bdf8; background: rgba(11,18,32,0.92); backdrop-filter: blur(14px); cursor: pointer; box-shadow: 0 20px 50px -20px rgba(0,0,0,0.85); text-align: left;" style-hover="border-color: rgba(56,189,248,0.5);">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; color: #38bdf8; line-height: 1;">&gt;</span>
+          <span style="flex: 1; font-size: 12px; color: #6b7c96;">Orchestrate across agents…</span>
+          <span style="display: flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 8.5px; letter-spacing: 0.08em; color: #a78bfa;"><span style="width: 5px; height: 5px; border-radius: 50%; background: #a78bfa; animation: dotBlink 2s ease-in-out infinite;"></span>CODEX · STREAMING</span>
+          <span style="padding: 3px 8px; border-radius: 3px; border: 1px solid rgba(56,189,248,0.35); background: rgba(56,189,248,0.06); font-family: 'JetBrains Mono', monospace; font-size: 8px; font-weight: 700; letter-spacing: 0.1em; color: #7dd3fc;">SCOPE · {{ chatScope }}</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#56657c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"></path></svg>
+        </button>
+      </div>
+    </sc-if>
+
+    <!-- EXPANDED PANEL -->
+    <sc-if value="{{ chatExpanded }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; bottom: 18px; right: 18px; z-index: 40; width: 462px; height: 620px; display: flex; flex-direction: column; border-radius: 10px; border: 1px solid rgba(56,189,248,0.2); background: linear-gradient(180deg, rgba(12,20,34,0.96), rgba(8,13,22,0.98)); backdrop-filter: blur(16px); box-shadow: 0 40px 90px -30px rgba(0,0,0,0.9); overflow: hidden; animation: panelIn 0.28s cubic-bezier(0.2,0.7,0.2,1);">
+        <div style="display: flex; flex-shrink: 0; align-items: center; gap: 9px; padding: 12px 14px; border-bottom: 1px solid rgba(148,163,184,0.08);">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: #38bdf8; line-height: 1;">&gt;</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.2em; color: #e8eef7;">ORCHESTRATE</span>
+          <span style="display: flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 8.5px; letter-spacing: 0.1em; color: #34d399;"><span style="width: 5px; height: 5px; border-radius: 50%; background: #34d399; animation: dotBlink 2s ease-in-out infinite;"></span>HERMES ROUTING</span>
+          <div style="margin-left: auto; display: flex; align-items: center; gap: 6px;">
+            <div style="display: flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; border: 1px solid rgba(148,163,184,0.16); font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.08em; color: #94a3b8;">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#56657c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"></path></svg>
+              SCOPE · {{ chatScope }}
+            </div>
+            <button type="button" onClick="{{ onChatCollapse }}" title="Collapse" style="display: flex; width: 26px; height: 26px; align-items: center; justify-content: center; border-radius: 5px; border: 1px solid rgba(148,163,184,0.16); background: transparent; color: #94a3b8; cursor: pointer;" style-hover="border-color: rgba(125,211,252,0.5); color: #7dd3fc;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
+          </div>
+        </div>
+
+        <div ref="{{ threadRef }}" style="flex: 1; min-height: 0; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 14px;">
+          <sc-for list="{{ messages }}" as="m" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column; gap: 5px; align-items: {{ m.align }};">
+              <sc-if value="{{ m.showName }}" hint-placeholder-val="{{ true }}">
+                <div style="display: flex; align-items: center; gap: 7px;">
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; letter-spacing: 0.1em; color: {{ m.nameColor }};">{{ m.name }}</span>
+                  <sc-if value="{{ m.role2 }}" hint-placeholder-val="{{ false }}"><span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; color: #56657c;">{{ m.role2 }}</span></sc-if>
+                  <sc-if value="{{ m.streaming }}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; gap: 2px;"><span style="width: 3px; height: 3px; border-radius: 50%; background: #7dd3fc; animation: streamPulse 1s ease-in-out infinite;"></span><span style="width: 3px; height: 3px; border-radius: 50%; background: #7dd3fc; animation: streamPulse 1s ease-in-out 0.2s infinite;"></span><span style="width: 3px; height: 3px; border-radius: 50%; background: #7dd3fc; animation: streamPulse 1s ease-in-out 0.4s infinite;"></span></span></sc-if>
+                </div>
+              </sc-if>
+              <div style="max-width: 86%; padding: 9px 12px; border-radius: 8px; border: 1px solid {{ m.bubbleBorder }}; background: {{ m.bubbleBg }}; color: {{ m.textColor }}; font-size: 12px; line-height: 1.55; {{ m.bubbleExtra }}">{{ m.text }}</div>
+              <sc-if value="{{ m.hasChips }}" hint-placeholder-val="{{ false }}">
+                <div style="display: flex; flex-wrap: wrap; gap: 5px; max-width: 86%;">
+                  <sc-for list="{{ m.chips }}" as="c" hint-placeholder-count="1">
+                    <a href="{{ c.href }}" style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 3px; border: 1px solid {{ c.border }}; background: {{ c.bg }}; color: {{ c.color }}; font-family: 'JetBrains Mono', monospace; font-size: 8.5px; font-weight: 600; letter-spacing: 0.06em;">{{ c.label }}</a>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="flex-shrink: 0; padding: 10px 12px 12px; border-top: 1px solid rgba(148,163,184,0.08); display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+            <sc-for list="{{ quickChips }}" as="q" hint-placeholder-count="5">
+              <button type="button" onClick="{{ q.onClick }}" style="padding: 3px 9px; border-radius: 3px; border: 1px solid {{ q.border }}; background: {{ q.bg }}; color: {{ q.color }}; font-family: 'JetBrains Mono', monospace; font-size: 8.5px; font-weight: 600; cursor: pointer;" style-hover="border-color: rgba(125,211,252,0.5);">{{ q.label }}</button>
+            </sc-for>
+          </div>
+          <div style="display: flex; align-items: flex-end; gap: 9px; padding: 9px 11px; border-radius: 6px; border: 1px solid rgba(56,189,248,0.22); border-left: 2px solid #38bdf8; background: rgba(8,13,22,0.7);">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: #38bdf8; line-height: 1.4;">&gt;</span>
+            <textarea value="{{ draft }}" onChange="{{ onDraft }}" onKeyDown="{{ onKey }}" placeholder="Orchestrate across agents — HERMES will route it to the right room…" rows="1" style="flex: 1; min-width: 0; resize: none; max-height: 80px; background: transparent; border: none; outline: none; color: #e8eef7; font-family: 'General Sans', sans-serif; font-size: 12px; line-height: 1.5;"></textarea>
+            <button type="button" onClick="{{ onSend }}" title="Send" style="display: flex; width: 30px; height: 30px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 5px; border: 1px solid {{ sendBorder }}; background: {{ sendBg }}; color: {{ sendColor }}; cursor: pointer;" style-hover="filter: brightness(1.15);">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"></path><path d="M22 2 11 13"></path></svg>
+            </button>
+          </div>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; color: #3d4a5c; letter-spacing: 0.06em;">↵ send · ⇧↵ newline · scoped to CODING — routed by HERMES</span>
+        </div>
+      </div>
+    </sc-if>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1600, &quot;height&quot;: 1000 },
+  &quot;dockChat&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Chat&quot; },
+  &quot;sandboxBanner&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Layout&quot; },
+  &quot;activeFile&quot;: { &quot;editor&quot;: &quot;text&quot;, &quot;default&quot;: &quot;src/lib/model-router.ts&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Review&quot; }
+}">
+class Component extends DCLogic {
+  state = {
+    clock: '',
+    specValue: '', specTrace: null,
+    patchStatus: 'PENDING',
+    runExpanded: { 0: true },
+    chatCollapsed: true,
+    chatScope: 'CODING',
+    draft: '',
+    messages: [
+      { role: 'user', text: 'Rebalance the model pool — opus is saturating under load.' },
+      { role: 'hermes', text: 'Classified as orchestration. Routed to CODEX for a model-router patch — opened run R-2214 in this room.',
+        chips: [['R-2214 → REVIEW', 'room', '#']] },
+      { role: 'agent', name: 'CODEX', color: '#a78bfa', role2: 'fable-5', streaming: true,
+        text: 'Patch 3/3 on model-router.ts — depth-based lane fallback. Seating on fable-5 when opus queue-depth > 3. Sandbox jest is green (42 passed). Awaiting your review.',
+        chips: [['DIFF +212 −87 → REVIEW', 'code', '#']] },
+    ],
+  };
+
+  ICONS = {
+    hub: 'M3 9h18M3 15h18M9 3v18M15 3v18',
+    trading: 'M3 3v16a2 2 0 0 0 2 2h16M7 14l4-5 3 3 5-7',
+    coding: 'm18 16 4-4-4-4M6 8l-4 4 4 4m14.5-12-5 16',
+    personal: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0',
+  };
+
+  DIFF = [
+    ['142', ' ', 'export function routeTask(task: AgentTask) {', 'ctx'],
+    ['143', '-', '  const lane = pickLane(task);', 'del'],
+    ['143', '+', '  const depth = queueDepth("opus-4");', 'add'],
+    ['144', '+', '  const lane = depth > OPUS_DEPTH_MAX', 'add'],
+    ['145', '+', '    ? FALLBACK_LANE            // seat on fable-5 under load', 'add'],
+    ['146', '+', '    : pickLane(task);', 'add'],
+    ['147', ' ', '  emitTelemetry("lane.route", { lane, depth });', 'ctx'],
+    ['148', ' ', '  return route(task, lane);', 'ctx'],
+    ['149', ' ', '}', 'ctx'],
+    ['150', '-', 'const OPUS_DEPTH_MAX = 5;', 'del'],
+    ['150', '+', 'const OPUS_DEPTH_MAX = 3;   // aegis-approved threshold', 'add'],
+  ];
+
+  RUNNER = [
+    ['$ pnpm jest src/lib/orchestrator --coverage', '#56657c'],
+    ['PASS src/lib/orchestrator/lane-router.test.ts (2.1s)', '#34d399'],
+    ['PASS src/lib/orchestrator/queue-depth.test.ts (1.4s)', '#34d399'],
+    ['PASS src/lib/orchestrator/fallback.test.ts (3.2s)', '#34d399'],
+    ['', '#56657c'],
+    ['Tests:       42 passed, 42 total', '#34d399'],
+    ['Coverage:    94.2% statements · 88.1% branches', '#94a3b8'],
+    ['Time:        8.4s · exit code 0', '#56657c'],
+  ];
+
+  TREE = [
+    ['src', 'dir', 0, null],
+    ['lib', 'dir', 1, null],
+    ['model-router.ts', 'active', 2, '+212 −87'],
+    ['orchestrator', 'dir', 2, null],
+    ['lane-router.ts', 'mod', 3, 'M'],
+    ['queue-depth.ts', 'mod', 3, 'M'],
+    ['fallback.ts', 'mod', 3, 'M'],
+    ['agents', 'dir', 1, null],
+    ['codex.ts', 'file', 2, null],
+    ['hermes.ts', 'file', 2, null],
+    ['tests', 'dir', 0, null],
+    ['fallback.test.ts', 'mod', 1, 'M'],
+  ];
+
+  RUNS = [
+    { objective: 'Patch model-router: depth-based lane fallback', status: 'STREAMING', pct: 78, elapsed: '18m', steps: [['CODEX', 'STREAMING', 'patch 3/3 — awaiting review approval']] },
+    { objective: 'Add jest coverage for orchestrator fallback paths', status: 'DONE', pct: 100, elapsed: '2h', steps: [['CODEX', 'DONE', '42 tests · 94.2% statements']] },
+  ];
+
+  TERMINAL = [
+    ['09:22:14', 'DBG', 'heartbeat: sandbox node-20 alive (mem 212MB)', '#56657c'],
+    ['09:22:11', 'INF', 'codex: analyzing spec — 3 files in scope', '#94a3b8'],
+    ['09:22:08', ' OK', 'sandbox: pnpm jest — 42 passed, 0 failed (8.4s)', '#34d399'],
+    ['09:22:05', 'DBG', 'heartbeat: fs watcher — 0 dirty conflicts', '#56657c'],
+    ['09:22:02', 'INF', 'codex: streaming patch 3/3 — model-router.ts', '#94a3b8'],
+    ['09:21:58', 'WRN', 'lint: 2 warnings (no-floating-promises) — non-blocking', '#fbbf24'],
+    ['09:21:54', ' OK', 'typecheck: clean — 0 errors across 14 files', '#34d399'],
+  ];
+
+  STATUS = {
+    STREAMING: ['#a78bfa', 'dotBlink 1.4s ease-in-out infinite'],
+    RUNNING:   ['#a78bfa', 'dotBlink 1.6s ease-in-out infinite'],
+    DONE:      ['#34d399', 'none'],
+    QUEUED:    ['#56657c', 'none'],
+    PENDING:   ['#fbbf24', 'dotBlink 2.2s ease-in-out infinite'],
+  };
+
+  componentDidMount() {
+    const pad = (n) => String(n).padStart(2, '0');
+    const tick = () => { const d = new Date(); this.setState({ clock: pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds()) }); };
+    tick(); this._clockId = setInterval(tick, 1000);
+  }
+  componentWillUnmount() { clearInterval(this._clockId); clearTimeout(this._traceId); clearTimeout(this._reply); }
+  componentDidUpdate() { if (this._thread && !this.state.chatCollapsed) this._thread.scrollTop = this._thread.scrollHeight; }
+
+  _tint(hex, a) { const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16); return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')'; }
+
+  _trace(msg) {
+    this.setState({ specTrace: msg });
+    clearTimeout(this._traceId);
+    this._traceId = setTimeout(() => this.setState({ specTrace: null }), 5000);
+  }
+
+  _sendChat() {
+    const v = this.state.draft.trim();
+    if (!v) return;
+    this.setState((s) => ({ draft: '', messages: [...s.messages, { role: 'user', text: v }] }));
+    clearTimeout(this._reply);
+    this._reply = setTimeout(() => {
+      this.setState((s) => ({ messages: [...s.messages, { role: 'hermes', text: 'Received. Scoped to CODING — routing to CODEX and opening a run in this room.', chips: [['ROUTING…', 'plain', '#']] }] }));
+    }, 700);
+  }
+
+  renderVals() {
+    const s = this.state;
+
+    const navItems = [
+      { key: 'hub', label: 'BRAIN HUB', icon: this.ICONS.hub, active: false },
+      { key: 'trading', label: 'TRADING ROOM', icon: this.ICONS.trading, active: false },
+      { key: 'coding', label: 'CODING ROOM', icon: this.ICONS.coding, active: true },
+      { key: 'personal', label: 'PERSONAL ROOM', icon: this.ICONS.personal, active: false },
+    ].map((nv) => ({ ...nv,
+      color: nv.active ? '#38bdf8' : '#56657c',
+      border: nv.active ? 'rgba(56,189,248,0.3)' : 'transparent',
+      bg: nv.active ? 'rgba(56,189,248,0.07)' : 'transparent',
+      onClick: () => {},
+    }));
+
+    const diffLines = this.DIFF.map((d) => ({
+      ln: d[0], sign: d[1], code: d[2],
+      bg: d[3] === 'add' ? 'rgba(52,211,153,0.07)' : d[3] === 'del' ? 'rgba(248,113,113,0.07)' : 'transparent',
+      edge: d[3] === 'add' ? 'rgba(52,211,153,0.5)' : d[3] === 'del' ? 'rgba(248,113,113,0.5)' : 'transparent',
+      signColor: d[3] === 'add' ? '#34d399' : d[3] === 'del' ? '#f87171' : '#3d4a5c',
+      color: d[3] === 'add' ? '#86efac' : d[3] === 'del' ? '#fca5a5' : '#7e90a8',
+    }));
+
+    const runnerLines = this.RUNNER.map((r) => ({ text: r[0] || ' ', color: r[1] }));
+
+    const treeIcon = { dir: ['▸', '#4c6079'], file: ['·', '#3d4a5c'], mod: ['·', '#fbbf24'], active: ['·', '#a78bfa'] };
+    const tree = this.TREE.map((f) => {
+      const [icon, iconColor] = treeIcon[f[1]];
+      const active = f[1] === 'active';
+      return {
+        name: f[0], icon, iconColor,
+        pad: (8 + f[2] * 13) + 'px',
+        color: active ? '#c4b5fd' : f[1] === 'dir' ? '#94a3b8' : f[1] === 'mod' ? '#cdd9e8' : '#7e90a8',
+        bg: active ? 'rgba(167,139,250,0.1)' : 'transparent',
+        badge: f[3], badgeColor: active ? '#a78bfa' : '#fbbf24',
+      };
+    });
+
+    const runView = this.RUNS.map((r, i) => {
+      const [color, anim] = this.STATUS[r.status] || this.STATUS.QUEUED;
+      const expanded = !!s.runExpanded[i];
+      return {
+        objective: r.objective, status: r.status, elapsed: r.elapsed,
+        pctW: r.pct + '%', pctColor: this._tint(color, 0.75),
+        statusColor: color, badgeAnim: anim,
+        badgeBorder: this._tint(color, 0.3), badgeBg: this._tint(color, 0.08),
+        border: expanded ? 'rgba(148,163,184,0.14)' : 'rgba(148,163,184,0.07)',
+        bg: 'rgba(255,255,255,0.012)',
+        expanded, chev: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+        onToggle: () => this.setState((st) => ({ runExpanded: { ...st.runExpanded, [i]: !st.runExpanded[i] } })),
+        stepView: r.steps.map((st) => { const [c, a] = this.STATUS[st[1]] || this.STATUS.QUEUED; return { agent: st[0], status: st[1], result: st[2], color: c, anim: a }; }),
+      };
+    });
+    const counts = {};
+    this.RUNS.forEach((r) => { counts[r.status] = (counts[r.status] || 0) + 1; });
+    const runSummary = Object.keys(counts).map((k) => counts[k] + ' ' + k).join(' · ');
+
+    const terminal = this.TERMINAL.map((r) => ({ ts: r[0], lvl: r[1], msg: r[2], color: r[3], lvlColor: r[1] === ' OK' ? '#34d399' : r[1] === 'WRN' ? '#fbbf24' : r[1] === 'INF' ? '#7dd3fc' : '#3d4a5c' }));
+
+    // patch approve state
+    const approved = s.patchStatus === 'APPROVED';
+    const approveLabel = approved ? '✓ PATCH APPROVED — MERGING' : '✓ APPROVE PATCH';
+    const approveColor = approved ? '#34d399' : '#34d399';
+    const approveBorder = approved ? '#34d399' : 'rgba(52,211,153,0.4)';
+    const approveBg = approved ? 'rgba(52,211,153,0.22)' : 'rgba(52,211,153,0.08)';
+
+    // ── chat ──
+    const chipStyle = {
+      room: { border: 'rgba(56,189,248,0.35)', bg: 'rgba(56,189,248,0.06)', color: '#7dd3fc' },
+      code: { border: 'rgba(167,139,250,0.35)', bg: 'rgba(167,139,250,0.06)', color: '#c4b5fd' },
+      plain: { border: 'rgba(148,163,184,0.2)', bg: 'transparent', color: '#94a3b8' },
+    };
+    const messages = s.messages.map((m) => {
+      const isUser = m.role === 'user';
+      const isHermes = m.role === 'hermes';
+      return {
+        align: isUser ? 'flex-end' : 'flex-start',
+        showName: !isUser,
+        name: isUser ? 'YOU' : isHermes ? 'HERMES' : m.name,
+        nameColor: isUser ? '#94a3b8' : isHermes ? '#38bdf8' : m.color,
+        role2: m.role2 || (isHermes ? 'orchestrator' : ''),
+        streaming: !!m.streaming,
+        text: m.text,
+        textColor: isUser ? '#e8eef7' : '#cdd9e8',
+        bubbleBorder: isUser ? 'rgba(56,189,248,0.25)' : isHermes ? 'rgba(56,189,248,0.16)' : 'rgba(148,163,184,0.1)',
+        bubbleBg: isUser ? 'rgba(56,189,248,0.08)' : isHermes ? 'rgba(56,189,248,0.03)' : 'rgba(255,255,255,0.014)',
+        bubbleExtra: isHermes ? 'border-left: 2px solid rgba(56,189,248,0.5);' : '',
+        hasChips: !!(m.chips && m.chips.length),
+        chips: (m.chips || []).map((c) => ({ label: c[0], href: c[2] || '#', ...chipStyle[c[1]] })),
+      };
+    });
+    const quickChips = [
+      { label: '@CODEX', kind: 'a' }, { label: '@HERMES', kind: 'a' }, { label: '@AEGIS', kind: 'a' },
+      { label: '#coding', kind: 'r' }, { label: '#review', kind: 'r' },
+    ].map((q) => ({ label: q.label, border: q.kind === 'r' ? 'rgba(56,189,248,0.25)' : 'rgba(148,163,184,0.18)', bg: q.kind === 'r' ? 'rgba(56,189,248,0.05)' : 'rgba(255,255,255,0.012)', color: q.kind === 'r' ? '#7dd3fc' : '#94a3b8', onClick: () => this.setState((st) => ({ draft: (st.draft ? st.draft + ' ' : '') + q.label + ' ' })) }));
+    const hasDraft = !!s.draft.trim();
+
+    return {
+      clock: s.clock, navItems,
+      sandboxBanner: this.props.sandboxBanner ?? true,
+      activeFile: this.props.activeFile ?? 'src/lib/model-router.ts',
+      diffLines, runnerLines, tree, runView, runSummary, terminal,
+
+      specValue: s.specValue, specTrace: s.specTrace,
+      onSpec: (e) => this.setState({ specValue: e.target.value }),
+      onSpecQueue: () => { const v = s.specValue.trim(); if (!v) return; this.setState({ specValue: '' }); this._trace('spec queued — CODEX will pick up next sandbox slot'); },
+
+      approveLabel, approveColor, approveBorder, approveBg,
+      onApprovePatch: () => this.setState({ patchStatus: 'APPROVED' }),
+      onRequestChanges: () => this.setState({ patchStatus: 'PENDING' }),
+
+      chatDocked: this.props.dockChat ?? true,
+      chatCollapsed: s.chatCollapsed, chatExpanded: !s.chatCollapsed,
+      chatScope: s.chatScope, messages, quickChips, draft: s.draft,
+      threadRef: (el) => { this._thread = el; },
+      onDraft: (e) => this.setState({ draft: e.target.value }),
+      onKey: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this._sendChat(); } },
+      onSend: () => this._sendChat(),
+      onChatExpand: () => this.setState({ chatCollapsed: false }),
+      onChatCollapse: () => this.setState({ chatCollapsed: true }),
+      sendBorder: hasDraft ? '#38bdf8' : 'rgba(148,163,184,0.16)',
+      sendBg: hasDraft ? 'rgba(56,189,248,0.15)' : 'transparent',
+      sendColor: hasDraft ? '#7dd3fc' : '#56657c',
+    };
+  }
+}
+</script>
+</body>
+</html>

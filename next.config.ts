@@ -11,10 +11,12 @@ const cspDirectives = [
   // 'unsafe-eval' added for dashboard components (charting/animation libs require eval).
   // TODO: identify the specific dependency and replace with a nonce-based approach.
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-  "style-src 'self' 'unsafe-inline'",
+  // api.fontshare.com serves the General Sans @font-face stylesheet (display/body face).
+  "style-src 'self' 'unsafe-inline' https://api.fontshare.com",
   "img-src 'self' data: blob:",
   "connect-src 'self' ws://localhost:8765 https://*.supabase.co wss://*.supabase.co https://api.resend.com https://hooks.slack.com",
-  "font-src 'self'",
+  // cdn.fontshare.com serves the General Sans woff2 files referenced by that stylesheet.
+  "font-src 'self' https://cdn.fontshare.com",
   "frame-ancestors 'none'",
   "form-action 'self'",
 ].join('; ');
@@ -29,6 +31,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Allow an isolated build dir (e.g. a parallel preview server) via env, so
+  // two `next dev` instances don't corrupt each other's `.next`. Defaults to
+  // the standard `.next` for normal dev/build/CI.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   async headers() {
     return [
       {

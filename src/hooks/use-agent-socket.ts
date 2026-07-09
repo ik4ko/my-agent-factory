@@ -13,13 +13,17 @@ export interface AgentSocketEvent {
   ts: number;
 }
 
-const URL = process.env.NEXT_PUBLIC_AGENT_SOCKET_URL ?? 'ws://localhost:8765';
+// Optional local agent bridge (see core/alpaca_feed.py). Only connect when a
+// URL is EXPLICITLY configured — an unconditional ws://localhost:8765 default
+// spams "connection failed" and retries forever on any host without the local
+// Python server running. Set NEXT_PUBLIC_AGENT_SOCKET_URL to enable it.
+const ENV_URL = process.env.NEXT_PUBLIC_AGENT_SOCKET_URL;
 const CAP = 160;
 const FLUSH_MS = 80;
 const MIN_BACKOFF = 500;
 const MAX_BACKOFF = 8000;
 
-export function useAgentSocket(url: string = URL): void {
+export function useAgentSocket(url: string | undefined = ENV_URL): void {
   const qc = useQueryClient();
   const wsRef = useRef<WebSocket | null>(null);
   const bufferRef = useRef<AgentSocketEvent[]>([]);
@@ -29,6 +33,9 @@ export function useAgentSocket(url: string = URL): void {
   const mountedRef = useRef(false);
 
   useEffect(() => {
+    // No bridge configured → skip entirely. Nothing to connect to, so we never
+    // open a socket and never emit connection-failed noise.
+    if (!url) return;
     mountedRef.current = true;
 
     const flush = () => {

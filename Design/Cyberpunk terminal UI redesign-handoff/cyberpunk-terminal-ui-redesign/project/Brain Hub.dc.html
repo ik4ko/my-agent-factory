@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://api.fontshare.com">
+  <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #070c15; }
+    * { box-sizing: border-box; }
+    a { color: #7dd3fc; text-decoration: none; }
+    a:hover { color: #bae6fd; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-thumb { background: #1c2942; border-radius: 3px; }
+    :focus-visible { outline: 2px solid #7dd3fc; outline-offset: 1px; }
+    @keyframes dotBlink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+    @keyframes roseBeat { 0%,100% { box-shadow: 0 0 0 1px rgba(255,45,107,0.7), 0 0 26px -6px rgba(255,45,107,0.8); } 50% { box-shadow: 0 0 0 1px rgba(255,45,107,1), 0 0 44px -4px rgba(255,45,107,1); } }
+    @keyframes ovIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
+    @media (prefers-reduced-motion: reduce) { * { animation-duration: 0.001ms !important; } }
+  </style>
+</helmet>
+
+<div data-screen-label="Brain Hub" style="position: relative; width: 1600px; height: 1000px; display: flex; overflow: hidden; border-radius: 8px; border: 1px solid rgba(148,163,184,0.1); background: #0a1220; color: #94a3b8; font-family: 'General Sans', ui-sans-serif, system-ui, sans-serif; font-size: 12px; box-shadow: 0 40px 120px -30px rgba(0,0,0,0.9);">
+
+  <!-- Nav rail -->
+  <nav data-screen-label="Nav rail" style="position: relative; z-index: 5; display: flex; width: 50px; flex-shrink: 0; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0; border-right: 1px solid rgba(148,163,184,0.08); background: #090f1a;">
+    <div aria-hidden="true" style="display: flex; width: 30px; height: 30px; margin-bottom: 10px; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid rgba(56,189,248,0.25); background: rgba(56,189,248,0.06);">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"></path></svg>
+    </div>
+    <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="4">
+      <div style="position: relative; display: flex; justify-content: center;">
+        <a href="{{ n.href }}" title="{{ n.label }}" style="display: flex; width: 34px; height: 34px; align-items: center; justify-content: center; border-radius: 7px; border: 1px solid {{ n.border }}; background: {{ n.bg }};" style-hover="background: rgba(148,163,184,0.06);">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{ n.color }}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="{{ n.icon }}"></path></svg>
+        </a>
+        <sc-if value="{{ n.active }}" hint-placeholder-val="{{ true }}">
+          <span style="position: absolute; left: -10px; top: 9px; width: 2px; height: 16px; border-radius: 1px; background: #38bdf8; box-shadow: 0 0 8px rgba(56,189,248,0.7);"></span>
+        </sc-if>
+      </div>
+    </sc-for>
+  </nav>
+
+  <!-- Main column -->
+  <div style="position: relative; z-index: 1; display: flex; flex: 1; min-width: 0; flex-direction: column;">
+
+    <!-- Top bar -->
+    <header style="position: relative; z-index: 4; display: flex; height: 40px; flex-shrink: 0; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid rgba(148,163,184,0.08); background: #090f1a;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: #e8eef7;">MY AGENT FACTORY</span>
+        <span style="width: 1px; height: 12px; background: rgba(148,163,184,0.18);"></span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.22em; color: #56657c;">BRAIN HUB</span>
+        <span style="padding: 1px 8px; border-radius: 3px; border: 1px solid rgba(56,189,248,0.4); background: rgba(56,189,248,0.07); color: #7dd3fc; font-family: 'JetBrains Mono', monospace; font-size: 8.5px; font-weight: 700; letter-spacing: 0.18em;">SPATIAL</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <span style="display: flex; align-items: center; gap: 7px; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.14em; color: #34d399;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #34d399; animation: dotBlink 2s ease-in-out infinite;"></span>ALL SYSTEMS LIVE</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #56657c; font-variant-numeric: tabular-nums;">{{ clock }} UTC</span>
+      </div>
+    </header>
+
+    <!-- Spatial stage -->
+    <div style="position: relative; flex: 1; min-height: 0; overflow: hidden;">
+      <div ref="{{ canvasRef }}" style="position: absolute; inset: 0; z-index: 0; cursor: grab;"></div>
+
+      <!-- HUD: top-left summary -->
+      <div style="position: absolute; top: 14px; left: 14px; z-index: 2; display: flex; flex-direction: column; gap: 8px; pointer-events: none;">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(56,189,248,0.18); background: rgba(10,18,32,0.72); backdrop-filter: blur(8px);">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.2em; color: #7dd3fc;">⌐ SPATIAL BRAIN HUB</span>
+          <span style="width: 1px; height: 12px; background: rgba(148,163,184,0.18);"></span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #94a3b8;">4 BRAINS · <span style="color:#34d399;">3 ACTIVE</span> · <span style="color:#64748b;">1 IDLE</span></span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-radius: 6px; border: 1px solid rgba(148,163,184,0.1); background: rgba(10,18,32,0.6); backdrop-filter: blur(8px);">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 8.5px; letter-spacing: 0.14em; color: #56657c;">TOKEN STREAM</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #e8eef7; font-variant-numeric: tabular-nums;">{{ tokenRate }}</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 8.5px; color: #56657c;">tok/s · 24h 2.41M</span>
+        </div>
+      </div>
+
+      <!-- HUD: pending approval banner -->
+      <sc-if value="{{ pending }}" hint-placeholder-val="{{ true }}">
+        <button type="button" onClick="{{ onFocusApproval }}" style="position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 3; display: flex; align-items: center; gap: 9px; padding: 8px 14px; border-radius: 6px; border: 1px solid #ff2d6b; background: rgba(28,9,20,0.82); backdrop-filter: blur(8px); cursor: pointer; animation: roseBeat 1.3s ease-in-out infinite; font-family: 'JetBrains Mono', monospace;">
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #ff2d6b; animation: dotBlink 1s ease-in-out infinite;"></span>
+          <span style="font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em; color: #ff5c8a;">1 ORDER AWAITING APPROVAL</span>
+          <span style="font-size: 8.5px; color: #94a3b8;">— inspect the rose beacon →</span>
+        </button>
+      </sc-if>
+
+      <!-- HUD: controls legend -->
+      <div style="position: absolute; bottom: 14px; left: 14px; z-index: 2; display: flex; gap: 14px; padding: 7px 12px; border-radius: 6px; border: 1px solid rgba(148,163,184,0.1); background: rgba(10,18,32,0.6); backdrop-filter: blur(8px); font-family: 'JetBrains Mono', monospace; font-size: 8.5px; letter-spacing: 0.08em; color: #56657c; pointer-events: none;">
+        <span><span style="color:#7dd3fc;">DRAG</span> orbit</span>
+        <span><span style="color:#7dd3fc;">SCROLL</span> zoom</span>
+        <span><span style="color:#7dd3fc;">CLICK</span> a brain to inspect</span>
+      </div>
+
+      <!-- Reveal panel (Instrument Deck) -->
+      <sc-if value="{{ focus }}" hint-placeholder-val="{{ null }}">
+        <div style="position: absolute; top: 0; right: 0; bottom: 0; z-index: 4; width: 400px; display: flex; flex-direction: column; border-left: 1px solid {{ focusData.edge }}; background: linear-gradient(180deg, rgba(11,18,32,0.94), rgba(8,13,22,0.97)); backdrop-filter: blur(14px); animation: ovIn 0.28s cubic-bezier(0.2,0.7,0.2,1); box-shadow: -30px 0 60px -30px rgba(0,0,0,0.8);">
+          <div style="display: flex; flex-shrink: 0; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid rgba(148,163,184,0.08);">
+            <span style="width: 9px; height: 9px; border-radius: 50%; background: {{ focusData.statusColor }}; box-shadow: 0 0 10px {{ focusData.statusColor }};"></span>
+            <span style="font-size: 16px; font-weight: 600; letter-spacing: -0.01em; color: #e8eef7;">{{ focusData.title }}</span>
+            <span style="padding: 2px 8px; border-radius: 3px; border: 1px solid {{ focusData.tagBorder }}; background: {{ focusData.tagBg }}; color: {{ focusData.statusColor }}; font-family: 'JetBrains Mono', monospace; font-size: 8.5px; font-weight: 700; letter-spacing: 0.12em;">{{ focusData.statusText }}</span>
+            <button type="button" onClick="{{ onReturn }}" title="Return to hub" style="margin-left: auto; display: flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 4px; border: 1px solid rgba(148,163,184,0.2); background: transparent; color: #94a3b8; font-family: 'JetBrains Mono', monospace; font-size: 8.5px; font-weight: 700; letter-spacing: 0.1em; cursor: pointer;" style-hover="border-color: rgba(125,211,252,0.5); color: #7dd3fc;">◄ PULL OUT</button>
+          </div>
+
+          <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px;">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.16em; color: #56657c;">{{ focusData.role }}</span>
+
+            <sc-if value="{{ focusData.isApproval }}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 6px; border: 1px solid rgba(255,45,107,0.6); background: linear-gradient(180deg, rgba(255,45,107,0.14), rgba(255,45,107,0.03)); animation: roseBeat 1.3s ease-in-out infinite;">
+                <span style="display: inline-flex; align-self: flex-start; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 3px; background: #ff2d6b; color: #1a0510; font-family: 'JetBrains Mono', monospace; font-size: 8px; font-weight: 700; letter-spacing: 0.16em;"><span style="width: 5px; height: 5px; border-radius: 50%; background: #1a0510; animation: dotBlink 1s ease-in-out infinite;"></span>AWAITING YOUR APPROVAL</span>
+                <div style="display: flex; align-items: center; gap: 9px;">
+                  <span style="padding: 2px 8px; border-radius: 3px; border: 1px solid rgba(52,211,153,0.45); background: rgba(52,211,153,0.1); color: #34d399; font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; letter-spacing: 0.14em;">BUY</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; color: #e8eef7;">40 NVDA</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #7e90a8;">@ MKT</span>
+                  <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #94a3b8; font-variant-numeric: tabular-nums;">est $7,284</span>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 5px; font-family: 'JetBrains Mono', monospace; font-size: 8.5px;">
+                  <span style="padding: 2px 7px; border-radius: 3px; border: 1px solid rgba(148,163,184,0.16); color: #94a3b8;">½ Kelly · 2.1% of book</span>
+                  <span style="padding: 2px 7px; border-radius: 3px; border: 1px solid rgba(148,163,184,0.16); color: #94a3b8;">GROK conf 0.82</span>
+                </div>
+                <a href="Trading Room.dc.html" style="align-self: flex-start; padding: 8px 14px; border-radius: 4px; border: 1px solid #ff2d6b; background: #ff2d6b; color: #1a0510; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em;">OPEN TRADING ROOM →</a>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ focusData.isBrain }}" hint-placeholder-val="{{ true }}">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <sc-for list="{{ focusData.stats }}" as="st" hint-placeholder-count="4">
+                  <div style="display: flex; flex-direction: column; gap: 3px; padding: 9px 11px; border-radius: 5px; border: 1px solid rgba(148,163,184,0.08); background: rgba(255,255,255,0.012);">
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.12em; color: #56657c;">{{ st.k }}</span>
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; color: {{ st.color }}; font-variant-numeric: tabular-nums;">{{ st.v }}</span>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 6px; padding: 11px 12px; border-radius: 5px; border: 1px solid rgba(56,189,248,0.16); background: rgba(56,189,248,0.03);">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.16em; color: #56657c;">CURRENT TASK</span>
+                <span style="font-size: 12px; line-height: 1.5; color: #cdd9e8;">{{ focusData.task }}</span>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 5px;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.16em; color: #56657c;">RECENT ACTIVITY</span>
+                <sc-for list="{{ focusData.logs }}" as="l" hint-placeholder-count="4">
+                  <div style="display: flex; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 10px; line-height: 1.5;">
+                    <span style="flex-shrink: 0; width: 24px; font-weight: 700; color: {{ l.lvlColor }};">{{ l.lvl }}</span>
+                    <span style="color: #94a3b8;">{{ l.msg }}</span>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 5px;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.16em; color: #56657c;">DEPENDENCIES</span>
+                <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+                  <sc-for list="{{ focusData.deps }}" as="d" hint-placeholder-count="2">
+                    <span style="padding: 2px 8px; border-radius: 3px; border: 1px solid rgba(148,163,184,0.16); font-family: 'JetBrains Mono', monospace; font-size: 8.5px; color: #7dd3fc;">{{ d }}</span>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { focus: null, clock: '', tokenRate: '312' };
+
+  ICONS = {
+    hub: 'M3 9h18M3 15h18M9 3v18M15 3v18',
+    trading: 'M3 3v16a2 2 0 0 0 2 2h16M7 14l4-5 3 3 5-7',
+    coding: 'm18 16 4-4-4-4M6 8l-4 4 4 4m14.5-12-5 16',
+    personal: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0',
+  };
+
+  BRAINS = [
+    { key: 'hermes', name: 'HERMES', model: 'opus-4', status: 'active', hex: 0x38bdf8, angle: Math.PI * 0.5 },
+    { key: 'codex', name: 'CODEX', model: 'fable-5', status: 'active', hex: 0xa78bfa, angle: Math.PI * 1.0 },
+    { key: 'grok', name: 'GROK', model: 'grok-3', status: 'active', hex: 0x38bdf8, angle: Math.PI * 1.5 },
+    { key: 'gemini', name: 'GEMINI', model: 'gemini-2', status: 'idle', hex: 0x64748b, angle: Math.PI * 2.0 },
+  ];
+
+  DATA = {
+    hermes: { title: 'HERMES', role: 'CORE ORCHESTRATION · ROUTING', statusText: 'BUSY', statusColor: '#38bdf8',
+      stats: [['MODEL', 'opus-4'], ['LATENCY', '420ms'], ['OPS · 24H', '1,204'], ['SHARE', '38%']],
+      task: 'Routing run R-2214 step 3 → CODEX (fable-5). Queue-depth model updated, opus trend 3→5.',
+      logs: [['INF', 'routed R-2214 step 3 → codex'], ['OK', 'queue-depth thresholds rebalanced'], ['DBG', 'heartbeat: fleet ack 9/9 (42ms)']],
+      deps: ['→ CODEX', '→ GROK', '→ AEGIS'] },
+    codex: { title: 'CODEX', role: 'CODE GENERATION · SCRIPTING', statusText: 'STREAMING', statusColor: '#a78bfa',
+      stats: [['MODEL', 'fable-5'], ['LATENCY', '610ms'], ['OPS · 24H', '342'], ['PATCH', '3 / 3']],
+      task: 'Streaming patch 3/3 — model-router.ts +212 −87 across 14 files. Awaiting review approval.',
+      logs: [['INF', 'streaming patch 3/3 — model-router.ts'], ['OK', 'typecheck clean — 0 errors / 14 files'], ['WRN', 'lint: 2 warnings (non-blocking)']],
+      deps: ['← HERMES', '→ AEGIS'] },
+    grok: { title: 'GROK', role: 'REAL-TIME DATA SYNTHESIS', statusText: 'BUSY', statusColor: '#38bdf8',
+      stats: [['MODEL', 'grok-3'], ['LATENCY', '380ms'], ['OPS · 24H', '998'], ['SIGNALS', '14']],
+      task: 'Ranking 14 source deltas → memory.research.deltas. Momentum signal NVDA conf 0.82 fed to sizing.',
+      logs: [['INF', '14 source deltas → memory.research.deltas'], ['INF', 'momentum NVDA conf 0.82 → staged sizing'], ['DBG', 'heartbeat: reasoning session alive']],
+      deps: ['→ HERMES', '→ TRADING'] },
+    gemini: { title: 'GEMINI', role: 'MULTIMODAL REASONING', statusText: 'IDLE', statusColor: '#64748b',
+      stats: [['MODEL', 'gemini-2'], ['IDLE', '12m'], ['OPS · 24H', '221'], ['CTX', '64k']],
+      task: 'Idle. Last action: context compacted 118k → 64k tokens. Awaiting digest formatting job.',
+      logs: [['INF', 'context compacted 118k → 64k tokens'], ['DBG', 'heartbeat: idle keepalive'], ['INF', 'queued: weekly-brief digest']],
+      deps: ['← HERMES'] },
+  };
+
+  componentDidMount() {
+    const pad = (n) => String(n).padStart(2, '0');
+    const tick = () => { const d = new Date(); this.setState({ clock: pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds()) }); };
+    tick(); this._clockId = setInterval(tick, 1000);
+    this._rateId = setInterval(() => this.setState({ tokenRate: String(280 + Math.floor(Math.random() * 90)) }), 1400);
+    this._waitThree(0);
+  }
+
+  componentWillUnmount() {
+    clearInterval(this._clockId); clearInterval(this._rateId);
+    this._running = false;
+    if (this._raf) cancelAnimationFrame(this._raf);
+    if (this._ro) this._ro.disconnect();
+    if (this._renderer) { this._renderer.dispose(); const c = this._renderer.domElement; if (c && c.parentNode) c.parentNode.removeChild(c); }
+  }
+
+  _waitThree(n) {
+    if (window.THREE) { this._initScene(); return; }
+    if (n > 120) return;
+    setTimeout(() => this._waitThree(n + 1), 60);
+  }
+
+  _initScene() {
+    const THREE = window.THREE;
+    const host = this._host;
+    if (!host) return;
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    host.appendChild(renderer.domElement);
+    this._renderer = renderer;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a1220);
+    scene.fog = new THREE.FogExp2(0x0a1220, 0.052);
+
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+
+    // lights
+    scene.add(new THREE.AmbientLight(0x2a3a55, 0.9));
+    const key = new THREE.PointLight(0x7dd3fc, 0.9, 60); key.position.set(6, 9, 6); scene.add(key);
+    const fill = new THREE.PointLight(0x38bdf8, 0.5, 60); fill.position.set(-8, 4, -6); scene.add(fill);
+    const roseLight = new THREE.PointLight(0xff2d6b, 0.0, 30); roseLight.position.set(0, 3, 0); scene.add(roseLight);
+
+    // floor grid
+    const grid = new THREE.GridHelper(48, 48, 0x1c2942, 0x101a2c);
+    grid.material.transparent = true; grid.material.opacity = 0.5; grid.position.y = -3.2;
+    scene.add(grid);
+
+    const clickable = [];
+    const R = 6;
+    const nodes = {};
+    const makeLabel = (text, sub) => {
+      const c = document.createElement('canvas'); c.width = 256; c.height = 72;
+      const g = c.getContext('2d');
+      g.font = '700 34px "JetBrains Mono", monospace'; g.fillStyle = '#e8eef7'; g.textAlign = 'center'; g.fillText(text, 128, 34);
+      g.font = '400 20px "JetBrains Mono", monospace'; g.fillStyle = '#6b7c96'; g.fillText(sub, 128, 60);
+      const tex = new THREE.CanvasTexture(c); tex.anisotropy = 2;
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+      sp.scale.set(3.0, 0.85, 1);
+      return sp;
+    };
+
+    // central bus core
+    const core = new THREE.Group();
+    const coreShell = new THREE.Mesh(new THREE.IcosahedronGeometry(1.0, 1), new THREE.MeshBasicMaterial({ color: 0x2a4a6b, wireframe: true, transparent: true, opacity: 0.35 }));
+    core.add(coreShell); scene.add(core);
+    this._core = core;
+
+    // brains
+    this.BRAINS.forEach((b) => {
+      const grp = new THREE.Group();
+      const px = Math.cos(b.angle) * R, pz = Math.sin(b.angle) * R;
+      grp.position.set(px, 0, pz);
+      const inner = new THREE.Mesh(new THREE.IcosahedronGeometry(0.92, 1), new THREE.MeshStandardMaterial({ color: b.hex, emissive: b.hex, emissiveIntensity: b.status === 'idle' ? 0.15 : 0.4, metalness: 0.3, roughness: 0.5, transparent: true, opacity: 0.55 }));
+      const outer = new THREE.Mesh(new THREE.IcosahedronGeometry(1.18, 1), new THREE.MeshBasicMaterial({ color: b.hex, wireframe: true, transparent: true, opacity: b.status === 'idle' ? 0.3 : 0.6 }));
+      inner.userData.key = b.key; outer.userData.key = b.key;
+      grp.add(inner); grp.add(outer);
+      const label = makeLabel(b.name, b.model); label.position.set(0, 1.95, 0); grp.add(label);
+      scene.add(grp);
+      clickable.push(inner, outer);
+      nodes[b.key] = { grp, inner, pos: new THREE.Vector3(px, 0, pz), angle: b.angle, status: b.status };
+
+      // dependency line brain -> core
+      const lg = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(px, 0, pz)]);
+      const line = new THREE.Line(lg, new THREE.LineBasicMaterial({ color: b.hex, transparent: true, opacity: b.status === 'idle' ? 0.1 : 0.22 }));
+      scene.add(line);
+    });
+
+    // ring lines between adjacent brains
+    const order = ['hermes', 'codex', 'grok', 'gemini'];
+    for (let i = 0; i < order.length; i++) {
+      const a = nodes[order[i]].pos, c = nodes[order[(i + 1) % order.length]].pos;
+      const lg = new THREE.BufferGeometry().setFromPoints([a, c]);
+      scene.add(new THREE.Line(lg, new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.08 })));
+    }
+
+    // token-stream pulses (core <-> brain)
+    const pulseGeo = new THREE.SphereGeometry(0.09, 8, 8);
+    const pulses = [];
+    this.BRAINS.forEach((b, i) => {
+      if (b.status === 'idle') return;
+      const n = nodes[b.key];
+      for (let k = 0; k < 2; k++) {
+        const m = new THREE.Mesh(pulseGeo, new THREE.MeshBasicMaterial({ color: b.hex }));
+        scene.add(m);
+        pulses.push({ mesh: m, from: new THREE.Vector3(0, 0, 0), to: n.pos, t: (i * 0.3 + k * 0.5) % 1, speed: 0.006 + Math.random() * 0.004 });
+      }
+    });
+
+    // rose approval beacon
+    const beacon = new THREE.Group();
+    beacon.position.set(0, 2.7, 0);
+    const bOuter = new THREE.Mesh(new THREE.OctahedronGeometry(0.6, 0), new THREE.MeshBasicMaterial({ color: 0xff2d6b, wireframe: true, transparent: true, opacity: 0.9 }));
+    const bInner = new THREE.Mesh(new THREE.OctahedronGeometry(0.34, 0), new THREE.MeshBasicMaterial({ color: 0xff2d6b, transparent: true, opacity: 0.5 }));
+    bOuter.userData.key = 'approval'; bInner.userData.key = 'approval';
+    beacon.add(bOuter); beacon.add(bInner);
+    const bLabel = makeLabel('STAGED', 'approval'); bLabel.position.set(0, 1.1, 0); bLabel.scale.set(2.2, 0.62, 1); beacon.add(bLabel);
+    scene.add(beacon);
+    clickable.push(bOuter, bInner);
+    this._beacon = beacon; this._roseLight = roseLight;
+
+    // ── camera orbit state ──
+    const cam = { r: 13, theta: 0.62, phi: 1.12, tx: 0, ty: 0, tz: 0 };
+    const dst = { r: 13, theta: 0.62, phi: 1.12, tx: 0, ty: 0, tz: 0 };
+    this._cam = cam; this._dst = dst;
+    this._focusing = false;
+
+    const applyCam = () => {
+      const t = new THREE.Vector3(cam.tx, cam.ty, cam.tz);
+      camera.position.set(
+        cam.tx + cam.r * Math.sin(cam.phi) * Math.cos(cam.theta),
+        cam.ty + cam.r * Math.cos(cam.phi),
+        cam.tz + cam.r * Math.sin(cam.phi) * Math.sin(cam.theta)
+      );
+      camera.lookAt(t);
+    };
+
+    // ── interaction ──
+    const el = renderer.domElement;
+    let dragging = false, moved = 0, lx = 0, ly = 0;
+    const onDown = (e) => { dragging = true; moved = 0; lx = e.clientX; ly = e.clientY; el.style.cursor = 'grabbing'; };
+    const onMove = (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - lx, dy = e.clientY - ly; lx = e.clientX; ly = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
+      if (this._focusing) return;
+      dst.theta -= dx * 0.006;
+      dst.phi = Math.max(0.35, Math.min(1.45, dst.phi - dy * 0.006));
+    };
+    const raycaster = new THREE.Raycaster();
+    const onUp = (e) => {
+      el.style.cursor = 'grab';
+      if (!dragging) return; dragging = false;
+      if (moved > 5) return;
+      const r = el.getBoundingClientRect();
+      const ndc = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      raycaster.setFromCamera(ndc, camera);
+      const hits = raycaster.intersectObjects(clickable, false);
+      if (hits.length) { let o = hits[0].object; while (o && !o.userData.key) o = o.parent; if (o && o.userData.key) this._focusKey(o.userData.key); }
+    };
+    const onWheel = (e) => { e.preventDefault(); dst.r = Math.max(4.2, Math.min(17, dst.r + e.deltaY * 0.012)); };
+    el.addEventListener('pointerdown', onDown);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    el.addEventListener('wheel', onWheel, { passive: false });
+
+    // expose focus/reset to render handlers
+    this._focusKey = (key) => {
+      this.setState({ focus: key });
+      this._focusing = true;
+      if (key === 'approval') {
+        dst.tx = 0; dst.ty = 2.7; dst.tz = 0; dst.r = 4.6; dst.phi = 1.0;
+      } else {
+        const n = nodes[key];
+        dst.tx = n.pos.x; dst.ty = 0; dst.tz = n.pos.z;
+        dst.theta = n.angle; dst.phi = 1.05; dst.r = 4.4;
+      }
+    };
+    this._resetCam = () => {
+      this.setState({ focus: null });
+      this._focusing = false;
+      dst.tx = 0; dst.ty = 0; dst.tz = 0; dst.r = 13; dst.phi = 1.12;
+    };
+
+    // ── resize ──
+    const resize = () => {
+      const rect = host.getBoundingClientRect();
+      const w = Math.max(1, rect.width), h = Math.max(1, rect.height);
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h; camera.updateProjectionMatrix();
+    };
+    this._ro = new ResizeObserver(resize);
+    this._ro.observe(host);
+    resize();
+
+    // ── loop ──
+    this._running = true;
+    const t0 = performance.now();
+    const loop = () => {
+      if (!this._running) return;
+      this._raf = requestAnimationFrame(loop);
+      const time = (performance.now() - t0) / 1000;
+
+      // idle gentle auto-rotate when not focused & not dragging
+      if (!this._focusing && !dragging) dst.theta += 0.0009;
+
+      // ease camera
+      const k = 0.09;
+      cam.r += (dst.r - cam.r) * k;
+      cam.theta += (dst.theta - cam.theta) * k;
+      cam.phi += (dst.phi - cam.phi) * k;
+      cam.tx += (dst.tx - cam.tx) * k;
+      cam.ty += (dst.ty - cam.ty) * k;
+      cam.tz += (dst.tz - cam.tz) * k;
+      applyCam();
+
+      // spin brains + core
+      Object.values(nodes).forEach((n) => { n.grp.rotation.y += 0.003; n.grp.rotation.x = Math.sin(time * 0.4 + n.angle) * 0.05; });
+      core.rotation.y -= 0.004; core.rotation.x += 0.002;
+
+      // token pulses
+      pulses.forEach((p) => {
+        p.t += p.speed; if (p.t > 1) p.t -= 1;
+        p.mesh.position.lerpVectors(p.from, p.to, p.t);
+        p.mesh.material.opacity = Math.sin(p.t * Math.PI);
+        p.mesh.material.transparent = true;
+      });
+
+      // beacon pulse
+      const bs = 1 + 0.12 * Math.sin(time * 4.5);
+      beacon.scale.set(bs, bs, bs);
+      beacon.rotation.y += 0.01;
+      roseLight.intensity = 0.5 + 0.4 * (0.5 + 0.5 * Math.sin(time * 4.5));
+
+      renderer.render(scene, camera);
+    };
+    this._raf = requestAnimationFrame(loop);
+    // trigger a render-vals refresh so handlers bind
+    this.forceUpdate();
+  }
+
+  renderVals() {
+    const s = this.state;
+    const navItems = [
+      { key: 'hub', label: 'BRAIN HUB', icon: this.ICONS.hub, active: true, href: '#' },
+      { key: 'trading', label: 'TRADING ROOM', icon: this.ICONS.trading, active: false, href: 'Trading Room.dc.html' },
+      { key: 'coding', label: 'CODING ROOM', icon: this.ICONS.coding, active: false, href: '#' },
+      { key: 'personal', label: 'PERSONAL ROOM', icon: this.ICONS.personal, active: false, href: '#' },
+    ].map((n) => ({ ...n, color: n.active ? '#38bdf8' : '#56657c', border: n.active ? 'rgba(56,189,248,0.3)' : 'transparent', bg: n.active ? 'rgba(56,189,248,0.07)' : 'transparent' }));
+
+    let focusData = null;
+    const lvlColor = (l) => l === 'OK' ? '#34d399' : l === 'WRN' ? '#fbbf24' : l === 'INF' ? '#7dd3fc' : '#3d4a5c';
+    if (s.focus === 'approval') {
+      focusData = { title: 'STAGED ORDER', role: 'HUMAN-APPROVAL GATE · TRADING', statusText: 'ACTION REQUIRED', statusColor: '#ff2d6b',
+        edge: 'rgba(255,45,107,0.5)', tagBorder: 'rgba(255,45,107,0.5)', tagBg: 'rgba(255,45,107,0.1)', isApproval: true, isBrain: false };
+    } else if (s.focus && this.DATA[s.focus]) {
+      const d = this.DATA[s.focus];
+      focusData = { ...d, edge: 'rgba(56,189,248,0.3)', tagBorder: d.statusColor === '#64748b' ? 'rgba(100,116,139,0.4)' : 'rgba(56,189,248,0.4)', tagBg: 'rgba(56,189,248,0.06)', isApproval: false, isBrain: true,
+        stats: d.stats.map((x) => ({ k: x[0], v: x[1], color: '#e8eef7' })),
+        logs: d.logs.map((x) => ({ lvl: x[0], msg: x[1], lvlColor: lvlColor(x[0]) })) };
+    }
+
+    return {
+      canvasRef: (el) => { this._host = el; },
+      navItems, clock: s.clock, tokenRate: s.tokenRate,
+      pending: true,
+      focus: s.focus, focusData,
+      onFocusApproval: () => { if (this._focusKey) this._focusKey('approval'); },
+      onReturn: () => { if (this._resetCam) this._resetCam(); },
+    };
+  }
+}
+</script>
+</body>
+</html>

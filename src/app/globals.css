@@ -2,74 +2,105 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════════════════════════════
+   INSTRUMENT DECK — Design System 1A
+   Matte slate-navy base · restrained ice-blue primary · rose approval gate.
+   Source of truth: Direction Board.dc.html (§1A) + the room mockups.
+   All colors are `H S% L%` triplets, consumed via hsl(var(--x)).
+   ═══════════════════════════════════════════════════════════════════════ */
+
 @layer base {
   :root {
-    /* ── Obsidian base ─────────────────────────────────────── */
-    --background:           238 15% 4%;
-    --foreground:           220 15% 90%;
+    /* ── Matte slate-navy base (#0B1220) — no plain black ──── */
+    --background:           220 49% 8%;   /* #0B1220 */
+    --foreground:           216 48% 94%;  /* #E8EEF7 text-hi */
 
     /* ── Surface depth ─────────────────────────────────────── */
-    --card:                 238 12% 7%;
-    --card-foreground:      220 15% 90%;
-    --popover:              238 12% 7%;
-    --popover-foreground:   220 15% 90%;
-    --surface-1:            238 12% 7%;
-    --surface-2:            238 10% 10%;
-    --surface-3:            238 8%  14%;
+    --card:                 219 46% 12%;  /* #111B2E */
+    --card-foreground:      216 48% 94%;
+    --popover:              219 46% 12%;
+    --popover-foreground:   216 48% 94%;
+    --surface-1:            219 46% 12%;  /* #111B2E panel */
+    --surface-2:            218 53% 12%;  /* #0E1A2E */
+    --surface-3:            219 42% 18%;  /* #1A2740 */
+    --deep:                 219 49% 7%;   /* #090F1A wells */
 
-    /* ── Primary — neon emerald ────────────────────────────── */
-    --primary:              158 75% 45%;
-    --primary-foreground:   0   0%  4%;
+    /* ── Primary — ice-blue (#38BDF8) ──────────────────────── */
+    --primary:              198 93% 60%;
+    --primary-foreground:   220 49% 8%;
+    --primary-bright:       199 95% 74%;  /* #7DD3FC hover/active text */
 
-    /* ── Secondary — dark slate ────────────────────────────── */
-    --secondary:            238 8%  12%;
-    --secondary-foreground: 220 12% 70%;
+    /* ── Secondary — deck slate ────────────────────────────── */
+    --secondary:            214 34% 21%;  /* #243449 */
+    --secondary-foreground: 215 20% 65%;  /* #94A3B8 text-mid */
 
     /* ── Muted ─────────────────────────────────────────────── */
-    --muted:                238 8%  10%;
-    --muted-foreground:     220 8%  48%;
+    --muted:                219 46% 12%;
+    --muted-foreground:     215 20% 65%;
 
-    /* ── Accent — electric cyan ────────────────────────────── */
-    --accent:               190 95% 50%;
-    --accent-foreground:    0   0%  4%;
+    /* ── Accent — ice-blue ─────────────────────────────────── */
+    --accent:               198 93% 60%;
+    --accent-foreground:    220 49% 8%;
 
-    /* ── Destructive ───────────────────────────────────────── */
-    --destructive:          0   84% 60%;
+    /* ── Destructive — kill-switch error red (#F87171) ─────────
+       Distinct from the rose approval gate: red = destructive halt,
+       rose = "action required". Never interchange them. ───────── */
+    --destructive:          0 91% 71%;
     --destructive-foreground: 0 0% 100%;
 
+    /* ── Approval gate — ROSE (#FF2D6B) ────────────────────────
+       Dedicated exclusively to "action required" states (staged
+       orders, pending approvals). Appears NOWHERE else. ───────── */
+    --gate:                 342 100% 59%; /* #FF2D6B */
+    --gate-foreground:      0 0% 100%;
+    --gate-soft:            344 96% 65%;  /* #FB4E7D pulse/border */
+
+    /* ── Agent identity / live-status ──────────────────────────
+       CODEX carries its own purple identity always; the other
+       agents render by status: active = ice-blue, idle = grey. ── */
+    --agent-codex:          255 92% 76%;  /* #A78BFA */
+    --agent-active:         198 93% 60%;  /* #38BDF8 */
+    --agent-idle:           215 16% 47%;  /* #64748B */
+
+    /* ── Text tiers (ink) ──────────────────────────────────── */
+    --ink-hi:               216 48% 94%;  /* #E8EEF7 */
+    --ink-mid:              215 20% 65%;  /* #94A3B8 */
+    --ink-low:              216 18% 41%;  /* #56657C */
+
     /* ── Structural ────────────────────────────────────────── */
-    --border:               238 8%  14%;
-    --input:                238 8%  8%;
-    --ring:                 158 75% 45%;
-    --radius:               0.5rem;
+    --border:               214 34% 21%; /* #243449 */
+    --input:                218 53% 12%;
+    --ring:                 198 93% 60%;
+    --radius:               0.3125rem;    /* 5px — deck panels */
 
-    /* ── Warning / amber ───────────────────────────────────── */
-    --warning:              38  92% 50%;
-    --warning-foreground:   0   0%  0%;
+    /* ── Warning / amber (#FBBF24) — warning + simulation ──── */
+    --warning:              43 96% 56%;
+    --warning-foreground:   0 0% 0%;
 
-    /* ── Sidebar ───────────────────────────────────────────── */
-    --sidebar-background:         238 15% 3.5%;
-    --sidebar-foreground:         220 10% 65%;
-    --sidebar-primary:            158 75% 45%;
-    --sidebar-primary-foreground: 0   0%  4%;
-    --sidebar-accent:             238 8%  10%;
-    --sidebar-accent-foreground:  220 12% 80%;
-    --sidebar-border:             238 8%  10%;
-    --sidebar-ring:               158 75% 45%;
+    /* ── Sidebar (nav rail) ────────────────────────────────── */
+    --sidebar-background:         219 49% 7%;
+    --sidebar-foreground:         215 20% 65%;
+    --sidebar-primary:            198 93% 60%;
+    --sidebar-primary-foreground: 220 49% 8%;
+    --sidebar-accent:             219 46% 12%;
+    --sidebar-accent-foreground:  216 48% 94%;
+    --sidebar-border:             214 34% 21%;
+    --sidebar-ring:               198 93% 60%;
 
     /* ── Charts ────────────────────────────────────────────── */
-    --chart-1: 158 75% 45%;
-    --chart-2: 190 95% 50%;
-    --chart-3: 267 84% 65%;
-    --chart-4: 38  92% 50%;
-    --chart-5: 0   84% 60%;
+    --chart-1: 198 93% 60%;   /* ice-blue   */
+    --chart-2: 255 92% 76%;   /* codex      */
+    --chart-3: 43  96% 56%;   /* amber      */
+    --chart-4: 158 64% 52%;   /* active grn */
+    --chart-5: 0   91% 71%;   /* error red  */
 
-    /* ── Neon raw HSL (pair with hsl()) ────────────────────── */
-    --neon-green:  158 100% 42%;
-    --neon-cyan:   190 100% 50%;
-    --neon-purple: 267 100% 70%;
-    --neon-orange: 38  100% 55%;
-    --neon-red:    0   100% 62%;
+    /* ── Neon raw HSL — retinted to the deck palette ───────────
+       Kept for back-compat with existing .glow-* / neon-* utils. */
+    --neon-green:  158 64% 52%;  /* #34D399 active/profit */
+    --neon-cyan:   198 93% 60%;  /* #38BDF8 ice-blue      */
+    --neon-purple: 255 92% 76%;  /* #A78BFA codex         */
+    --neon-orange: 43  96% 56%;  /* #FBBF24 warn/sim      */
+    --neon-red:    0   91% 71%;  /* #F87171 error         */
   }
 
   * {
@@ -84,104 +115,125 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+    font-family: 'General Sans', var(--font-inter), ui-sans-serif, system-ui, sans-serif;
     background-image: radial-gradient(
-      ellipse 90% 60% at 50% -10%,
-      hsl(158 75% 45% / 0.06) 0%,
-      transparent 65%
+      1200px 700px at 30% -6%,
+      hsl(219 52% 13% / 0.9) 0%,
+      transparent 62%
     );
     min-height: 100dvh;
   }
 
   ::selection {
-    background: hsl(var(--primary) / 0.2);
+    background: hsl(var(--primary) / 0.22);
     color: hsl(var(--foreground));
   }
 
   /* ── Custom scrollbar ─────────────────────────────────────── */
   ::-webkit-scrollbar        { width: 4px; height: 4px; }
-  ::-webkit-scrollbar-track  { background: hsl(var(--surface-1)); }
+  ::-webkit-scrollbar-track  { background: transparent; }
   ::-webkit-scrollbar-thumb  {
     background: hsl(var(--border));
     border-radius: 2px;
   }
   ::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary) / 0.5); }
+
+  /* ── Keyboard focus floor (a11y) — every interactive element gets a
+     visible ice-blue ring. Mouse users keep clean edges via :focus-visible. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--primary) / 0.8);
+    outline-offset: 1px;
+  }
 }
 
 @layer utilities {
-  /* ── Neon glow box-shadows ──────────────────────────────── */
-  .glow-green {
-    box-shadow:
-      0 0 6px  hsl(var(--neon-green) / 0.55),
-      0 0 20px hsl(var(--neon-green) / 0.2);
+  /* ══ INSTRUMENT DECK PANEL ══════════════════════════════════
+     Matte framed instrument: surface fill + hairline border. Corner
+     brackets are drawn by the <PanelChrome> component (4 spans). ── */
+  .panel-deck {
+    position: relative;
+    background: hsl(var(--surface-1));
+    border: 1px solid hsl(var(--border) / 0.9);
+    border-radius: var(--radius);
   }
-  .glow-cyan {
-    box-shadow:
-      0 0 6px  hsl(var(--neon-cyan) / 0.55),
-      0 0 20px hsl(var(--neon-cyan) / 0.2);
-  }
-  .glow-purple {
-    box-shadow:
-      0 0 6px  hsl(var(--neon-purple) / 0.55),
-      0 0 20px hsl(var(--neon-purple) / 0.2);
-  }
-  .glow-red {
-    box-shadow:
-      0 0 6px  hsl(var(--neon-red) / 0.55),
-      0 0 20px hsl(var(--neon-red) / 0.2);
-  }
-  .glow-orange {
-    box-shadow:
-      0 0 6px  hsl(var(--neon-orange) / 0.55),
-      0 0 20px hsl(var(--neon-orange) / 0.2);
+  .panel-well {
+    background: hsl(var(--deep));
+    border: 1px solid hsl(var(--border) / 0.55);
+    border-radius: var(--radius);
   }
 
-  /* ── Text glow ──────────────────────────────────────────── */
-  .text-glow-green  { text-shadow: 0 0 10px hsl(var(--neon-green) / 0.7); }
-  .text-glow-cyan   { text-shadow: 0 0 10px hsl(var(--neon-cyan) / 0.7); }
+  /* ── Corner-bracket tick (single corner) — used by PanelChrome ── */
+  .bracket {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    pointer-events: none;
+    z-index: 1;
+    border-color: hsl(var(--primary) / 0.4);
+  }
+
+  /* ══ THE ROSE GATE ══════════════════════════════════════════
+     Highest-stakes surface. Slow edge-pulse (~1.3s) + live dot carry
+     the "this needs you" signal so it never reads as a passive chip. */
+  .gate-surface {
+    border: 1px solid hsl(var(--gate) / 0.55);
+    background: linear-gradient(180deg, hsl(var(--gate) / 0.07), hsl(var(--gate) / 0.02));
+    border-radius: var(--radius);
+  }
+  .gate-glow-col {
+    box-shadow: 0 0 32px -10px hsl(var(--gate) / 0.5);
+  }
+
+  /* ── Neon glow box-shadows (deck-retinted) ──────────────────── */
+  .glow-green  { box-shadow: 0 0 6px hsl(var(--neon-green)  / 0.55), 0 0 20px hsl(var(--neon-green)  / 0.2); }
+  .glow-cyan   { box-shadow: 0 0 6px hsl(var(--neon-cyan)   / 0.55), 0 0 20px hsl(var(--neon-cyan)   / 0.2); }
+  .glow-purple { box-shadow: 0 0 6px hsl(var(--neon-purple) / 0.55), 0 0 20px hsl(var(--neon-purple) / 0.2); }
+  .glow-red    { box-shadow: 0 0 6px hsl(var(--neon-red)    / 0.55), 0 0 20px hsl(var(--neon-red)    / 0.2); }
+  .glow-orange { box-shadow: 0 0 6px hsl(var(--neon-orange) / 0.55), 0 0 20px hsl(var(--neon-orange) / 0.2); }
+  .glow-gate   { box-shadow: 0 0 6px hsl(var(--gate)        / 0.6),  0 0 22px hsl(var(--gate)        / 0.28); }
+
+  /* ── Text glow ──────────────────────────────────────────────── */
+  .text-glow-green  { text-shadow: 0 0 10px hsl(var(--neon-green)  / 0.7); }
+  .text-glow-cyan   { text-shadow: 0 0 10px hsl(var(--neon-cyan)   / 0.7); }
   .text-glow-purple { text-shadow: 0 0 10px hsl(var(--neon-purple) / 0.7); }
 
-  /* ── Neon-tinted card border ────────────────────────────── */
+  /* ── Neon-tinted card border ────────────────────────────────── */
   .card-neon {
-    border-color: hsl(var(--neon-green) / 0.2);
+    border-color: hsl(var(--primary) / 0.2);
     box-shadow:
-      inset 0 1px 0 hsl(var(--neon-green) / 0.06),
-      0 0 0 1px hsl(var(--neon-green) / 0.08);
+      inset 0 1px 0 hsl(var(--primary) / 0.06),
+      0 0 0 1px hsl(var(--primary) / 0.08);
   }
 
-  /* ── Glass / frosted surface ────────────────────────────── */
+  /* ── Glass / frosted surface (legacy alias, retained) ───────── */
   .glass {
     background: hsl(var(--card) / 0.7);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
-
-  /* ── Command-desk surfaces (spatial-command-hub visual system) ──
-     Semi-transparent dark glass + hairline low-opacity borders, used for
-     every room shell / panel so heavy opaque boxes are eliminated. */
   .surface-glass {
-    background: hsl(var(--card) / 0.55);
+    background: hsl(var(--card) / 0.6);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid hsl(var(--border) / 0.5);
+    border: 1px solid hsl(var(--border) / 0.6);
   }
-  .hairline { border: 1px solid hsl(var(--border) / 0.45); }
-  .hairline-b { border-bottom: 1px solid hsl(var(--border) / 0.45); }
+  .hairline   { border: 1px solid hsl(var(--border) / 0.7); }
+  .hairline-b { border-bottom: 1px solid hsl(var(--border) / 0.7); }
 
-  /* ── Micro-neon status glow — exactly one accent per state ────── */
+  /* ── Micro status glow — exactly one accent per state ────────── */
   .status-active { box-shadow: 0 0 5px hsl(var(--neon-green) / 0.7), 0 0 12px hsl(var(--neon-green) / 0.35); }
-  .status-idle   { box-shadow: 0 0 4px hsl(var(--neon-cyan)  / 0.45); }
+  .status-idle   { box-shadow: 0 0 4px hsl(var(--agent-idle) / 0.5); }
   .status-error  { box-shadow: 0 0 5px hsl(var(--neon-red)   / 0.7), 0 0 12px hsl(var(--neon-red)   / 0.35); }
 
-  /* ── Terminal font ──────────────────────────────────────── */
+  /* ── Terminal font ──────────────────────────────────────────── */
   .font-terminal {
     font-family: var(--font-mono), 'JetBrains Mono', 'Fira Mono', ui-monospace, monospace;
-    font-size: 0.7rem;
+    font-size: 0.6875rem;   /* 11px legibility floor */
     line-height: 1.65;
     letter-spacing: 0.01em;
   }
 
-  /* ── Scanline overlay (decorative) ─────────────────────── */
+  /* ── Scanline overlay (decorative) ─────────────────────────── */
   .scanlines::after {
     content: '';
     position: absolute;
@@ -191,16 +243,16 @@
       0deg,
       transparent,
       transparent 2px,
-      hsl(0 0% 0% / 0.03) 2px,
-      hsl(0 0% 0% / 0.03) 4px
+      hsl(0 0% 0% / 0.04) 2px,
+      hsl(0 0% 0% / 0.04) 4px
     );
     z-index: 10;
   }
 
-  /* ── Tabular numerics ───────────────────────────────────── */
+  /* ── Tabular numerics ───────────────────────────────────────── */
   .tabular { font-variant-numeric: tabular-nums; }
 
-  /* ── Glitch flicker (used on 404 page) ─────────────────── */
+  /* ── Glitch flicker (404) ───────────────────────────────────── */
   @keyframes glitch-flicker {
     0%, 94%, 100% { opacity: 1; transform: translateX(0); }
     95%           { opacity: 0.6; transform: translateX(-2px); }
@@ -208,11 +260,9 @@
     97%           { opacity: 0.8; transform: translateX(-1px); }
     98%           { opacity: 1; transform: translateX(0); }
   }
-  .animate-glitch {
-    animation: glitch-flicker 4s steps(1, end) infinite;
-  }
+  .animate-glitch { animation: glitch-flicker 4s steps(1, end) infinite; }
 
-  /* ── Skeleton shimmer ───────────────────────────────────── */
+  /* ── Skeleton shimmer ───────────────────────────────────────── */
   @keyframes shimmer {
     0%   { background-position: -200% 0; }
     100% { background-position:  200% 0; }
@@ -226,5 +276,14 @@
     );
     background-size: 200% 100%;
     animation: shimmer 1.6s infinite;
+  }
+
+  /* ── Reduced motion: kill all decorative animation (a11y floor) ── */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-gate-pulse,
+    .animate-dot-blink,
+    .animate-glitch,
+    .skeleton-shimmer,
+    .animate-glow-pulse { animation: none !important; }
   }
 }

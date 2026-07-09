@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; height: 100%; background: #09090b; }
+    a { color: #06b6d4; text-decoration: none; }
+    a:hover { color: #22d3ee; }
+    @keyframes pulseFaint { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+    ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 2px; }
+  </style>
+</helmet>
+
+<section style="position: relative; display: flex; flex-direction: column; height: 100%; min-height: 0; box-sizing: border-box; border-radius: 5px; border: 1px solid rgba(255,255,255,0.03); background: rgba(9,9,11,0.4); backdrop-filter: blur(12px); font-family: 'JetBrains Mono', ui-monospace, monospace; color: #a1a1aa;" style-before="content: ''; position: absolute; top: -1px; left: -1px; width: 9px; height: 9px; border-top: 1px solid rgba(6,182,212,0.4); border-left: 1px solid rgba(6,182,212,0.4); pointer-events: none;" style-after="content: ''; position: absolute; bottom: -1px; right: -1px; width: 9px; height: 9px; border-bottom: 1px solid rgba(168,85,247,0.3); border-right: 1px solid rgba(168,85,247,0.3); pointer-events: none;">
+  <div style="display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; padding: 6px 9px; border-bottom: 1px solid rgba(255,255,255,0.03);">
+    <span style="font-size: 9px; letter-spacing: 0.2em; color: #71717a;">{{ title }}</span>
+    <span style="font-size: 9px; color: #52525b;">{{ summary }}</span>
+  </div>
+  <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 4px;">
+    <sc-for list="{{ runView }}" as="r" hint-placeholder-count="3">
+      <div style="border-radius: 4px; border: 1px solid {{ r.border }}; background: {{ r.bg }}; overflow: hidden;">
+        <div role="button" tabindex="0" onClick="{{ r.onToggle }}" style="display: flex; align-items: center; gap: 8px; padding: 7px 9px; cursor: pointer;" style-hover="background: rgba(255,255,255,0.02);">
+          <span style="display: inline-block; flex-shrink: 0; transform: {{ r.chev }}; transition: transform 0.15s; font-size: 8px; color: #52525b;">▶</span>
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+            <span style="font-size: 10.5px; color: #e4e4e7; line-height: 1.35;">{{ r.objective }}</span>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <div style="display: flex; gap: 3px;">
+                <sc-for list="{{ r.avatars }}" as="av" hint-placeholder-count="2">
+                  <span title="{{ av.name }}" style="display: flex; width: 16px; height: 16px; align-items: center; justify-content: center; border-radius: 3px; border: 1px solid rgba(255,255,255,0.07); background: rgba(6,182,212,0.08); color: #06b6d4; font-size: 7px; font-weight: 700;">{{ av.initials }}</span>
+                </sc-for>
+              </div>
+              <div style="position: relative; flex: 1; max-width: 120px; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.05);">
+                <div style="position: absolute; inset: 0 auto 0 0; width: {{ r.pctW }}; border-radius: 2px; background: {{ r.pctColor }};"></div>
+              </div>
+              <span style="font-size: 8px; color: #3f3f46; font-variant-numeric: tabular-nums;">{{ r.elapsed }}</span>
+            </div>
+          </div>
+          <span style="flex-shrink: 0; padding: 2px 7px; border-radius: 3px; border: 1px solid {{ r.badgeBorder }}; background: {{ r.badgeBg }}; color: {{ r.statusColor }}; font-size: 8px; font-weight: 700; letter-spacing: 0.14em; animation: {{ r.badgeAnim }};">{{ r.status }}</span>
+        </div>
+        <sc-if value="{{ r.expanded }}" hint-placeholder-val="{{ false }}">
+          <div style="border-top: 1px solid rgba(255,255,255,0.04); padding: 5px 9px 7px 25px; display: flex; flex-direction: column; gap: 4px;">
+            <sc-for list="{{ r.stepView }}" as="st" hint-placeholder-count="3">
+              <div style="display: flex; align-items: baseline; gap: 8px;">
+                <span style="width: 5px; height: 5px; flex-shrink: 0; border-radius: 50%; background: {{ st.color }}; transform: translateY(-1px); animation: {{ st.anim }};"></span>
+                <span style="flex-shrink: 0; width: 58px; font-size: 9px; font-weight: 600; color: {{ st.color }};">{{ st.agent }}</span>
+                <span style="flex-shrink: 0; width: 66px; font-size: 8px; letter-spacing: 0.1em; color: #52525b;">{{ st.status }}</span>
+                <span style="min-width: 0; font-size: 9px; color: #8b8b93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ st.result }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 560, &quot;height&quot;: 420 },
+  &quot;title&quot;: { &quot;editor&quot;: &quot;text&quot;, &quot;default&quot;: &quot;RUNS&quot;, &quot;tsType&quot;: &quot;string&quot; },
+  &quot;summary&quot;: { &quot;editor&quot;: null, &quot;default&quot;: null, &quot;tsType&quot;: &quot;string | null&quot; },
+  &quot;runs&quot;: { &quot;editor&quot;: null, &quot;default&quot;: [{&quot;objective&quot;:&quot;Rebalance lane-routing thresholds across model pool&quot;,&quot;agents&quot;:[&quot;HERMES&quot;,&quot;CODEX&quot;],&quot;status&quot;:&quot;RUNNING&quot;,&quot;pct&quot;:64,&quot;elapsed&quot;:&quot;18m&quot;,&quot;steps&quot;:[[&quot;HERMES&quot;,&quot;DONE&quot;,&quot;queue-depth model updated&quot;],[&quot;CODEX&quot;,&quot;STREAMING&quot;,&quot;model-router.ts +212 −87&quot;]]}], &quot;tsType&quot;: &quot;Run[]&quot; }
+}">
+class Component extends DCLogic {
+  state = { expanded: { 0: true } };
+
+  CFG = {
+    RUNNING:   ['#a855f7', 'pulseFaint 1.8s ease-in-out infinite'],
+    STREAMING: ['#a855f7', 'pulseFaint 1.4s ease-in-out infinite'],
+    DONE:      ['#10b981', 'none'],
+    QUEUED:    ['#52525b', 'none'],
+    PENDING:   ['#f59e0b', 'pulseFaint 2.2s ease-in-out infinite'],
+    STAGED:    ['#f59e0b', 'pulseFaint 2.2s ease-in-out infinite'],
+    FAILED:    ['#ef4444', 'none'],
+  };
+
+  _tint(hex, a) {
+    const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+  }
+
+  renderVals() {
+    const runs = this.props.runs ?? [];
+    const runView = runs.map((r, i) => {
+      const [color, anim] = this.CFG[r.status] || this.CFG.QUEUED;
+      const expanded = !!this.state.expanded[i];
+      return {
+        objective: r.objective, status: r.status, elapsed: r.elapsed,
+        pctW: (r.pct ?? 0) + '%', pctColor: this._tint(color, 0.75),
+        statusColor: color, badgeAnim: anim,
+        badgeBorder: this._tint(color, 0.3), badgeBg: this._tint(color, 0.08),
+        border: expanded ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.04)',
+        bg: r.status === 'FAILED' ? 'rgba(239,68,68,0.03)' : 'rgba(255,255,255,0.012)',
+        expanded, chev: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+        onToggle: () => this.setState((s) => ({ expanded: { ...s.expanded, [i]: !s.expanded[i] } })),
+        avatars: (r.agents ?? []).map((n) => ({ name: n, initials: n.slice(0, 2) })),
+        stepView: (r.steps ?? []).map((s) => {
+          const [c, a] = this.CFG[s[1]] || this.CFG.QUEUED;
+          return { agent: s[0], status: s[1], result: s[2], color: c, anim: a };
+        }),
+      };
+    });
+    const counts = {};
+    runs.forEach((r) => { counts[r.status] = (counts[r.status] || 0) + 1; });
+    return {
+      title: this.props.title ?? 'RUNS',
+      summary: this.props.summary ?? Object.keys(counts).map((k) => counts[k] + ' ' + k).join(' · '),
+      runView,
+    };
+  }
+}
+</script>
+</body>
+</html>
