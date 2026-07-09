@@ -1530,13 +1530,13 @@
     "semantic_hash": ""
   },
   "src/lib/omnigent/bridge.ts": {
-    "mtime": 1783541502.9518552,
-    "ast_hash": "012961b9585a7682a48c739d00a96065",
+    "mtime": 1783549297.8393185,
+    "ast_hash": "6135bb6b20a7b3461b1f4e0a2a683985",
     "semantic_hash": ""
   },
   "docs/omnigent-integration-plan.md": {
-    "mtime": 1783545866.5900846,
-    "ast_hash": "16a7ec76769b806966e3d1c86acbf6c1",
+    "mtime": 1783550257.2115579,
+    "ast_hash": "45329b8b5052f7000b8271652d3b3d20",
     "semantic_hash": ""
   },
   "omnigent/README.md": {
@@ -1560,8 +1560,8 @@
     "semantic_hash": ""
   },
   "omnigent/wrapper/server.mjs": {
-    "mtime": 1783545434.5293994,
-    "ast_hash": "30778b73fc6f26d07382387d2f6ba399",
+    "mtime": 1783549112.578526,
+    "ast_hash": "e607cec5bcb38c5e80b03526c97a14de",
     "semantic_hash": ""
   },
   "docs/omnigent-sandbox-issue-draft.md": {
