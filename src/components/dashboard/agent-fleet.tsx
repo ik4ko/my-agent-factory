@@ -26,10 +26,10 @@ function formatLatency(ms: number): string {
 }
 
 /**
- * Hover producer for the CinematicCore beam. rAF-debounced: rapid
- * enter/leave sweeps across the fleet coalesce into at most one
- * getBoundingClientRect + store write per frame (no layout thrashing,
- * no hover-flicker).
+ * Hover producer for the Brain Hub highlight — hovering a fleet card lights
+ * up the brain node its agent maps to. rAF-debounced: rapid enter/leave
+ * sweeps across the fleet coalesce into at most one getBoundingClientRect +
+ * store write per frame (no layout thrashing, no hover-flicker).
  */
 function useHoverFocus(agentId: string) {
   const cardRef = useRef<HTMLDivElement>(null);

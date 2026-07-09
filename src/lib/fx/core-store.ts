@@ -1,21 +1,21 @@
 /**
  * useCoreFxStore — state bridge between dashboard UI producers and the
- * CinematicCore 3D engine.
+ * Brain Hub WebGL scene (SpatialWorkspace — the app's single Three.js
+ * surface).
  *
  * Producers:
  *  - agent-fleet.tsx  → setFocusTarget(agentId, cardRect) on hover
  *  - task-input.tsx   → setIsListening(true|false) on voice arm/disarm
  *
- * Consumer:
- *  - dashboard-client.tsx → atomic selectors feeding <CinematicCore />
+ * Consumers (frame-loop getState() reads only — no React subscriptions, so
+ * hover/voice churn never re-renders the scene tree):
+ *  - SpatialWorkspace BrainNode → `focusedAgentId` highlights the brain the
+ *    hovered fleet card's agent maps to
+ *  - SpatialWorkspace BusCore   → `isListening` breathes the central bus
  *
- * Coordinate contract: `focusTarget` is the exact center of the agent card
- * in viewport CSS pixels. The 3D engine converts px → NDC → world by
- * unprojecting against the LIVE canvas rect every frame (see
- * cinematic-core.tsx `focusWorldPoint`). NDC is deliberately not cached
- * here: a precomputed NDC snapshot goes stale the moment the user scrolls,
- * resizes, or drags a panel handle, which would bend the beam toward a
- * position the card no longer occupies.
+ * `focusTarget` (card center, viewport CSS px) is retained for API
+ * stability with the producers; the Brain Hub keys off `focusedAgentId`
+ * alone. (It was the beam anchor for the retired CinematicCore layer.)
  */
 
 import { create } from 'zustand';

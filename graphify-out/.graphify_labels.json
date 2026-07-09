@@ -144,7 +144,6 @@
   "142": "research-sync.md",
   "143": "use-risk-state.ts",
   "144": "DirectAdapter",
-  "145": "executor-agent.mts",
   "146": "transport.ts",
   "147": "demo-seed.mts",
   "148": "build.rs",
@@ -156,15 +155,11 @@
   "154": "package.json",
   "155": "select-adapter.ts",
   "156": "package.json",
-  "157": "page.tsx",
   "158": "hermes.ts",
-  "159": "settings-client.tsx",
   "160": "Claude ↔ Codex Local Handoff Spec",
   "161": "demo-seed.mts",
   "162": "hermes.ts",
-  "163": "status-dot.tsx",
   "164": "audio-briefing.tsx",
   "165": "core-store.ts",
-  "166": "CODING AGENTS: READ THIS FIRST",
-  "167": "package.json"
+  "166": "CODING AGENTS: READ THIS FIRST"
 }

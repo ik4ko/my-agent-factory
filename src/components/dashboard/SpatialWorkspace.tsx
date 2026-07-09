@@ -13,6 +13,7 @@ import { createClient } from '@/lib/supabase/client';
 import { subscribeWithReconnect } from '@/lib/supabase/realtime';
 import { useConnectionStore } from '@/lib/realtime/connection-store';
 import { useSpatialPulse, classifyLogRoom, type SpatialRoom } from '@/lib/fx/spatial-pulse';
+import { useCoreFxStore } from '@/lib/fx/core-store';
 import { AGENTS_KEY } from '@/hooks/use-agents-query';
 import { TASKS_KEY } from '@/hooks/use-tasks-query';
 import { useStagedOrders, STAGED_ORDERS_KEY } from '@/hooks/use-staged-orders-query';
@@ -91,23 +92,40 @@ function BrainNode({
   active,
   focused,
   onFocus,
+  idToBrain,
 }: {
   def: BrainDef;
   color: string;
   active: boolean;
   focused: boolean;
   onFocus: () => void;
+  /** Live agent-uuid → brain-key lookup, rebuilt only when the agents cache
+   *  changes — hover reads stay out of React entirely. */
+  idToBrain: Map<string, string>;
 }) {
   const mat = useRef<THREE.MeshStandardMaterial>(null);
+  const ringMat = useRef<THREE.MeshBasicMaterial>(null);
+  const highlight = useRef(0);
   const base = focused ? 2.2 : active ? 1.4 : 0.45;
+  const ringBase = active ? 0.5 : 0.22;
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     const m = mat.current;
     if (!m) return;
     const p = useSpatialPulse.getState().pulses[def.pulseRoom];
-    const dt = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - p.at;
-    const flash = p.at > 0 ? p.mag * Math.exp(-dt / 900) : 0;
-    m.emissiveIntensity = base + flash * 2.0;
+    const age = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - p.at;
+    const flash = p.at > 0 ? p.mag * Math.exp(-age / 900) : 0;
+
+    // Fleet-hover highlight (core-store FX bridge): a getState() read per
+    // frame — a card hover never re-renders this tree. Eased so the glow
+    // breathes on rather than snapping.
+    const focusId = useCoreFxStore.getState().focusedAgentId;
+    const target = focusId !== null && idToBrain.get(focusId) === def.key ? 1 : 0;
+    highlight.current += (target - highlight.current) * (1 - Math.pow(0.002, delta));
+
+    m.emissiveIntensity = base + flash * 2.0 + highlight.current * 1.3;
+    const rm = ringMat.current;
+    if (rm) rm.opacity = ringBase + highlight.current * 0.4;
   });
 
   return (
@@ -128,10 +146,11 @@ function BrainNode({
         <icosahedronGeometry args={[0.3, 2]} />
         <meshStandardMaterial ref={mat} color={color} emissive={color} emissiveIntensity={base} toneMapped={false} roughness={0.35} metalness={0.15} />
       </mesh>
-      {/* orbit ring — reads as "tracked fix", the 1A nav-instrument voice */}
+      {/* orbit ring — reads as "tracked fix", the 1A nav-instrument voice.
+          Opacity is frame-driven (base + hover highlight). */}
       <mesh rotation={[Math.PI / 2.3, 0, 0]}>
         <torusGeometry args={[0.46, 0.006, 8, 48]} />
-        <meshBasicMaterial color={color} transparent opacity={active ? 0.5 : 0.22} toneMapped={false} />
+        <meshBasicMaterial ref={ringMat} color={color} transparent opacity={ringBase} toneMapped={false} />
       </mesh>
       <Html center distanceFactor={7} position={[0, -0.62, 0]} style={{ pointerEvents: 'none' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, whiteSpace: 'nowrap' }}>
@@ -140,6 +159,35 @@ function BrainNode({
         </div>
       </Html>
     </group>
+  );
+}
+
+/** Central bus core. Breathes with TaskInput's live voice state (core-store
+ *  FX bridge): while the mic is armed the wireframe brightens and swells on a
+ *  fast wave — the deck's "the hub is listening" signal. Frame-loop
+ *  getState() read only; arm/disarm never re-renders the scene. */
+function BusCore() {
+  const mat = useRef<THREE.MeshStandardMaterial>(null);
+  const mesh = useRef<THREE.Mesh>(null);
+  const level = useRef(0);
+
+  useFrame(({ clock }, delta) => {
+    const m = mat.current;
+    const g = mesh.current;
+    if (!m || !g) return;
+    const listening = useCoreFxStore.getState().isListening;
+    // Ease toward the live state so arm/disarm reads as a breath, not a snap.
+    level.current += ((listening ? 1 : 0) - level.current) * (1 - Math.pow(0.002, delta));
+    const wave = Math.sin(clock.elapsedTime * 5.2) * 0.5 + 0.5;
+    m.emissiveIntensity = 1.1 + level.current * (0.9 + wave * 1.4);
+    g.scale.setScalar(1 + level.current * (0.12 + wave * 0.1));
+  });
+
+  return (
+    <mesh ref={mesh} position={BUS_POS}>
+      <icosahedronGeometry args={[0.16, 1]} />
+      <meshStandardMaterial ref={mat} color={ACTIVE_HEX} emissive={ACTIVE_HEX} emissiveIntensity={1.1} toneMapped={false} wireframe />
+    </mesh>
   );
 }
 
@@ -555,6 +603,18 @@ export function SpatialWorkspace() {
   const { data: agents = [] } = useQuery<Agent[]>({ queryKey: AGENTS_KEY, queryFn: async () => [], enabled: false, initialData: [] });
   const { data: pendingOrders = [] } = useStagedOrders();
 
+  // Agent uuid → brain key, for the fleet-hover highlight. Rebuilt only when
+  // the agents cache changes (rare); the per-frame hover read is a Map.get.
+  const idToBrain = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const a of agents) {
+      if (a.type == null) continue;
+      const brain = BRAINS.find((b) => b.types.includes(a.type as AgentType));
+      if (brain) m.set(a.id, brain.key);
+    }
+    return m;
+  }, [agents]);
+
   return (
     <div className="relative h-full w-full overflow-hidden rounded-md border border-border bg-[#070c15]">
       <Canvas
@@ -578,11 +638,8 @@ export function SpatialWorkspace() {
         </mesh>
         <gridHelper args={[40, 60, '#12324a', '#0c1626']} position={[0, -0.99, 0]} />
 
-        {/* central bus */}
-        <mesh position={BUS_POS}>
-          <icosahedronGeometry args={[0.16, 1]} />
-          <meshStandardMaterial color={ACTIVE_HEX} emissive={ACTIVE_HEX} emissiveIntensity={1.1} toneMapped={false} wireframe />
-        </mesh>
+        {/* central bus — breathes while TaskInput's mic is armed */}
+        <BusCore />
 
         {BRAINS.map((def) => {
           const { active, color } = brainStatus(def, agents);
@@ -595,6 +652,7 @@ export function SpatialWorkspace() {
                 active={active}
                 focused={focus?.kind === 'brain' && focus.key === def.key}
                 onFocus={() => setFocus({ kind: 'brain', key: def.key })}
+                idToBrain={idToBrain}
               />
             </group>
           );

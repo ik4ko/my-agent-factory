@@ -104,9 +104,9 @@ export function TaskInput() {
     setVoiceSupported(getSpeechRecognitionCtor() !== null);
   }, []);
 
-  // Producer: mirror live voice state into the CinematicCore FX bridge so
-  // the particle sphere warps into the waveform while listening, and emit
-  // terminal diagnostics on arm/disarm transitions only (not every render).
+  // Producer: mirror live voice state into the Brain Hub FX bridge so the
+  // central bus mesh breathes while listening, and emit terminal
+  // diagnostics on arm/disarm transitions only (not every render).
   const setCoreListening = useCoreFxStore((s) => s.setIsListening);
   const prevListeningRef = useRef(false);
   useEffect(() => {

@@ -360,8 +360,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/dashboard-client.tsx": {
-    "mtime": 1783470112.240686,
-    "ast_hash": "9eabccb1e48b89f986245bc3e3c6f4e7",
+    "mtime": 1783621923.1467297,
+    "ast_hash": "8a68bb3a945c5854ff78c6774c319fd6",
     "semantic_hash": ""
   },
   "src/components/dashboard/email-composer.tsx": {
@@ -1310,8 +1310,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/coding-room-client.tsx": {
-    "mtime": 1783470019.851537,
-    "ast_hash": "80b98a9e77ab27897b3e9aeeff63e1d1",
+    "mtime": 1783621033.3383536,
+    "ast_hash": "bc53be7abed87e97ac3c3d550bc3ae7e",
     "semantic_hash": ""
   },
   "src/components/dashboard/risk-panel.tsx": {
@@ -1320,8 +1320,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/room-composer.tsx": {
-    "mtime": 1783428783.1610892,
-    "ast_hash": "c744f9d04a314c09a32a33bb4b2fbf89",
+    "mtime": 1783621005.4800568,
+    "ast_hash": "f14f4054cd5f47110e21a870d8702d54",
     "semantic_hash": ""
   },
   "src/components/dashboard/room-status-strip.tsx": {
@@ -1490,8 +1490,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/SpatialWorkspace.tsx": {
-    "mtime": 1783525236.6096861,
-    "ast_hash": "c0f5e613c82233cde3f434562c1ebb13",
+    "mtime": 1783621491.4385705,
+    "ast_hash": "37dd99004f92e731ecffcf940911fd32",
     "semantic_hash": ""
   },
   "src/lib/fx/spatial-pulse.ts": {
@@ -1510,13 +1510,13 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/global-controls.tsx": {
-    "mtime": 1783533672.3761787,
-    "ast_hash": "ab9dc052dcce7d3ede4854222a5a74bb",
+    "mtime": 1783621234.9032779,
+    "ast_hash": "bcdd0a32dbae3d4a04f4586c3e18c2fb",
     "semantic_hash": ""
   },
   "src/components/dashboard/personal-room-client.tsx": {
-    "mtime": 1783533666.188102,
-    "ast_hash": "af83b3dfdd29ac065a9435340aab8b37",
+    "mtime": 1783621163.7957683,
+    "ast_hash": "a563f4cd5ccf50829b5a902937a8839c",
     "semantic_hash": ""
   },
   "src/components/dashboard/personal-todo.tsx": {
@@ -1602,11 +1602,6 @@
   "Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/support.js": {
     "mtime": 1783573658.6208596,
     "ast_hash": "843c817ed1abf0fa4deacf7162814833",
-    "semantic_hash": ""
-  },
-  "src/app/deck-gallery/page.tsx": {
-    "mtime": 1783574992.761809,
-    "ast_hash": "15a24595d42b9a15baf1f911d24eff85",
     "semantic_hash": ""
   },
   "src/components/deck/approval-gate.tsx": {
@@ -1729,11 +1724,6 @@
     "ast_hash": "bab3483b1bd165f93e0f3596d3fc0950",
     "semantic_hash": ""
   },
-  "src/app/deck-gallery/trading/page.tsx": {
-    "mtime": 1783608378.4343119,
-    "ast_hash": "3855606050d3f3d44e436dd550e43966",
-    "semantic_hash": ""
-  },
   "src/components/dashboard/execution-safety-bar.tsx": {
     "mtime": 1783576940.334075,
     "ast_hash": "46639401fc018c6fc8bb727ff9f0abfd",
@@ -1747,6 +1737,11 @@
   "src/hooks/use-staged-orders-query.ts": {
     "mtime": 1783576825.6114392,
     "ast_hash": "beab23c4ea29a61de419ee6b96c2a9b0",
+    "semantic_hash": ""
+  },
+  "src/components/dashboard/outbound-feed.tsx": {
+    "mtime": 1783621181.321056,
+    "ast_hash": "48af539858891ae723544864d1319ae8",
     "semantic_hash": ""
   }
 }
