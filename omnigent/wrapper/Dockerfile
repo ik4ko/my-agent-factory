@@ -15,6 +15,8 @@ RUN uv tool install --python 3.12 omnigent
 
 WORKDIR /app
 COPY server.mjs ./server.mjs
+COPY telegram-gate.mjs ./telegram-gate.mjs
+COPY watcher.mjs ./watcher.mjs
 
 # WRAPPER_AUTH_TOKEN_FILE / OMNIGENT_API_TOKEN(-equivalent) are supplied at
 # deploy time as platform secrets, never baked into the image.
@@ -31,8 +33,14 @@ EXPOSE 7900
 # host_id, but nothing does that automatically). The `while true` loop here
 # is that supervision — without it, any crash of just the host connection
 # (container itself staying up) would silently go unrepaired.
+# The Telegram watcher (read-only event loop) runs ONLY when its env is
+# present, under the same while-true supervision the host loop uses. The
+# watcher itself additionally refuses to start without
+# TELEGRAM_OPERATOR_CHAT_ID (allowlist-first), so a token without an
+# allowlist stays inert.
 CMD sh -c '\
   export PYTHONIOENCODING=utf-8 PYTHONUTF8=1 && \
   (while true; do omnigent host "$OMNIGENT_SERVER_URL"; sleep 2; done) & \
+  ( [ -n "$TELEGRAM_BOT_TOKEN" ] && while true; do node watcher.mjs; sleep 2; done ) & \
   exec node server.mjs \
 '

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SESSION_COOKIE, verifySessionToken } from '@/lib/auth/session';
+import { SESSION_COOKIE, verifySessionToken, timingSafeEqualStr } from '@/lib/auth/session';
 
 // Auth gate for the control room. Every API route executes service-role
 // Supabase writes (and /api/hermes/command spends Anthropic tokens), so
@@ -18,6 +18,20 @@ export async function middleware(req: NextRequest) {
 
   const password = process.env.DASHBOARD_PASSWORD;
   const isApi = pathname.startsWith('/api/');
+
+  // Machine-token lane (CRON_SECRET-style) for the event-loop host: API
+  // routes only — never the HTML dashboard — via `Authorization: Bearer
+  // MACHINE_API_TOKEN`. Fails closed when the env is unset; timing-safe
+  // compare. Privileged actions behind these routes keep their own gates
+  // (operator PIN, rate limits) — this token only replaces the session
+  // cookie a headless caller cannot hold.
+  if (isApi) {
+    const machineToken = process.env.MACHINE_API_TOKEN?.trim();
+    const auth = req.headers.get('authorization') ?? '';
+    if (machineToken && auth.startsWith('Bearer ') && timingSafeEqualStr(auth.slice(7), machineToken)) {
+      return NextResponse.next();
+    }
+  }
 
   if (!password) {
     // Fail open in local dev, fail closed everywhere else.
