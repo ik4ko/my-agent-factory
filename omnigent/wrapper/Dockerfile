@@ -16,6 +16,8 @@ RUN uv tool install --python 3.12 omnigent
 WORKDIR /app
 COPY server.mjs ./server.mjs
 COPY telegram-gate.mjs ./telegram-gate.mjs
+COPY market-hours.mjs ./market-hours.mjs
+COPY cron.mjs ./cron.mjs
 COPY watcher.mjs ./watcher.mjs
 
 # WRAPPER_AUTH_TOKEN_FILE / OMNIGENT_API_TOKEN(-equivalent) are supplied at

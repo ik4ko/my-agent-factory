@@ -22,6 +22,7 @@
 // TELEGRAM_API_BASE (test override, defaults to https://api.telegram.org).
 
 import { passesOperatorGate, operatorChatId, droppedUpdates } from './telegram-gate.mjs';
+import { startCron } from './cron.mjs';
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN?.trim();
 const API_BASE = (process.env.TELEGRAM_API_BASE?.trim() || 'https://api.telegram.org').replace(/\/+$/, '');
@@ -204,6 +205,10 @@ async function main() {
   );
   if (boot) console.log(`[watcher] startup notice delivered · message_id=${boot.message_id} · date=${boot.date}`);
 
+  // Notify-only cron schedules share this process (one supervised loop) and
+  // this sender (which only ever targets the allowlisted operator chat).
+  const stopCron = startCron({ notifyOperator });
+
   let offset = 0;
   let backoff = BACKOFF_MIN_MS;
 
@@ -241,6 +246,7 @@ async function main() {
       backoff = Math.min(BACKOFF_MAX_MS, backoff * 2);
     }
   }
+  stopCron();
   console.log('[watcher] stopped');
 }
 
