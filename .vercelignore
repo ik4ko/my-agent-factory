@@ -2,6 +2,9 @@
 # anchored to repo root with a leading slash, so nested app dirs like
 # src/lib/omnigent are never caught by accident.
 /.next-preview
+# Local build output — Vercel builds from source. `.next/cache/webpack/*.pack`
+# routinely exceeds the CLI's 100MB per-file upload limit.
+/.next
 
 # Not needed to build/serve the app — keep uploads lean.
 /graphify-out
