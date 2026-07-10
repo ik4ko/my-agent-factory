@@ -198,9 +198,9 @@ process.on('SIGTERM', () => { running = false; });
 process.on('SIGINT', () => { running = false; });
 
 async function main() {
-  console.log(`[watcher] online (read-only) · api=${API_BASE} · app=${APP_BASE_URL ?? 'unlinked'}`);
+  console.log(`[watcher] online · api=${API_BASE} · app=${APP_BASE_URL ?? 'unlinked'}`);
   const boot = await notifyOperator(
-    `watcher online (read-only) · ${new Date().toISOString()} · commands: /ping /status`,
+    `watcher online · ${new Date().toISOString()} · commands: /ping /status /approve /deny`,
   );
   if (boot) console.log(`[watcher] startup notice delivered · message_id=${boot.message_id} · date=${boot.date}`);
 
