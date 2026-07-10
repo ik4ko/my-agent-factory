@@ -1,13 +1,16 @@
-// Event-loop watcher — Telegram long-poller, READ-ONLY leg.
+// Event-loop watcher — Telegram long-poller.
 //
 // Runs as a second supervised process beside server.mjs on the persistent
 // wrapper host (see Dockerfile CMD). Scope by design, per the reviewed plan:
 //  - Long-polls getUpdates (no webhook — no inbound URL, survives restarts).
 //  - EVERY update passes the operator allowlist gate (telegram-gate.mjs)
 //    before any other logic; non-operator updates are silently dropped.
-//  - Read-only commands only: /ping, /status. NO actions — no staged-order
-//    approve/deny, no arm/kill, no writes of any kind. Those are a separate,
-//    explicitly-reviewed leg.
+//  - Read-only: /ping, /status.
+//  - Decisions: /approve <id>, /deny <id> — routed through the SAME
+//    PATCH /api/trading/action-order the dashboard cockpit calls, over the
+//    machine-token lane, carrying the Telegram update_id as a dedupe key.
+//    NO arm, NO disarm, NO kill switch: those stay PIN-gated and
+//    dashboard-only. This host cannot create orders, only decide staged ones.
 //  - Replies go ONLY to the allowlisted operator chat id, never to a chat id
 //    taken from the inbound update.
 //  - /status reads the app's preflight via the machine-token API lane
@@ -89,22 +92,102 @@ async function statusReadout() {
 }
 
 const HELP = [
-  'Read-only commands:',
+  'Commands:',
   '/ping — liveness + uptime',
   '/status — go-live preflight readout',
-  'No actions are wired over chat (by design, pending review).',
+  '/approve <order-id> — record APPROVED on a pending staged order',
+  '/deny <order-id> — record DENIED on a pending staged order',
+  '',
+  'Arm/disarm and the kill switch are dashboard-only (PIN-gated) — never over chat.',
 ].join('\n');
 
-/** Read-only command handling. Runs ONLY after the operator gate passed. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Record a human decision on an ALREADY-STAGED order by calling the same
+ * PATCH /api/trading/action-order the dashboard cockpit calls, over the
+ * machine-token lane. No new privilege path: this cannot arm, disarm, kill,
+ * or create an order — only flip a PENDING row to APPROVED/DENIED.
+ *
+ * The Telegram update_id rides along as `dedupeKey`; the server claims it in
+ * system_bus BEFORE touching the order, so an at-least-once redelivery (or a
+ * watcher restart mid-handling) can never double-fire the decision.
+ */
+async function decideOrder(update, action, rawId) {
+  if (!APP_BASE_URL || !MACHINE_API_TOKEN) {
+    await notifyOperator('cannot act: app link not configured on this host');
+    return;
+  }
+  const orderId = (rawId ?? '').trim();
+  if (!UUID_RE.test(orderId)) {
+    await notifyOperator(`bad order id — expected a uuid\nusage: /${action === 'APPROVED' ? 'approve' : 'deny'} <order-id>`);
+    return;
+  }
+
+  let res;
+  let body;
+  try {
+    res = await fetch(`${APP_BASE_URL}/api/trading/action-order`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${MACHINE_API_TOKEN}` },
+      body: JSON.stringify({
+        id: orderId,
+        action,
+        dedupeKey: String(update.update_id),
+        source: 'telegram',
+      }),
+      signal: AbortSignal.timeout(25_000),
+    });
+    body = await res.json().catch(() => ({}));
+  } catch (err) {
+    await notifyOperator(`decision NOT recorded — app unreachable (${String(err).slice(0, 80)})`);
+    return;
+  }
+
+  if (res.ok) {
+    const o = body.order ?? {};
+    await notifyOperator(
+      `${action === 'APPROVED' ? '✅ APPROVED' : '⛔ DENIED'}\n` +
+        `${o.underlying ?? '?'} ${o.option_type ?? ''} ${o.strike ?? ''} @ ${o.limit_price ?? '?'}\n` +
+        `size $${Math.round(Number(o.calculated_position_size_usd ?? 0)).toLocaleString()} · ${o.source ?? '?'}\n` +
+        `decision recorded — no broker dispatch exists`,
+    );
+    return;
+  }
+  if (res.status === 409 && body.deduped) {
+    await notifyOperator('duplicate delivery — this command was already processed (no change)');
+    return;
+  }
+  if (res.status === 409) {
+    // Explicit, never a silent drop: the id isn't a pending order.
+    await notifyOperator(`no action taken — order is not pending (not found, or already approved/denied)\nid: ${orderId}`);
+    return;
+  }
+  await notifyOperator(`decision NOT recorded — ${res.status}: ${String(body.error ?? '').slice(0, 120)}`);
+}
+
+/** Command handling. Runs ONLY after the operator allowlist gate passed. */
 async function handleOperatorMessage(update) {
   const text = (update.message?.text ?? '').trim();
-  if (text.startsWith('/ping')) {
+  // tolerate /cmd@botname and extra whitespace
+  const [rawCmd, ...rest] = text.split(/\s+/);
+  const cmd = rawCmd.split('@')[0].toLowerCase();
+
+  if (cmd === '/ping') {
     const up = Math.round((Date.now() - STARTED_AT) / 1000);
     await notifyOperator(`pong · up ${up}s · ${droppedUpdates()} non-operator update(s) dropped`);
     return;
   }
-  if (text.startsWith('/status')) {
+  if (cmd === '/status') {
     await notifyOperator(await statusReadout());
+    return;
+  }
+  if (cmd === '/approve') {
+    await decideOrder(update, 'APPROVED', rest[0]);
+    return;
+  }
+  if (cmd === '/deny') {
+    await decideOrder(update, 'DENIED', rest[0]);
     return;
   }
   await notifyOperator(HELP);

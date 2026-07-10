@@ -13,7 +13,14 @@ import { getAdminClient } from '@/lib/supabase/admin';
  * by any later pump call — unlike in-process state.
  */
 
-export type BusTopic = 'pipeline.step.completed' | 'pipeline.completed' | 'agent.thought';
+export type BusTopic =
+  | 'pipeline.step.completed'
+  | 'pipeline.completed'
+  | 'agent.thought'
+  /** Operator command delivered over Telegram. Audit + dedupe marker only —
+   *  born 'consumed' so the pump (which reads pending 'pipeline.step.completed'
+   *  rows) can never mistake it for hand-off work. */
+  | 'operator.telegram.update';
 export type BusStatus = 'pending' | 'consumed' | 'failed';
 
 export interface BusEvent {

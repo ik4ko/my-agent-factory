@@ -122,7 +122,7 @@ export type StagedOrderRow = {
 // Phase 9 — federated room event log. Dashboard reads; system writes.
 export type SystemBusRow = {
   id: string;
-  topic: 'pipeline.step.completed' | 'pipeline.completed' | 'agent.thought';
+  topic: 'pipeline.step.completed' | 'pipeline.completed' | 'agent.thought' | 'operator.telegram.update';
   agent: string | null;
   pipeline_id: string | null;
   task_id: string | null;

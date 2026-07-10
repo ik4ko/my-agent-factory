@@ -13,11 +13,19 @@ import { hermesLog } from '@/lib/hermes/hermes-logger';
  * IMPORTANT: approval records a decision — nothing more. No brokerage
  * dispatch exists in this codebase, and if/when one is mounted here it must
  * remain triggered by this human-initiated request, never by an agent.
+ *
+ * `dedupeKey` (optional): an at-least-once delivery id — today the Telegram
+ * update_id from the operator watcher. When present, the decision is CLAIMED
+ * in system_bus *before* the order is touched; the claim's unique index makes
+ * a redelivered command fail closed (409 deduped) instead of re-entering the
+ * action path. The dashboard omits it and behaves exactly as before.
  */
 
 const ActionSchema = z.object({
   id: z.string().uuid(),
   action: z.enum(['APPROVED', 'DENIED']),
+  dedupeKey: z.string().min(1).max(64).optional(),
+  source: z.string().max(32).optional(),
 });
 
 export async function PATCH(req: NextRequest) {
@@ -36,8 +44,33 @@ export async function PATCH(req: NextRequest) {
     );
   }
 
-  const { id, action } = parsed.data;
+  const { id, action, dedupeKey, source } = parsed.data;
   const db = getAdminClient();
+
+  // ── Dedupe claim — strictly BEFORE any state change ──
+  // Unique partial index on (payload->>'update_id') where
+  // topic='operator.telegram.update' makes this an atomic claim: the first
+  // delivery wins, a redelivery raises 23505 and never reaches the update.
+  if (dedupeKey) {
+    const { error: claimError } = await db.from('system_bus').insert({
+      topic: 'operator.telegram.update',
+      agent: source ?? 'telegram-watcher',
+      pipeline_id: null,
+      task_id: null,
+      payload: { update_id: dedupeKey, action, order_id: id, source: source ?? 'telegram' },
+      status: 'consumed', // audit marker, never hand-off work for the pump
+      consumed_at: new Date().toISOString(),
+    });
+    if (claimError) {
+      if (claimError.code === '23505') {
+        return NextResponse.json(
+          { error: 'Duplicate delivery — this command was already processed', deduped: true },
+          { status: 409 },
+        );
+      }
+      return NextResponse.json({ error: `dedupe claim failed: ${claimError.message}` }, { status: 500 });
+    }
+  }
 
   const { data, error } = await db
     .from('staged_orders')

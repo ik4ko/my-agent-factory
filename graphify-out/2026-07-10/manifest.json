@@ -940,9 +940,9 @@
     "semantic_hash": "8595c2f874aa1ff8c7cc28df2999f354"
   },
   "src/middleware.ts": {
-    "mtime": 1783302940.8303213,
-    "ast_hash": "8323e383b9c66f42c1eebe007492b496",
-    "semantic_hash": "8323e383b9c66f42c1eebe007492b496"
+    "mtime": 1783657015.46296,
+    "ast_hash": "e211669547e1a1b3b2329ad2e860ab57",
+    "semantic_hash": ""
   },
   "supabase/migrations/20260703_memory_semantic_gate.sql": {
     "mtime": 1783227815.4043303,
@@ -1015,8 +1015,8 @@
     "semantic_hash": ""
   },
   "tsconfig.json": {
-    "mtime": 1783638988.778982,
-    "ast_hash": "f54ccab190e35253e480714744029a96",
+    "mtime": 1783657220.5894837,
+    "ast_hash": "a600ab45d0fe711f3ffa7a40d0341a4c",
     "semantic_hash": ""
   },
   "vercel.json": {
@@ -1762,6 +1762,21 @@
   "src/components/dashboard/golive-client.tsx": {
     "mtime": 1783646903.3953311,
     "ast_hash": "c4f794205990ff20326002c1a9eb1adb",
+    "semantic_hash": ""
+  },
+  "omnigent/wrapper/telegram-gate.mjs": {
+    "mtime": 1783656975.209836,
+    "ast_hash": "51fee4b0dc3966c0fa089f5cc974d61d",
+    "semantic_hash": ""
+  },
+  "omnigent/wrapper/telegram-gate.test.mjs": {
+    "mtime": 1783656991.463819,
+    "ast_hash": "284d42f280a3e5d19e79494cdf446d6d",
+    "semantic_hash": ""
+  },
+  "omnigent/wrapper/watcher.mjs": {
+    "mtime": 1783657103.174712,
+    "ast_hash": "312443fc09072195a5808bfa692dce7e",
     "semantic_hash": ""
   }
 }
