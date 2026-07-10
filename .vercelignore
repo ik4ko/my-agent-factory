@@ -1,0 +1,17 @@
+# CLI-upload exclusions (vercel deploy). Gitignore semantics — all patterns
+# anchored to repo root with a leading slash, so nested app dirs like
+# src/lib/omnigent are never caught by accident.
+/.next-preview
+
+# Not needed to build/serve the app — keep uploads lean.
+/graphify-out
+/Design
+/omnigent
+/core
+/services
+/src-tauri
+/docs
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+/tsconfig.tsbuildinfo
