@@ -1743,5 +1743,25 @@
     "mtime": 1783621181.321056,
     "ast_hash": "48af539858891ae723544864d1319ae8",
     "semantic_hash": ""
+  },
+  "src/app/api/golive/preflight/route.ts": {
+    "mtime": 1783646798.3198626,
+    "ast_hash": "96f19513e4ca2c41a8cce37ee3ab63ad",
+    "semantic_hash": ""
+  },
+  "src/app/api/golive/selftest/route.ts": {
+    "mtime": 1783646799.4576657,
+    "ast_hash": "14b90e2ef4aa4ea4df1a54a5b01d5ea1",
+    "semantic_hash": ""
+  },
+  "src/app/dashboard/golive/page.tsx": {
+    "mtime": 1783646913.7964668,
+    "ast_hash": "8f177b6a6f11ada22121930513277f7d",
+    "semantic_hash": ""
+  },
+  "src/components/dashboard/golive-client.tsx": {
+    "mtime": 1783646903.3953311,
+    "ast_hash": "c4f794205990ff20326002c1a9eb1adb",
+    "semantic_hash": ""
   }
 }

@@ -320,8 +320,8 @@
     "semantic_hash": "aa29097fde042e90c5744117db82dedb"
   },
   "src/components/dashboard/agent-fleet.tsx": {
-    "mtime": 1783533619.411497,
-    "ast_hash": "7edfe7c32c9ac4a4cf8fd9ce2b42eb7c",
+    "mtime": 1783638853.7010024,
+    "ast_hash": "da528847d858e33ca575b1fd1c3c972d",
     "semantic_hash": ""
   },
   "src/components/dashboard/audio-briefing.tsx": {
@@ -430,8 +430,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/task-input.tsx": {
-    "mtime": 1783536178.860519,
-    "ast_hash": "3d5422a3ed68ce1b1e930b4bbc87ef74",
+    "mtime": 1783638855.7943788,
+    "ast_hash": "2e169c37cf1066d869c5d7f508ab65c9",
     "semantic_hash": ""
   },
   "src/components/dashboard/timeline-scrubber.tsx": {
@@ -735,9 +735,9 @@
     "semantic_hash": "ab5d94607058aeeff732f2367388cc93"
   },
   "src/lib/fx/core-store.ts": {
-    "mtime": 1783178188.9891126,
-    "ast_hash": "e9f01ed50fef4e7939f4a0fa5a98e7c6",
-    "semantic_hash": "e9f01ed50fef4e7939f4a0fa5a98e7c6"
+    "mtime": 1783638827.003541,
+    "ast_hash": "6c06bbedf186069762522c9ff53500de",
+    "semantic_hash": ""
   },
   "src/lib/fx/system-feed.ts": {
     "mtime": 1783178564.9810708,
@@ -1015,8 +1015,8 @@
     "semantic_hash": ""
   },
   "tsconfig.json": {
-    "mtime": 1783608104.722783,
-    "ast_hash": "77371605afd579c12b36924c6a84c984",
+    "mtime": 1783638988.778982,
+    "ast_hash": "f54ccab190e35253e480714744029a96",
     "semantic_hash": ""
   },
   "vercel.json": {
@@ -1490,8 +1490,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/SpatialWorkspace.tsx": {
-    "mtime": 1783621491.4385705,
-    "ast_hash": "37dd99004f92e731ecffcf940911fd32",
+    "mtime": 1783638809.113841,
+    "ast_hash": "4eaf9ce6c13ee3dff8f844b87769850e",
     "semantic_hash": ""
   },
   "src/lib/fx/spatial-pulse.ts": {
