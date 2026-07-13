@@ -7,10 +7,12 @@
 // not optional).
 import { cookies } from 'next/headers';
 import { z } from 'zod';
+import Anthropic from '@anthropic-ai/sdk';
 import { SESSION_COOKIE, verifySessionToken } from '@/lib/auth/session';
-import { BRAIN_IDS, BRAIN_MATRIX, type BrainId } from '@/lib/agents/brain-matrix';
+import { BRAIN_IDS, BRAIN_MATRIX, type BrainId, type BrainDef } from '@/lib/agents/brain-matrix';
 import { agentLog } from '@/lib/hermes/hermes-logger';
 import { getAdminClient } from '@/lib/supabase/admin';
+import { recordModelEvent } from '@/lib/telemetry/token-ledger';
 import { extractTradeParams, buildStagedOrder, persistStagedOrder } from '@/lib/trading/stage';
 import { getActivePortfolioBalance } from '@/lib/market/portfolio';
 import { publishAgentEvent } from '@/lib/omnigent/bridge';
@@ -19,6 +21,14 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const REQUEST_TIMEOUT_MS = 60_000;
 const MAX_HISTORY = 24;
 const CODE_FENCE = /```/;
+
+// Anthropic-direct lane pricing — the CONSERVATIVE standard rate (the $2/$10
+// intro rate is deliberately ignored so the budget cap trips early, never
+// late). Sonnet 5 standard: $3 / $15 per million input / output tokens.
+const ANTHROPIC_INPUT_USD_PER_MTOK = 3;
+const ANTHROPIC_OUTPUT_USD_PER_MTOK = 15;
+const ANTHROPIC_MONTHLY_BUDGET_DEFAULT_USD = 3.0;
+const ANTHROPIC_MAX_TOKENS = 4096;
 
 export type AgentId = BrainId;
 
@@ -140,6 +150,141 @@ async function materializeArtifacts(
   return artifacts;
 }
 
+/**
+ * Calendar-month Anthropic spend in USD, priced at the conservative standard
+ * $3/$15 rate from the metrics ledger (every anthropic-direct dispatch writes
+ * a `USAGE` row keyed by the returned model id, which begins "claude"). Throws
+ * on a query failure so the caller can FAIL CLOSED rather than dispatch blind.
+ */
+async function anthropicMonthlySpendUsd(): Promise<number> {
+  const db = getAdminClient();
+  const now = new Date();
+  const monthStartIso = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+  const { data, error } = await db
+    .from('metrics')
+    .select('input_tokens, output_tokens')
+    .like('model', 'claude%')
+    .gte('created_at', monthStartIso)
+    .limit(50_000);
+  if (error) throw new Error(error.message);
+  let usd = 0;
+  for (const row of data ?? []) {
+    usd +=
+      ((row.input_tokens ?? 0) / 1_000_000) * ANTHROPIC_INPUT_USD_PER_MTOK +
+      ((row.output_tokens ?? 0) / 1_000_000) * ANTHROPIC_OUTPUT_USD_PER_MTOK;
+  }
+  return usd;
+}
+
+/**
+ * Anthropic-direct dispatch (the CLAUDE lane). Parallel to the OpenRouter path
+ * but through the official SDK: no temperature (Sonnet 5 rejects it), a
+ * hard monthly budget gate that fails LOUD with no downgrade, and exact usage
+ * recorded to the same metrics ledger the budget reads. Honors the file's
+ * sovereign contract — verbatim model, fail-loud, no provider fallback.
+ */
+async function dispatchAnthropic(
+  agentId: AgentId,
+  agent: BrainDef,
+  prompt: string,
+  history: Array<{ role: 'user' | 'assistant'; content: string }>,
+): Promise<AgentDispatchResult> {
+  const fail = (error: string): AgentDispatchResult => ({
+    agentId,
+    modelUsed: agent.model,
+    content: '',
+    timestamp: new Date().toISOString(),
+    error,
+  });
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return fail('ANTHROPIC_API_KEY not configured');
+
+  // Budget gate — fail CLOSED on a query error, and never silently downgrade.
+  const budgetUsd = Number(process.env.ANTHROPIC_MONTHLY_BUDGET_USD) || ANTHROPIC_MONTHLY_BUDGET_DEFAULT_USD;
+  let spentUsd: number;
+  try {
+    spentUsd = await anthropicMonthlySpendUsd();
+  } catch (err) {
+    const reason = `budget check failed (fail-closed) — ${err instanceof Error ? err.message : 'metrics query error'}`;
+    await agentLog('error', agentId, reason);
+    return fail(reason);
+  }
+  if (spentUsd >= budgetUsd) {
+    const reason = `Anthropic monthly budget exceeded: $${spentUsd.toFixed(2)} ≥ $${budgetUsd.toFixed(2)} cap (ANTHROPIC_MONTHLY_BUDGET_USD) — no fallback`;
+    await agentLog('warn', agentId, `dispatch blocked — ${reason}`);
+    return fail(reason);
+  }
+
+  const client = new Anthropic({ apiKey });
+  const t0 = Date.now();
+  try {
+    const msg = await client.messages.create({
+      model: agent.model,
+      max_tokens: ANTHROPIC_MAX_TOKENS,
+      // No temperature — Sonnet 5 rejects non-default sampling params.
+      // Thinking disabled for parity with the completion-style matrix lanes
+      // and predictable token accounting against the budget cap.
+      thinking: { type: 'disabled' },
+      system: agent.system,
+      messages: [
+        ...history.slice(-MAX_HISTORY),
+        { role: 'user' as const, content: prompt },
+      ],
+    });
+    const latencyMs = Date.now() - t0;
+
+    const content = msg.content
+      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+      .map((b) => b.text)
+      .join('');
+    if (!content) {
+      await agentLog('error', agentId, `dispatch failed after ${latencyMs}ms — empty completion`);
+      return fail('Anthropic returned an empty completion');
+    }
+
+    // Usage → ledger (the budget query above reads these rows next month/call).
+    // Keyed by the API-returned model id, which is the genuine Anthropic proof.
+    // NOTE: metrics.agent_id is a uuid column — the brain-lane name cannot go
+    // there, so it rides in `detail`. The budget gate keys off model, not agent.
+    await recordModelEvent({
+      model: msg.model,
+      event: 'USAGE',
+      inputTokens: msg.usage.input_tokens,
+      outputTokens: msg.usage.output_tokens,
+      detail: `${agentId} lane · ${latencyMs}ms`,
+    });
+
+    await agentLog(
+      'success',
+      agentId,
+      `dispatch completed in ${latencyMs}ms · ${msg.model} · in=${msg.usage.input_tokens} out=${msg.usage.output_tokens}`,
+    );
+    const materialized = await materializeArtifacts(agentId, prompt, content, msg.model);
+
+    publishAgentEvent({
+      kind: 'agent.task_completed',
+      agentId,
+      taskId: null,
+      summary: `${prompt.slice(0, 120)} → ${content.slice(0, 160)}`,
+      ts: Date.now(),
+    });
+
+    return {
+      agentId,
+      modelUsed: msg.model,
+      content,
+      timestamp: new Date().toISOString(),
+      ...(materialized.length > 0 ? { materialized } : {}),
+    };
+  } catch (err) {
+    const latencyMs = Date.now() - t0;
+    const reason = err instanceof Error ? err.message : 'dispatch failed';
+    await agentLog('error', agentId, `dispatch failed after ${latencyMs}ms — ${reason}`);
+    return fail(reason);
+  }
+}
+
 export async function dispatchAgent(rawInput: AgentDispatchInput): Promise<AgentDispatchResult> {
   const fail = (agentId: AgentId, modelUsed: string, error: string): AgentDispatchResult => ({
     agentId,
@@ -154,12 +299,20 @@ export async function dispatchAgent(rawInput: AgentDispatchInput): Promise<Agent
     return fail('HERMES', 'none', `invalid dispatch payload: ${parsed.error.issues[0]?.message ?? 'validation failed'}`);
   }
   const { agentId, prompt, history } = parsed.data;
-  const agent = BRAIN_MATRIX[agentId];
+  // Widen to BrainDef so the optional `provider`/`temperature` fields are
+  // visible on the union of matrix entries (only CLAUDE carries `provider`).
+  const agent: BrainDef = BRAIN_MATRIX[agentId];
 
   try {
     await assertOperatorSession();
   } catch (err) {
     return fail(agentId, agent.model, err instanceof Error ? err.message : 'session check failed');
+  }
+
+  // Provider branch — anthropic-direct lanes never touch OpenRouter. Session
+  // gate above still applies (this is reached only after it passes).
+  if (agent.provider === 'anthropic-direct') {
+    return dispatchAnthropic(agentId, agent, prompt, history);
   }
 
   const apiKey = process.env.OPENROUTER_API_KEY;

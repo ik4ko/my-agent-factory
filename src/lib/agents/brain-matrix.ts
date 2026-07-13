@@ -10,8 +10,19 @@
 // catalog 2026-07-07.
 
 export interface BrainDef {
-  /** OpenRouter model slug */
+  /** Dispatch provider. Absent = OpenRouter (the default for the matrix, and
+   *  what dispatchAgent assumes when the field is missing). 'anthropic-direct'
+   *  routes through the official Anthropic SDK using ANTHROPIC_API_KEY, gated
+   *  by a monthly USD budget — never the OpenRouter proxy. */
+  provider?: 'openrouter' | 'anthropic-direct';
+  /** OpenRouter model slug, or an Anthropic model id on 'anthropic-direct'. */
   model: string;
+  /** Sampling temperature. Sent verbatim on OpenRouter lanes. On
+   *  'anthropic-direct' lanes it is INERT — the dispatcher's Anthropic branch
+   *  never sends it, because Claude Sonnet 5 rejects non-default sampling
+   *  params (temperature/top_p/top_k removed on Sonnet 5 / Opus 4.7+) with a
+   *  400. Kept required so every consumer that reads `.temperature` off the
+   *  matrix union (e.g. the SMS/phone OpenRouter path) stays type-safe. */
   temperature: number;
   tier: 1 | 2 | 3;
   role: string;
@@ -49,6 +60,23 @@ export const BRAIN_MATRIX = {
     role: 'contrarian ideation',
     system:
       'You are GROK, a contrarian ideation engine. Generate unconventional angles and stress-test the consensus view. Flag which ideas are speculative.',
+  },
+  CLAUDE: {
+    // Sovereign: Anthropic native — dispatched via the official Anthropic SDK,
+    // NOT the OpenRouter proxy. Model id is current (claude-sonnet-5;
+    // claude-3-5-sonnet is retired). No temperature is carried: Sonnet 5
+    // rejects non-default sampling params. Budget-gated per month, fail-loud,
+    // no fallback — same sovereign contract as every other lane.
+    provider: 'anthropic-direct',
+    model: 'claude-sonnet-5',
+    // INERT — never sent to Anthropic (Sonnet 5 rejects non-default sampling
+    // params). Present only to satisfy the required-field contract that keeps
+    // the OpenRouter/SMS consumers type-safe. See dispatchAnthropic().
+    temperature: 0.3,
+    tier: 1,
+    role: 'frontier reasoning',
+    system:
+      'You are CLAUDE, a frontier reasoning brain in My Agent Factory. Give rigorous, well-structured answers; lead with the outcome, then support it. State assumptions and uncertainty explicitly, and never fabricate live market or web data — name your knowledge source.',
   },
   // Tier 2 — specialized workers
   CODEX: {

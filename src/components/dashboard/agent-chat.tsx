@@ -10,7 +10,10 @@ import { shortModel } from '@/lib/telemetry/pricing';
 import { pushSystemFeed } from '@/lib/fx/system-feed';
 import { cn } from '@/lib/utils';
 
-type Lane = 'CLAUDE' | 'AUTO' | BrainId;
+// 'CEO' is the /api/converse delegation loop (visible as "CLAUDE · CEO").
+// Its internal id was renamed from 'CLAUDE' → 'CEO' so the matrix can own a
+// real 'CLAUDE' lane via BrainId without an id collision.
+type Lane = 'CEO' | 'AUTO' | BrainId;
 
 interface ChatTurn {
   role: 'user' | 'assistant';
@@ -33,7 +36,7 @@ export function routeIntent(prompt: string): BrainId {
 }
 
 const LANE_LABEL = (lane: Lane): string =>
-  lane === 'CLAUDE' ? 'CLAUDE · CEO' : lane === 'AUTO' ? 'AUTO · intent-routed' : `${lane} · ${BRAIN_MATRIX[lane].role}`;
+  lane === 'CEO' ? 'CLAUDE · CEO' : lane === 'AUTO' ? 'AUTO · intent-routed' : `${lane} · ${BRAIN_MATRIX[lane].role}`;
 
 /**
  * Unified orchestration chat — THE prompt surface of the command horizon.
@@ -56,10 +59,10 @@ export function AgentChat({ variant = 'panel' }: { variant?: 'panel' | 'full' })
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const isCeo = lane === 'CLAUDE';
+  const isCeo = lane === 'CEO';
   const busy = isCeo ? converse.busy : matrixBusy;
   const turns: ChatTurn[] = isCeo
-    ? converse.history.map((t) => (t.role === 'assistant' ? { ...t, agentId: 'CLAUDE' } : t))
+    ? converse.history.map((t) => (t.role === 'assistant' ? { ...t, agentId: 'CEO' } : t))
     : matrixTurns;
 
   useEffect(() => {
@@ -140,7 +143,7 @@ export function AgentChat({ variant = 'panel' }: { variant?: 'panel' | 'full' })
           className="ml-1 min-w-0 max-w-[220px] rounded border border-border bg-surface-1 px-1.5 py-0.5 font-terminal text-[10px] text-foreground outline-none focus:border-primary/40"
         >
           <option value="AUTO">{LANE_LABEL('AUTO')}</option>
-          <option value="CLAUDE">{LANE_LABEL('CLAUDE')}</option>
+          <option value="CEO">{LANE_LABEL('CEO')}</option>
           {BRAIN_IDS.map((id) => (
             <option key={id} value={id}>
               {LANE_LABEL(id)}
