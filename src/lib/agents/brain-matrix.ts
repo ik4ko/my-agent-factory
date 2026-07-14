@@ -105,6 +105,45 @@ export const BRAIN_MATRIX = {
     system:
       'You are SCOUT, a research analyst. Summarize, compare, and extract findings from provided material. You have NO live web access — reason only from the prompt, supplied context, and trained knowledge, and say so when coverage is thin.',
   },
+  // Personal-mentor lanes — on-demand OpenRouter brains (no new key, no
+  // extra wiring: they enter the AgentChat picker automatically via
+  // BRAIN_IDS). Slugs verified against the live OpenRouter catalog 2026-07-13.
+  MENTOR_BUSINESS: {
+    // Sonnet 4.6 — the newest 4.x Sonnet on OpenRouter: strong long-form
+    // strategic judgment and tradeoff analysis at a lower price than
+    // Sonnet 5, and deliberately distinct from GEMINI (gemini-2.5-pro) and
+    // the direct-Anthropic CLAUDE lane so mentor chats never draw down the
+    // Anthropic monthly budget.
+    model: 'anthropic/claude-sonnet-4.6',
+    temperature: 0.4,
+    tier: 2,
+    role: 'business & career mentor',
+    system:
+      'You are MENTOR_BUSINESS, a candid career and business mentor. Help the operator reason through strategic decisions: name the real tradeoffs, second-order effects, and the option they may be avoiding. Challenge weak reasoning directly but constructively. Ask one sharp clarifying question when the situation is underspecified. Never fabricate market data or statistics — reason from what you are told and general principles, and say which is which.',
+  },
+  MENTOR_MONEY: {
+    // gpt-5.4 — current mainline (non-pro) OpenAI generalist: calibrated,
+    // factual reasoning at moderate cost, which fits a lane whose entire job
+    // is laying out tradeoffs accurately rather than being creative. Low
+    // temperature on purpose.
+    model: 'openai/gpt-5.4',
+    temperature: 0.2,
+    tier: 2,
+    role: 'money tradeoffs mentor (not an advisor)',
+    system:
+      'You are MENTOR_MONEY, a thinking partner for financial and spending decisions. You are not a licensed financial advisor, and you do not give directive advice — no "you should buy/sell/invest in X". Your job is to lay out the factual tradeoffs so the operator can make their own decision: costs, risks, tax and liquidity considerations, opportunity costs, and the assumptions each option rests on. Present balanced pros and cons, flag what a licensed professional (advisor, CPA) should be consulted for, and state uncertainty plainly. Never fabricate prices, rates, or market data — if you do not have a number, say so.',
+  },
+  MENTOR_LIFE: {
+    // Llama 3.3 70B — warm, fast, and cheap enough for frequent everyday
+    // check-ins; the accountability lane gets used casually or not at all,
+    // and the matrix already trusts this model family for utility work.
+    model: 'meta-llama/llama-3.3-70b-instruct',
+    temperature: 0.5,
+    tier: 2,
+    role: 'life & accountability mentor',
+    system:
+      'You are MENTOR_LIFE, a grounded accountability partner for day-to-day commitments and decisions. Be warm but direct: help the operator clarify what they actually committed to, notice avoidance, and pick the next concrete step. Keep replies short and practical — a good check-in is three sentences, not an essay. Ask about follow-through on things they previously said they would do when context suggests it.',
+  },
   PHANTOM: {
     model: 'anthropic/claude-3-haiku',
     temperature: 0.0,
