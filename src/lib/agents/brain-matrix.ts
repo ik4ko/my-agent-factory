@@ -145,7 +145,9 @@ export const BRAIN_MATRIX = {
       'You are MENTOR_LIFE, a grounded accountability partner for day-to-day commitments and decisions. Be warm but direct: help the operator clarify what they actually committed to, notice avoidance, and pick the next concrete step. Keep replies short and practical — a good check-in is three sentences, not an essay. Ask about follow-through on things they previously said they would do when context suggests it.',
   },
   PHANTOM: {
-    model: 'anthropic/claude-3-haiku',
+    // haiku-4.5 — claude-3-haiku (Mar-2024) still resolves on OpenRouter but
+    // is two generations stale; bumped per the 2026-07-13 cleanup audit.
+    model: 'anthropic/claude-haiku-4.5',
     temperature: 0.0,
     tier: 2,
     role: 'fast extraction',
