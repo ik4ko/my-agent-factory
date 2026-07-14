@@ -288,13 +288,16 @@ async function dispatchAnthropic(
     );
     const materialized = await materializeArtifacts(agentId, prompt, content, msg.model);
 
-    publishAgentEvent({
-      kind: 'agent.task_completed',
-      agentId,
-      taskId: null,
-      summary: `${prompt.slice(0, 120)} → ${content.slice(0, 160)}`,
-      ts: Date.now(),
-    });
+    // Private lanes (mentors) never mirror prompt/reply snippets off-box.
+    if (!agent.private) {
+      publishAgentEvent({
+        kind: 'agent.task_completed',
+        agentId,
+        taskId: null,
+        summary: `${prompt.slice(0, 120)} → ${content.slice(0, 160)}`,
+        ts: Date.now(),
+      });
+    }
 
     return {
       agentId,
@@ -431,13 +434,16 @@ async function dispatchOpenAI(
     );
     const materialized = await materializeArtifacts(agentId, prompt, content, response.model);
 
-    publishAgentEvent({
-      kind: 'agent.task_completed',
-      agentId,
-      taskId: null,
-      summary: `${prompt.slice(0, 120)} → ${content.slice(0, 160)}`,
-      ts: Date.now(),
-    });
+    // Private lanes (mentors) never mirror prompt/reply snippets off-box.
+    if (!agent.private) {
+      publishAgentEvent({
+        kind: 'agent.task_completed',
+        agentId,
+        taskId: null,
+        summary: `${prompt.slice(0, 120)} → ${content.slice(0, 160)}`,
+        ts: Date.now(),
+      });
+    }
 
     return {
       agentId,
@@ -540,13 +546,16 @@ async function dispatchNvidia(
     await agentLog('success', agentId, `dispatch completed in ${latencyMs}ms · ${data.model ?? agent.model} · in=${data.usage?.prompt_tokens ?? 0} out=${data.usage?.completion_tokens ?? 0}`);
     const materialized = await materializeArtifacts(agentId, prompt, content, data.model ?? agent.model);
 
-    publishAgentEvent({
-      kind: 'agent.task_completed',
-      agentId,
-      taskId: null,
-      summary: `${prompt.slice(0, 120)} → ${content.slice(0, 160)}`,
-      ts: Date.now(),
-    });
+    // Private lanes (mentors) never mirror prompt/reply snippets off-box.
+    if (!agent.private) {
+      publishAgentEvent({
+        kind: 'agent.task_completed',
+        agentId,
+        taskId: null,
+        summary: `${prompt.slice(0, 120)} → ${content.slice(0, 160)}`,
+        ts: Date.now(),
+      });
+    }
 
     return {
       agentId,
@@ -649,13 +658,16 @@ export async function dispatchAgent(rawInput: AgentDispatchInput): Promise<Agent
     await agentLog('success', agentId, `dispatch completed in ${latencyMs}ms · ${agent.model}`);
     const materialized = await materializeArtifacts(agentId, prompt, content, agent.model);
 
-    publishAgentEvent({
-      kind: 'agent.task_completed',
-      agentId,
-      taskId: null,
-      summary: `${prompt.slice(0, 120)} → ${content.slice(0, 160)}`,
-      ts: Date.now(),
-    });
+    // Private lanes (mentors) never mirror prompt/reply snippets off-box.
+    if (!agent.private) {
+      publishAgentEvent({
+        kind: 'agent.task_completed',
+        agentId,
+        taskId: null,
+        summary: `${prompt.slice(0, 120)} → ${content.slice(0, 160)}`,
+        ts: Date.now(),
+      });
+    }
 
     return {
       agentId,

@@ -28,6 +28,14 @@ export interface BrainDef {
   tier: 1 | 2 | 3;
   role: string;
   system: string;
+  /** Private lane: prompt/reply snippets are kept OUT of the cross-room
+   *  system feed (pushSystemFeed DISPATCH lines render in every room's
+   *  terminal) and the Omnigent shared-session mirror (publishAgentEvent
+   *  sends snippets off-box). Set on the personal-mentor lanes — a money or
+   *  career conversation must not surface in the Trading/Coding room feeds
+   *  or transit the narration layer. Replies still render in the chat that
+   *  asked, and agentLog/ledger rows (no prompt content) are unaffected. */
+  private?: boolean;
 }
 
 export const BRAIN_MATRIX = {
@@ -114,6 +122,7 @@ export const BRAIN_MATRIX = {
     // Sonnet 5, and deliberately distinct from GEMINI (gemini-2.5-pro) and
     // the direct-Anthropic CLAUDE lane so mentor chats never draw down the
     // Anthropic monthly budget.
+    private: true,
     model: 'anthropic/claude-sonnet-4.6',
     temperature: 0.4,
     tier: 2,
@@ -126,6 +135,7 @@ export const BRAIN_MATRIX = {
     // factual reasoning at moderate cost, which fits a lane whose entire job
     // is laying out tradeoffs accurately rather than being creative. Low
     // temperature on purpose.
+    private: true,
     model: 'openai/gpt-5.4',
     temperature: 0.2,
     tier: 2,
@@ -137,6 +147,7 @@ export const BRAIN_MATRIX = {
     // Llama 3.3 70B — warm, fast, and cheap enough for frequent everyday
     // check-ins; the accountability lane gets used casually or not at all,
     // and the matrix already trusts this model family for utility work.
+    private: true,
     model: 'meta-llama/llama-3.3-70b-instruct',
     temperature: 0.5,
     tier: 2,

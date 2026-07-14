@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Bot, Send, User, Volume2, VolumeX } from 'lucide-react';
 import { dispatchAgent, type MaterializedArtifact } from '@/app/actions/agent-dispatcher';
-import { BRAIN_IDS, BRAIN_MATRIX, type BrainId } from '@/lib/agents/brain-matrix';
+import { BRAIN_IDS, BRAIN_MATRIX, type BrainId, type BrainDef } from '@/lib/agents/brain-matrix';
 import { classifyIntent } from '@/lib/agents/intent-router';
 import { useConverse, speakBrowser } from '@/hooks/use-converse';
 import { shortModel } from '@/lib/telemetry/pricing';
@@ -81,9 +81,14 @@ export function AgentChat({ variant = 'panel' }: { variant?: 'panel' | 'full' })
     }
 
     const agentId = lane === 'AUTO' ? routeIntent(prompt) : lane;
+    // Private lanes (mentors): no DISPATCH lines — the system feed renders in
+    // EVERY room's terminal, and a money/career prompt must not surface there.
+    const isPrivate = Boolean((BRAIN_MATRIX[agentId] as BrainDef).private);
     setMatrixBusy(true);
     setMatrixTurns((t) => [...t, { role: 'user', content: prompt }]);
-    pushSystemFeed('DISPATCH', `[${agentId}] dispatch → "${prompt.slice(0, 48)}${prompt.length > 48 ? '…' : ''}"`);
+    if (!isPrivate) {
+      pushSystemFeed('DISPATCH', `[${agentId}] dispatch → "${prompt.slice(0, 48)}${prompt.length > 48 ? '…' : ''}"`);
+    }
     try {
       const history = matrixTurns
         .filter((t) => !t.error)
@@ -102,7 +107,7 @@ export function AgentChat({ variant = 'panel' }: { variant?: 'panel' | 'full' })
           materialized: result.materialized,
         },
       ]);
-      if (result.materialized?.length) {
+      if (result.materialized?.length && !isPrivate) {
         pushSystemFeed(
           'DISPATCH',
           `[${agentId}] → ${result.materialized.map((m) => m.label).join(', ')}`,
