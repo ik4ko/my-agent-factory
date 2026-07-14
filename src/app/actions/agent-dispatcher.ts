@@ -11,6 +11,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { SESSION_COOKIE, verifySessionToken } from '@/lib/auth/session';
 import { BRAIN_IDS, BRAIN_MATRIX, type BrainId, type BrainDef } from '@/lib/agents/brain-matrix';
+import { classifyNvidiaFailure } from '@/lib/agents/nvidia-errors';
 import { agentLog } from '@/lib/hermes/hermes-logger';
 import { getAdminClient } from '@/lib/supabase/admin';
 import { recordModelEvent } from '@/lib/telemetry/token-ledger';
@@ -46,6 +47,14 @@ const OPENAI_MAX_COMPLETION_TOKENS = 8192;
 // thinking:disabled. Keeps latency and (output-priced) reasoning tokens
 // predictable against the budget cap.
 const OPENAI_REASONING_EFFORT = 'low' as const;
+
+// NVIDIA-direct lane (experimental, free-tier). Endpoint + auth verified
+// against NVIDIA's hosted-API docs 2026-07-13: OpenAI-compatible chat
+// completions at integrate.api.nvidia.com, Authorization: Bearer nvapi-….
+// Free tier = finite signup credits + 40 requests/minute, so exhaustion and
+// rate-limiting are expected failure modes with their own reporting.
+const NVIDIA_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
+const NVIDIA_MAX_TOKENS = 2048;
 
 export type AgentId = BrainId;
 
@@ -445,6 +454,120 @@ async function dispatchOpenAI(
   }
 }
 
+/**
+ * NVIDIA-direct dispatch (the experimental NEMOTRON lane). OpenAI-compatible
+ * wire shape over plain fetch — but NOT assumed identical: verified against
+ * NVIDIA's docs (model id, endpoint, bearer-token auth; temperature and
+ * max_tokens are supported on this lane, unlike the reasoning-model lanes).
+ * Free-tier reality is encoded here: 429 (40 RPM) and credit exhaustion are
+ * DISTINCT, plainly-worded failures — an expected outcome of a finite free
+ * tier, not a generic dispatch error. Fail-loud, no fallback to any other
+ * lane, per the file's sovereign contract.
+ */
+async function dispatchNvidia(
+  agentId: AgentId,
+  agent: BrainDef,
+  prompt: string,
+  history: Array<{ role: 'user' | 'assistant'; content: string }>,
+): Promise<AgentDispatchResult> {
+  const fail = (error: string): AgentDispatchResult => ({
+    agentId,
+    modelUsed: agent.model,
+    content: '',
+    timestamp: new Date().toISOString(),
+    error,
+  });
+
+  const apiKey = process.env.NVIDIA_API_KEY;
+  if (!apiKey) return fail('NVIDIA_API_KEY not configured (nvapi-… key from build.nvidia.com)');
+
+  const t0 = Date.now();
+  try {
+    const res = await fetch(NVIDIA_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: agent.model,
+        temperature: agent.temperature,
+        max_tokens: NVIDIA_MAX_TOKENS,
+        messages: [
+          { role: 'system' as const, content: agent.system },
+          ...history.slice(-MAX_HISTORY),
+          { role: 'user' as const, content: prompt },
+        ],
+      }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      cache: 'no-store',
+    });
+    const latencyMs = Date.now() - t0;
+    const data = (await res.json().catch(() => ({}))) as {
+      choices?: Array<{ message?: { content?: string } }>;
+      usage?: { prompt_tokens?: number; completion_tokens?: number };
+      model?: string;
+      error?: { message?: string; code?: string };
+    };
+
+    if (!res.ok) {
+      // ── Distinct free-tier failure modes — expected, not exceptional.
+      // Classification is pure + unit-tested (src/lib/agents/nvidia-errors.ts):
+      // 429 → rate-limit, 402/403+credit-text → exhaustion, else generic.
+      const failure = classifyNvidiaFailure(res.status, data.error?.message ?? '');
+      await agentLog(
+        failure.kind === 'api-error' ? 'error' : 'warn',
+        agentId,
+        `dispatch ${failure.kind === 'api-error' ? 'failed' : 'blocked'} after ${latencyMs}ms — ${failure.reason}`,
+      );
+      return fail(failure.reason);
+    }
+
+    const content = data.choices?.[0]?.message?.content;
+    if (typeof content !== 'string' || content.length === 0) {
+      await agentLog('error', agentId, `dispatch failed after ${latencyMs}ms — empty completion`);
+      return fail('NVIDIA returned an empty completion');
+    }
+
+    // Usage → ledger. NVIDIA model ids ("nvidia/…") don't collide with the
+    // claude%/gpt% budget queries; there is no USD budget here — the finite
+    // resource is the credit pool, and its exhaustion reports loudly above.
+    await recordModelEvent({
+      model: data.model ?? agent.model,
+      event: 'USAGE',
+      inputTokens: data.usage?.prompt_tokens ?? 0,
+      outputTokens: data.usage?.completion_tokens ?? 0,
+      detail: `${agentId} lane · ${latencyMs}ms`,
+    });
+
+    await agentLog('success', agentId, `dispatch completed in ${latencyMs}ms · ${data.model ?? agent.model} · in=${data.usage?.prompt_tokens ?? 0} out=${data.usage?.completion_tokens ?? 0}`);
+    const materialized = await materializeArtifacts(agentId, prompt, content, data.model ?? agent.model);
+
+    publishAgentEvent({
+      kind: 'agent.task_completed',
+      agentId,
+      taskId: null,
+      summary: `${prompt.slice(0, 120)} → ${content.slice(0, 160)}`,
+      ts: Date.now(),
+    });
+
+    return {
+      agentId,
+      modelUsed: data.model ?? agent.model,
+      content,
+      timestamp: new Date().toISOString(),
+      ...(materialized.length > 0 ? { materialized } : {}),
+    };
+  } catch (err) {
+    const latencyMs = Date.now() - t0;
+    const reason =
+      err instanceof Error && err.name === 'TimeoutError'
+        ? `request timed out after ${REQUEST_TIMEOUT_MS / 1000}s`
+        : err instanceof Error
+          ? err.message
+          : 'dispatch failed';
+    await agentLog('error', agentId, `dispatch failed after ${latencyMs}ms — ${reason}`);
+    return fail(reason);
+  }
+}
+
 export async function dispatchAgent(rawInput: AgentDispatchInput): Promise<AgentDispatchResult> {
   const fail = (agentId: AgentId, modelUsed: string, error: string): AgentDispatchResult => ({
     agentId,
@@ -476,6 +599,9 @@ export async function dispatchAgent(rawInput: AgentDispatchInput): Promise<Agent
   }
   if (agent.provider === 'openai-direct') {
     return dispatchOpenAI(agentId, agent, prompt, history);
+  }
+  if (agent.provider === 'nvidia-direct') {
+    return dispatchNvidia(agentId, agent, prompt, history);
   }
 
   const apiKey = process.env.OPENROUTER_API_KEY;

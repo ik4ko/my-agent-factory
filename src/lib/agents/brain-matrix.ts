@@ -15,7 +15,7 @@ export interface BrainDef {
    *  and 'openai-direct' route through the vendor's official SDK
    *  (ANTHROPIC_API_KEY / OPENAI_API_KEY respectively), each gated by its own
    *  monthly USD budget — never the OpenRouter proxy. */
-  provider?: 'openrouter' | 'anthropic-direct' | 'openai-direct';
+  provider?: 'openrouter' | 'anthropic-direct' | 'openai-direct' | 'nvidia-direct';
   /** OpenRouter model slug, or the vendor's own model id on a direct lane. */
   model: string;
   /** Sampling temperature. Sent verbatim on OpenRouter lanes. On the direct
@@ -153,6 +153,23 @@ export const BRAIN_MATRIX = {
       'You are PHANTOM, a fast extraction worker. Return only the requested structure — no preamble, no commentary. If asked for JSON, return strictly valid JSON.',
   },
   // Tier 3 — utilities
+  NEMOTRON: {
+    // EXPERIMENTAL free-tier lane (the "NVIDIA lane") — dispatched via
+    // NVIDIA's hosted API (integrate.api.nvidia.com, OpenAI-compatible chat
+    // shape, Authorization: Bearer nvapi-…, NVIDIA_API_KEY env). Model id
+    // verified against NVIDIA's own reference docs 2026-07-13. Free tier is
+    // finite (signup credits) and rate-limited (40 RPM), so credit
+    // exhaustion and rate-limiting are DISTINCT, expected failure modes with
+    // their own reporting in dispatchNvidia() — not generic errors. Fail-loud,
+    // no fallback: same sovereign contract as every other lane.
+    provider: 'nvidia-direct',
+    model: 'nvidia/llama-3.3-nemotron-super-49b-v1.5',
+    temperature: 0.4,
+    tier: 3,
+    role: 'experimental free-tier reasoner (best-effort)',
+    system:
+      'You are NEMOTRON, an experimental best-effort brain in My Agent Factory running on a free-tier NVIDIA endpoint. Give concise, structured answers. You are not a primary decision-maker: flag uncertainty openly and never fabricate live market or web data.',
+  },
   CRONOS: {
     model: 'meta-llama/llama-3.1-8b-instruct',
     temperature: 0.1,
