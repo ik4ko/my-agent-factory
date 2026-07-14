@@ -38,9 +38,9 @@ const ANTHROPIC_MAX_TOKENS = 4096;
 const OPENAI_INPUT_USD_PER_MTOK = 1.75;
 const OPENAI_OUTPUT_USD_PER_MTOK = 14;
 const OPENAI_MONTHLY_BUDGET_DEFAULT_USD = 3.0;
-// gpt-5.3-codex is a reasoning model: the API uses max_completion_tokens (not
-// max_tokens), and reasoning tokens count against this cap — set high enough
-// that low-effort reasoning cannot starve the visible answer.
+// gpt-5.3-codex is a reasoning model on the Responses API: max_output_tokens
+// caps reasoning + visible answer together — set high enough that low-effort
+// reasoning cannot starve the visible answer.
 const OPENAI_MAX_COMPLETION_TOKENS = 8192;
 // Floor the reasoning effort — the OpenAI analog of Anthropic's
 // thinking:disabled. Keeps latency and (output-priced) reasoning tokens
@@ -331,12 +331,13 @@ async function openaiMonthlySpendUsd(): Promise<number> {
 
 /**
  * OpenAI-direct dispatch (the CODEX lane). Parallel to dispatchAnthropic but
- * through the official OpenAI SDK: gpt-5.3-codex is a reasoning model, so no
- * temperature (rejected with a 400) and max_completion_tokens rather than
- * max_tokens; reasoning effort is floored to keep cost predictable. A hard
- * monthly budget gate that fails LOUD with no downgrade, and exact usage
- * recorded to the same metrics ledger the gate reads. Honors the sovereign
- * contract — verbatim model, fail-loud, no provider fallback.
+ * through the official OpenAI SDK — on the RESPONSES API: codex-line models
+ * are not served on /v1/chat/completions at all (404, verified live), and as
+ * reasoning models they take no temperature; reasoning effort is floored to
+ * keep cost predictable. A hard monthly budget gate that fails LOUD with no
+ * downgrade, and exact usage recorded to the same metrics ledger the gate
+ * reads. Honors the sovereign contract — verbatim model, fail-loud, no
+ * provider fallback.
  */
 async function dispatchOpenAI(
   agentId: AgentId,
@@ -374,28 +375,30 @@ async function dispatchOpenAI(
   const client = new OpenAI({ apiKey });
   const t0 = Date.now();
   try {
-    const completion = await client.chat.completions.create({
+    // RESPONSES API, not chat completions — verified live 2026-07-13: the
+    // codex-line models 404 on /v1/chat/completions ("Use the v1/responses
+    // endpoint instead"). No temperature (gpt-5.x reasoning models reject
+    // non-default sampling); reasoning effort floored (parity with the
+    // Anthropic branch's thinking:disabled); max_output_tokens caps
+    // reasoning + answer together, so it stays generous.
+    const response = await client.responses.create({
       model: agent.model,
-      // No temperature — gpt-5.x reasoning models reject non-default sampling.
-      // Reasoning floored (parity with the Anthropic branch's thinking:disabled)
-      // and capped by max_completion_tokens, NOT max_tokens (reasoning models).
-      max_completion_tokens: OPENAI_MAX_COMPLETION_TOKENS,
-      reasoning_effort: OPENAI_REASONING_EFFORT,
-      messages: [
-        { role: 'system' as const, content: agent.system },
+      instructions: agent.system,
+      input: [
         ...history.slice(-MAX_HISTORY),
         { role: 'user' as const, content: prompt },
       ],
+      max_output_tokens: OPENAI_MAX_COMPLETION_TOKENS,
+      reasoning: { effort: OPENAI_REASONING_EFFORT },
     });
     const latencyMs = Date.now() - t0;
 
-    const choice = completion.choices[0];
-    const content = choice?.message?.content ?? '';
+    const content = response.output_text ?? '';
     if (!content) {
       const why =
-        choice?.finish_reason === 'length'
+        response.status === 'incomplete' && response.incomplete_details?.reason === 'max_output_tokens'
           ? 'token cap reached before any answer (reasoning consumed the budget)'
-          : 'empty completion';
+          : `empty completion (status ${response.status ?? 'unknown'})`;
       await agentLog('error', agentId, `dispatch failed after ${latencyMs}ms — ${why}`);
       return fail(`OpenAI returned an empty completion (${why})`);
     }
@@ -405,19 +408,19 @@ async function dispatchOpenAI(
     // proof that this was a direct call, not the OpenRouter proxy. metrics
     // .agent_id is a uuid column, so the lane name rides in `detail`.
     await recordModelEvent({
-      model: completion.model,
+      model: response.model,
       event: 'USAGE',
-      inputTokens: completion.usage?.prompt_tokens ?? 0,
-      outputTokens: completion.usage?.completion_tokens ?? 0,
+      inputTokens: response.usage?.input_tokens ?? 0,
+      outputTokens: response.usage?.output_tokens ?? 0,
       detail: `${agentId} lane · ${latencyMs}ms`,
     });
 
     await agentLog(
       'success',
       agentId,
-      `dispatch completed in ${latencyMs}ms · ${completion.model} · in=${completion.usage?.prompt_tokens ?? 0} out=${completion.usage?.completion_tokens ?? 0}`,
+      `dispatch completed in ${latencyMs}ms · ${response.model} · in=${response.usage?.input_tokens ?? 0} out=${response.usage?.output_tokens ?? 0}`,
     );
-    const materialized = await materializeArtifacts(agentId, prompt, content, completion.model);
+    const materialized = await materializeArtifacts(agentId, prompt, content, response.model);
 
     publishAgentEvent({
       kind: 'agent.task_completed',
@@ -429,7 +432,7 @@ async function dispatchOpenAI(
 
     return {
       agentId,
-      modelUsed: completion.model,
+      modelUsed: response.model,
       content,
       timestamp: new Date().toISOString(),
       ...(materialized.length > 0 ? { materialized } : {}),
