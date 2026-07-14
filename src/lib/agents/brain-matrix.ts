@@ -12,25 +12,24 @@
 export interface BrainDef {
   /** Dispatch provider. Absent = OpenRouter (the default for the matrix, and
    *  what dispatchAgent assumes when the field is missing). 'anthropic-direct'
-   *  routes through the official Anthropic SDK using ANTHROPIC_API_KEY, gated
-   *  by a monthly USD budget — never the OpenRouter proxy. */
-  provider?: 'openrouter' | 'anthropic-direct';
-  /** OpenRouter model slug, or an Anthropic model id on 'anthropic-direct'. */
+   *  and 'openai-direct' route through the vendor's official SDK
+   *  (ANTHROPIC_API_KEY / OPENAI_API_KEY respectively), each gated by its own
+   *  monthly USD budget — never the OpenRouter proxy. */
+  provider?: 'openrouter' | 'anthropic-direct' | 'openai-direct';
+  /** OpenRouter model slug, or the vendor's own model id on a direct lane. */
   model: string;
-  /** Sampling temperature. Sent verbatim on OpenRouter lanes. On
-   *  'anthropic-direct' lanes it is INERT — the dispatcher's Anthropic branch
-   *  never sends it, because Claude Sonnet 5 rejects non-default sampling
-   *  params (temperature/top_p/top_k removed on Sonnet 5 / Opus 4.7+) with a
-   *  400. Kept required so every consumer that reads `.temperature` off the
-   *  matrix union (e.g. the SMS/phone OpenRouter path) stays type-safe. */
+  /** Sampling temperature. Sent verbatim on OpenRouter lanes. On the direct
+   *  vendor lanes it is INERT — the dispatcher never sends it, because both
+   *  Claude Sonnet 5 and OpenAI's gpt-5.x reasoning models reject a non-default
+   *  temperature with a 400 ("Unsupported parameter"). Kept required so every
+   *  consumer that reads `.temperature` off the matrix union (e.g. the
+   *  SMS/phone OpenRouter path) stays type-safe. */
   temperature: number;
   tier: 1 | 2 | 3;
   role: string;
   system: string;
 }
 
-// NOTE: CODEX runs qwen-2.5-coder-32b-instruct — Qwen2.5-Coder's largest
-// published variant is 32B; a "72B coder" does not exist on OpenRouter.
 export const BRAIN_MATRIX = {
   // Tier 1 — core orchestrators
   HERMES: {
@@ -80,9 +79,18 @@ export const BRAIN_MATRIX = {
   },
   // Tier 2 — specialized workers
   CODEX: {
-    // Sovereign: OpenAI — gpt-5.3-codex is the newest codex-line coding
-    // model on OpenRouter (replaces the interim Qwen coder).
-    model: 'openai/gpt-5.3-codex',
+    // Sovereign: OpenAI native — dispatched via the official OpenAI SDK, NOT
+    // the OpenRouter proxy. Model id is OpenAI's own (`gpt-5.3-codex`, no
+    // `openai/` slug prefix — that prefix is OpenRouter-only). gpt-5.3-codex is
+    // a reasoning model: no temperature is carried, and the dispatcher uses
+    // max_completion_tokens (not max_tokens). Budget-gated per month, fail-loud,
+    // no fallback — same sovereign contract as every other lane.
+    provider: 'openai-direct',
+    model: 'gpt-5.3-codex',
+    // INERT — never sent to OpenAI (gpt-5.x reasoning models reject a
+    // non-default temperature). Present only to satisfy the required-field
+    // contract that keeps the OpenRouter/SMS consumers type-safe. See
+    // dispatchOpenAI().
     temperature: 0.1,
     tier: 2,
     role: 'senior engineer',

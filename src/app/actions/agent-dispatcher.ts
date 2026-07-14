@@ -8,6 +8,7 @@
 import { cookies } from 'next/headers';
 import { z } from 'zod';
 import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { SESSION_COOKIE, verifySessionToken } from '@/lib/auth/session';
 import { BRAIN_IDS, BRAIN_MATRIX, type BrainId, type BrainDef } from '@/lib/agents/brain-matrix';
 import { agentLog } from '@/lib/hermes/hermes-logger';
@@ -29,6 +30,22 @@ const ANTHROPIC_INPUT_USD_PER_MTOK = 3;
 const ANTHROPIC_OUTPUT_USD_PER_MTOK = 15;
 const ANTHROPIC_MONTHLY_BUDGET_DEFAULT_USD = 3.0;
 const ANTHROPIC_MAX_TOKENS = 4096;
+
+// OpenAI-direct lane pricing — gpt-5.3-codex standard rate, priced
+// CONSERVATIVELY at $1.75 / $14.00 per million input / output tokens so the
+// budget cap trips early, never late. Used by both the budget gate and the
+// ledger's running spend.
+const OPENAI_INPUT_USD_PER_MTOK = 1.75;
+const OPENAI_OUTPUT_USD_PER_MTOK = 14;
+const OPENAI_MONTHLY_BUDGET_DEFAULT_USD = 3.0;
+// gpt-5.3-codex is a reasoning model: the API uses max_completion_tokens (not
+// max_tokens), and reasoning tokens count against this cap — set high enough
+// that low-effort reasoning cannot starve the visible answer.
+const OPENAI_MAX_COMPLETION_TOKENS = 8192;
+// Floor the reasoning effort — the OpenAI analog of Anthropic's
+// thinking:disabled. Keeps latency and (output-priced) reasoning tokens
+// predictable against the budget cap.
+const OPENAI_REASONING_EFFORT = 'low' as const;
 
 export type AgentId = BrainId;
 
@@ -285,6 +302,146 @@ async function dispatchAnthropic(
   }
 }
 
+/**
+ * Calendar-month OpenAI spend in USD, priced at the conservative gpt-5.3-codex
+ * $1.75/$14.00 rate from the metrics ledger (every openai-direct dispatch
+ * writes a `USAGE` row keyed by the returned model id, which begins "gpt").
+ * Throws on a query failure so the caller can FAIL CLOSED rather than dispatch
+ * blind.
+ */
+async function openaiMonthlySpendUsd(): Promise<number> {
+  const db = getAdminClient();
+  const now = new Date();
+  const monthStartIso = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+  const { data, error } = await db
+    .from('metrics')
+    .select('input_tokens, output_tokens')
+    .like('model', 'gpt%')
+    .gte('created_at', monthStartIso)
+    .limit(50_000);
+  if (error) throw new Error(error.message);
+  let usd = 0;
+  for (const row of data ?? []) {
+    usd +=
+      ((row.input_tokens ?? 0) / 1_000_000) * OPENAI_INPUT_USD_PER_MTOK +
+      ((row.output_tokens ?? 0) / 1_000_000) * OPENAI_OUTPUT_USD_PER_MTOK;
+  }
+  return usd;
+}
+
+/**
+ * OpenAI-direct dispatch (the CODEX lane). Parallel to dispatchAnthropic but
+ * through the official OpenAI SDK: gpt-5.3-codex is a reasoning model, so no
+ * temperature (rejected with a 400) and max_completion_tokens rather than
+ * max_tokens; reasoning effort is floored to keep cost predictable. A hard
+ * monthly budget gate that fails LOUD with no downgrade, and exact usage
+ * recorded to the same metrics ledger the gate reads. Honors the sovereign
+ * contract — verbatim model, fail-loud, no provider fallback.
+ */
+async function dispatchOpenAI(
+  agentId: AgentId,
+  agent: BrainDef,
+  prompt: string,
+  history: Array<{ role: 'user' | 'assistant'; content: string }>,
+): Promise<AgentDispatchResult> {
+  const fail = (error: string): AgentDispatchResult => ({
+    agentId,
+    modelUsed: agent.model,
+    content: '',
+    timestamp: new Date().toISOString(),
+    error,
+  });
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return fail('OPENAI_API_KEY not configured');
+
+  // Budget gate — fail CLOSED on a query error, and never silently downgrade.
+  const budgetUsd = Number(process.env.OPENAI_MONTHLY_BUDGET_USD) || OPENAI_MONTHLY_BUDGET_DEFAULT_USD;
+  let spentUsd: number;
+  try {
+    spentUsd = await openaiMonthlySpendUsd();
+  } catch (err) {
+    const reason = `budget check failed (fail-closed) — ${err instanceof Error ? err.message : 'metrics query error'}`;
+    await agentLog('error', agentId, reason);
+    return fail(reason);
+  }
+  if (spentUsd >= budgetUsd) {
+    const reason = `OpenAI monthly budget exceeded: $${spentUsd.toFixed(2)} ≥ $${budgetUsd.toFixed(2)} cap (OPENAI_MONTHLY_BUDGET_USD) — no fallback`;
+    await agentLog('warn', agentId, `dispatch blocked — ${reason}`);
+    return fail(reason);
+  }
+
+  const client = new OpenAI({ apiKey });
+  const t0 = Date.now();
+  try {
+    const completion = await client.chat.completions.create({
+      model: agent.model,
+      // No temperature — gpt-5.x reasoning models reject non-default sampling.
+      // Reasoning floored (parity with the Anthropic branch's thinking:disabled)
+      // and capped by max_completion_tokens, NOT max_tokens (reasoning models).
+      max_completion_tokens: OPENAI_MAX_COMPLETION_TOKENS,
+      reasoning_effort: OPENAI_REASONING_EFFORT,
+      messages: [
+        { role: 'system' as const, content: agent.system },
+        ...history.slice(-MAX_HISTORY),
+        { role: 'user' as const, content: prompt },
+      ],
+    });
+    const latencyMs = Date.now() - t0;
+
+    const choice = completion.choices[0];
+    const content = choice?.message?.content ?? '';
+    if (!content) {
+      const why =
+        choice?.finish_reason === 'length'
+          ? 'token cap reached before any answer (reasoning consumed the budget)'
+          : 'empty completion';
+      await agentLog('error', agentId, `dispatch failed after ${latencyMs}ms — ${why}`);
+      return fail(`OpenAI returned an empty completion (${why})`);
+    }
+
+    // Usage → ledger (the budget query above reads these rows next call/month).
+    // Keyed by the API-returned model id (begins "gpt"), the genuine OpenAI
+    // proof that this was a direct call, not the OpenRouter proxy. metrics
+    // .agent_id is a uuid column, so the lane name rides in `detail`.
+    await recordModelEvent({
+      model: completion.model,
+      event: 'USAGE',
+      inputTokens: completion.usage?.prompt_tokens ?? 0,
+      outputTokens: completion.usage?.completion_tokens ?? 0,
+      detail: `${agentId} lane · ${latencyMs}ms`,
+    });
+
+    await agentLog(
+      'success',
+      agentId,
+      `dispatch completed in ${latencyMs}ms · ${completion.model} · in=${completion.usage?.prompt_tokens ?? 0} out=${completion.usage?.completion_tokens ?? 0}`,
+    );
+    const materialized = await materializeArtifacts(agentId, prompt, content, completion.model);
+
+    publishAgentEvent({
+      kind: 'agent.task_completed',
+      agentId,
+      taskId: null,
+      summary: `${prompt.slice(0, 120)} → ${content.slice(0, 160)}`,
+      ts: Date.now(),
+    });
+
+    return {
+      agentId,
+      modelUsed: completion.model,
+      content,
+      timestamp: new Date().toISOString(),
+      ...(materialized.length > 0 ? { materialized } : {}),
+    };
+  } catch (err) {
+    const latencyMs = Date.now() - t0;
+    const reason = err instanceof Error ? err.message : 'dispatch failed';
+    await agentLog('error', agentId, `dispatch failed after ${latencyMs}ms — ${reason}`);
+    return fail(reason);
+  }
+}
+
 export async function dispatchAgent(rawInput: AgentDispatchInput): Promise<AgentDispatchResult> {
   const fail = (agentId: AgentId, modelUsed: string, error: string): AgentDispatchResult => ({
     agentId,
@@ -313,6 +470,9 @@ export async function dispatchAgent(rawInput: AgentDispatchInput): Promise<Agent
   // gate above still applies (this is reached only after it passes).
   if (agent.provider === 'anthropic-direct') {
     return dispatchAnthropic(agentId, agent, prompt, history);
+  }
+  if (agent.provider === 'openai-direct') {
+    return dispatchOpenAI(agentId, agent, prompt, history);
   }
 
   const apiKey = process.env.OPENROUTER_API_KEY;
