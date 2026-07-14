@@ -2,7 +2,8 @@
 
 > Paste into the chat that finished Phase 4B (or a new one). Written **to you, the next agent**. Continue as an elite senior engineer. Phases 0–4B are built and proven against `grtnjhwekvkyawacunde` — do not rebuild them.
 >
-> **Operator directive: build Phase 5 completely NOW with no third-party credentials.** Phases 6 (live SMS/voice) and 7 (live trading cutover) are the final key-gated switches — build their last mile too, but Phase 5 is the deliverable this session.
+> **Operator directive: build Phase 5 completely NOW with no third-party credentials.** Phase 7 (live trading cutover) is the final key-gated switch.
+> **UPDATE 2026-07-14: Phase 6 (SMS/voice) is PERMANENTLY OUT OF SCOPE — an operator decision, not a deferral. Do not build, key, or roadmap it. The Telegram watcher (omnigent/wrapper/watcher.mjs) is the operator's mobile channel; the built Twilio transport code stays as-is, unkeyed and dead.**
 
 ---
 
@@ -64,11 +65,13 @@ Exact, copy-pasteable: start order (Robinhood sidecar → loop worker → app), 
 
 ---
 
-## 3. Phase 6 — Live channels (build the last mile; flip with keys)
-- **SMS-live:** with `TWILIO_ACCOUNT_SID/AUTH_TOKEN/NUMBER` + `OPERATOR_PHONE`, `activeTransport()` auto-selects Twilio and `/api/phone/sms` goes live — no call-site changes. Add a documented smoke test (inbound `status`, outbound alert, allowlist rejection).
-- **Voice:** `POST /api/phone/voice` maps a provider transcript → the same `runCommand`/converse core; outbound call on `critical`. Build the webhook + mapping now; gate behind `VAPI_API_KEY`/`RETELL_API_KEY`, honest `501` until set.
+## 3. Phase 6 — ~~Live channels~~ PERMANENTLY OUT OF SCOPE (operator decision, 2026-07-14)
+Do not implement, key, or carry forward. Telegram (watcher.mjs) is the mobile channel. Historical scope, for the record only:
+- ~~**SMS-live:** with `TWILIO_ACCOUNT_SID/AUTH_TOKEN/NUMBER` + `OPERATOR_PHONE`, `activeTransport()` auto-selects Twilio and `/api/phone/sms` goes live — no call-site changes.~~
+- ~~**Voice:** `POST /api/phone/voice` maps a provider transcript → the same `runCommand`/converse core.~~
 
 ## 4. Phase 7 — Live trading cutover (keys + operator go/no-go)
+- **UPDATE 2026-07-14: Robinhood's OFFICIAL MCP server is available and already connected in the agent layer (the `mcp__849e0f0c-…` toolset — `get_portfolio`, `review_equity_order`, `place_equity_order`, …). Use it as the Bridge path's MCP; the unofficial `robin_stocks` Direct sidecar and its ToS/lockout risk are obsolete.**
 - Stand up execution: **Direct** = authenticate the `robin_stocks` sidecar (handle MFA/device token, cache session); **Bridge** = configure the executor-agent's own MCP endpoint (`EXECUTOR_ROBINHOOD_MCP_URL/_COMMAND`).
 - Then: **operator flips arm from the Go-Live cockpit with tiny caps during market hours**, and you **rerun the §2b harness LIVE** — a real fill, real SMS, real kill, real daily-loss halt, all verified in the DB. Widen caps only after all four pass live. This is the finish line.
 

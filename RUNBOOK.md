@@ -39,7 +39,7 @@ rely on it as the primary driver.
 
 ## 2. Arm / disarm / kill
 
-**From the phone (once Twilio is configured — see §6):** text the number:
+**From the phone (Twilio path permanently out of scope as of 2026-07-14 — use the Telegram watcher instead; historical reference only):** text the number:
 
 | Command | Effect |
 |---|---|
@@ -156,7 +156,11 @@ select l.name, lr.* from loop_runs lr join loops l on l.id = lr.loop_id order by
    `src/lib/golive/selftest.ts` `checkDailyLossHalt`).
 6. Only widen caps after all four pass for real, not just in dry-run.
 
-### 6b. SMS-live smoke test (once TWILIO_ACCOUNT_SID/AUTH_TOKEN/NUMBER + OPERATOR_PHONE are set)
+### 6b. SMS-live smoke test — PERMANENTLY OUT OF SCOPE (operator decision, 2026-07-14)
+
+SMS/voice (the old Phase 6) will not be keyed or built further — Telegram
+(omnigent/wrapper/watcher.mjs) is the operator mobile channel. Kept only as
+historical documentation of the built-but-unkeyed Twilio transport:
 
 `activeTransport()` auto-selects Twilio the moment those three env vars are
 all set — no code changes. Then:
