@@ -30,6 +30,8 @@ COPY telegram-gate.mjs ./telegram-gate.mjs
 COPY market-hours.mjs ./market-hours.mjs
 COPY cron.mjs ./cron.mjs
 COPY watcher.mjs ./watcher.mjs
+COPY sprint-utils.mjs ./sprint-utils.mjs
+COPY sprint-engine.mjs ./sprint-engine.mjs
 
 # WRAPPER_AUTH_TOKEN_FILE / OMNIGENT_API_TOKEN(-equivalent) are supplied at
 # deploy time as platform secrets, never baked into the image.
@@ -51,10 +53,16 @@ EXPOSE 7900
 # watcher itself additionally refuses to start without
 # TELEGRAM_OPERATOR_CHAT_ID (allowlist-first), so a token without an
 # allowlist stays inert.
+# The sprint engine (Autonomous Loop Engine) runs ONLY when its Supabase env
+# is present, under the same while-true supervision. It refuses to start
+# without the Telegram allowlist env too — and structurally cannot launch a
+# claude/codex process without a human gate approval arriving through the
+# watcher (see sprint-engine.mjs).
 CMD sh -c '\
   export PYTHONIOENCODING=utf-8 PYTHONUTF8=1 && \
   mkdir -p "$CLAUDE_CONFIG_DIR" "$CODEX_HOME" && \
   (while true; do omnigent host "$OMNIGENT_SERVER_URL"; sleep 2; done) & \
   ( [ -n "$TELEGRAM_BOT_TOKEN" ] && while true; do node watcher.mjs; sleep 2; done ) & \
+  ( [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && while true; do node sprint-engine.mjs; sleep 2; done ) & \
   exec node server.mjs \
 '
