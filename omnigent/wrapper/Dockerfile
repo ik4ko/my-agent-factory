@@ -61,6 +61,8 @@ EXPOSE 7900
 CMD sh -c '\
   export PYTHONIOENCODING=utf-8 PYTHONUTF8=1 && \
   mkdir -p "$CLAUDE_CONFIG_DIR" "$CODEX_HOME" && \
+  echo "[boot] claude auth: $(claude auth status 2>&1 | tr "\n" " " | cut -c1-200)" ; \
+  echo "[boot] codex auth: $(codex login status 2>&1 | tr "\n" " " | cut -c1-200)" ; \
   (while true; do omnigent host "$OMNIGENT_SERVER_URL"; sleep 2; done) & \
   ( [ -n "$TELEGRAM_BOT_TOKEN" ] && while true; do node watcher.mjs; sleep 2; done ) & \
   ( [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && while true; do node sprint-engine.mjs; sleep 2; done ) & \

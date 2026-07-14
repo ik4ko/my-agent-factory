@@ -52,6 +52,11 @@ const REPO_URL = process.env.SPRINT_REPO_URL?.trim() || 'https://github.com/ik4k
 const REPO_DIR = process.env.SPRINT_REPO_DIR?.trim() || '/var/data/repo';
 const SPRINT_ROOT = process.env.SPRINT_ROOT?.trim() || '/var/data/sprint-workspace';
 const SPRINT_TIMEOUT_MS = Number(process.env.SPRINT_TIMEOUT_MS ?? 3_600_000);
+// npm ci opt-out for memory-constrained hosts: a fresh install peaks ~1.9GB
+// (measured) — guaranteed OOM on the 512MB Starter plan. When 'false', the
+// workspace is code-only; a sprint whose DoD needs tests must install deps
+// itself (and will hit the same OOM-classified wall, reported plainly).
+const INSTALL_DEPS = (process.env.SPRINT_INSTALL_DEPS ?? 'true') !== 'false';
 const ESTOP_POLL_MS = 3_000;
 const IDLE_POLL_MS = 5_000;
 const KILL_GRACE_MS = 10_000;
@@ -276,6 +281,10 @@ async function ensureWorkspace(manifest, branch) {
   }
   log(`workspace on branch ${branch} @ origin/main`);
 
+  if (!INSTALL_DEPS) {
+    log('deps install disabled (SPRINT_INSTALL_DEPS=false) — code-only workspace');
+    return;
+  }
   const lock = fs.readFileSync(path.join(REPO_DIR, 'package-lock.json'));
   const hash = createHash('sha256').update(lock).digest('hex');
   const prev = fs.existsSync(LOCKHASH_FILE) ? fs.readFileSync(LOCKHASH_FILE, 'utf8').trim() : null;
@@ -293,16 +302,25 @@ async function ensureWorkspace(manifest, branch) {
 
 class EngineOom extends Error {}
 
-async function collectDiff(baseSha) {
+async function collectDiff(baseSha, taskId) {
   const git = (args) => run('git', ['-C', REPO_DIR, ...args], { timeoutMs: 60_000 });
   const stat = await git(['diff', '--shortstat', baseSha]);
   const names = await git(['diff', '--name-only', baseSha]);
+  const patch = await git(['diff', baseSha]);
+  // The actual patch rides in the manifest (truncated) and on disk in full —
+  // the DB mirror is how a remote reviewer sees the real diff, not just stats.
+  if (taskId) {
+    try {
+      fs.writeFileSync(path.join(workspaceDir(taskId), 'diff.patch'), patch.stdout);
+    } catch { /* disk write is best-effort; the manifest copy still lands */ }
+  }
   const m = /(\d+) files? changed(?:, (\d+) insertions?\(\+\))?(?:, (\d+) deletions?\(-\))?/.exec(stat.stdout) ?? [];
   return {
     files_changed: Number(m[1] ?? 0),
     insertions: Number(m[2] ?? 0),
     deletions: Number(m[3] ?? 0),
     file_list: names.stdout.split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 200),
+    patch: patch.stdout.slice(0, 20_000),
   };
 }
 
@@ -476,7 +494,7 @@ async function runSprint(loop, agentKind) {
       }
     }
     manifest.summary = summary;
-    manifest.diff = await collectDiff(baseSha);
+    manifest.diff = await collectDiff(baseSha, loop.id);
     manifest.tests = manifest.tests ?? { passed: 0, failed: 0, skipped: 0, typecheck: 'not_run' };
     appendSprintLog(manifest, `${agentKind} sprint finished ok · ${manifest.diff.files_changed} file(s) changed`);
     await writeManifest(loop, manifest);
