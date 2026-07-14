@@ -1105,8 +1105,8 @@
     "semantic_hash": ""
   },
   "HANDOFF_PHASE5_GOLIVE_READINESS.md": {
-    "mtime": 1783294725.8386934,
-    "ast_hash": "ef73c0cb8aa43eaddf71f9c7bf8a8c05",
+    "mtime": 1784038340.6825657,
+    "ast_hash": "f8001de636b93ba9f2cc1272b1e40d70",
     "semantic_hash": ""
   },
   "IDEA.md": {
@@ -1140,8 +1140,8 @@
     "semantic_hash": ""
   },
   "RUNBOOK.md": {
-    "mtime": 1783304576.700041,
-    "ast_hash": "6b6f8379d28bfc39552d199d8d9ff714",
+    "mtime": 1784038356.0479205,
+    "ast_hash": "4c5808ab9441a2f52dd286ce5f38d48f",
     "semantic_hash": ""
   },
   "src/app/api/market/quotes/route.ts": {
@@ -1450,8 +1450,8 @@
     "semantic_hash": ""
   },
   "src/app/actions/agent-dispatcher.ts": {
-    "mtime": 1783986518.7704928,
-    "ast_hash": "5e2c6370c68afedbe947facf01f13ab5",
+    "mtime": 1784038153.5521522,
+    "ast_hash": "33cf6317a049e9f8c11acc211520674a",
     "semantic_hash": ""
   },
   "src/components/dashboard/settings-client.tsx": {
@@ -1460,8 +1460,8 @@
     "semantic_hash": ""
   },
   "src/lib/agents/brain-matrix.ts": {
-    "mtime": 1783986474.4346323,
-    "ast_hash": "c0144a418a8b3b918f6cf595f266ef55",
+    "mtime": 1784038085.753566,
+    "ast_hash": "c03fe0babc8ae20348c0f22d76d1df4d",
     "semantic_hash": ""
   },
   "src/components/dashboard/agent-chat.tsx": {
@@ -1817,6 +1817,21 @@
   "HANDOFF_AUTONOMOUS_LOOP_ENGINE.md": {
     "mtime": 1783988711.8333676,
     "ast_hash": "cc49b3c4154e3af3fc44341e36d08945",
+    "semantic_hash": ""
+  },
+  "src/lib/agents/__tests__/nvidia-errors.test.ts": {
+    "mtime": 1784037200.1829002,
+    "ast_hash": "ded0b0bb0e199a13a806a37c9f09bc1f",
+    "semantic_hash": ""
+  },
+  "src/lib/agents/nvidia-errors.ts": {
+    "mtime": 1784037188.9070013,
+    "ast_hash": "5f0804cd35b3ce93fa6e47cdf0fb4224",
+    "semantic_hash": ""
+  },
+  ".claude/skills/route/SKILL.md": {
+    "mtime": 1784007409.6672957,
+    "ast_hash": "54a30d2eb9d53423af5beaddce70ce9d",
     "semantic_hash": ""
   }
 }

@@ -1,16 +1,16 @@
 # Graph Report - my agent factory  (2026-07-14)
 
 ## Corpus Check
-- 332 files · ~303,003 words
+- 331 files · ~302,916 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2078 nodes · 4317 edges · 170 communities (116 shown, 54 thin omitted)
+- 2075 nodes · 4312 edges · 174 communities (119 shown, 55 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 31 edges (avg confidence: 0.67)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `121ff66f`
+- Built from commit: `c35adb15`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -168,83 +168,87 @@
 - [[_COMMUNITY_executor-agent.mts|executor-agent.mts]]
 - [[_COMMUNITY_package.json|package.json]]
 - [[_COMMUNITY_hermes.ts|hermes.ts]]
+- [[_COMMUNITY_page.tsx|page.tsx]]
+- [[_COMMUNITY_personal-room-client.tsx|personal-room-client.tsx]]
+- [[_COMMUNITY_select-adapter.ts|select-adapter.ts]]
+- [[_COMMUNITY_DryRunAdapter|DryRunAdapter]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `cn()` - 103 edges
 2. `getAdminClient()` - 101 edges
-3. `hermesLog()` - 94 edges
+3. `hermesLog()` - 92 edges
 4. `createClient()` - 60 edges
 5. `AgentType` - 31 edges
 6. `subscribeWithReconnect()` - 29 edges
 7. `Task` - 27 edges
 8. `Agent` - 25 edges
 9. `useConnectionStore` - 21 edges
-10. `scripts` - 19 edges
+10. `scripts` - 20 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `StatusDot()` --calls--> `cn()`  [EXTRACTED]
-  Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/handoff/src/components/dashboard/status-dot.tsx → src/lib/utils.ts
 - `boot()` --references--> `react-dom`  [EXTRACTED]
   Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/support.js → package.json
 - `RoomStatusStrip()` --indirect_call--> `health()`  [INFERRED]
   src/components/dashboard/room-status-strip.tsx → services/robinhood/main.py
 - `StatusDotProps` --references--> `AgentStatus`  [EXTRACTED]
   Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/handoff/src/components/dashboard/status-dot.tsx → src/lib/types/database.types.ts
+- `StatusDot()` --calls--> `cn()`  [EXTRACTED]
+  Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/handoff/src/components/dashboard/status-dot.tsx → src/lib/utils.ts
 - `createComponentFactory()` --references--> `react`  [EXTRACTED]
   Design/Cyberpunk terminal UI redesign-handoff/cyberpunk-terminal-ui-redesign/project/support.js → package.json
 
 ## Import Cycles
 - None detected.
 
-## Communities (170 total, 54 thin omitted)
+## Communities (174 total, 55 thin omitted)
 
 ### Community 0 - "NPM Package Dependencies"
 Cohesion: 0.03
 Nodes (73): dependencies, @anthropic-ai/sdk, class-variance-authority, clsx, cmdk, date-fns, dotenv, embla-carousel-react (+65 more)
 
 ### Community 1 - "Safety Selftest & Commands"
-Cohesion: 0.17
-Nodes (14): Delegation, EmailAction, parseCeo(), POST(), Schema, AgentRegistry, BusEvent, BusStatus (+6 more)
+Cohesion: 0.15
+Nodes (22): DashboardClientProps, SpatialWorkspace, FableMeter, fmtTokens(), MetricCell, MetricsBar(), OutputCard, TaskOutputFeed() (+14 more)
 
 ### Community 3 - "Loop Worker & News Cycle"
-Cohesion: 0.17
-Nodes (21): LiveClock(), extractOrderIntent(), RawIntentSchema, RawOrderIntent, claimLoop(), clearStaleLoopLocks(), db(), dispatchEvents() (+13 more)
+Cohesion: 0.20
+Nodes (20): extractOrderIntent(), RawIntentSchema, RawOrderIntent, claimLoop(), clearStaleLoopLocks(), db(), dispatchEvents(), DispatchResult (+12 more)
 
 ### Community 4 - "News Feed Classification"
 Cohesion: 0.17
 Nodes (20): alreadySeen(), db(), feed, IngestResult, runNewsIngestCycle(), aggregateBySymbol(), bearishThreshold(), COOLDOWN_MS (+12 more)
 
 ### Community 5 - "Model Router & Complexity"
-Cohesion: 0.16
-Nodes (13): POST(), RunSchema, formatMarketBlock(), MarketContext, startPipeline(), MARKET_STRATEGY_PLAYBOOK, PLAYBOOKS, PIPELINE_ROLES (+5 more)
+Cohesion: 0.14
+Nodes (15): metadata, ExecutionSafetyBar(), CHECK_STATUS, GoLiveClient(), PendingAction, useJsonAction(), PinActionModal(), PinActionModalProps (+7 more)
 
 ### Community 6 - "Dev Build Tooling"
-Cohesion: 0.11
-Nodes (19): scripts, build, clean, demo-seed, dev, executor-agent, genkit:dev, genkit:watch (+11 more)
+Cohesion: 0.05
+Nodes (41): devDependencies, cross-env, genkit-cli, jest, postcss, rimraf, supabase, tailwindcss (+33 more)
 
 ### Community 7 - "Bus Event Pipeline Engine"
-Cohesion: 0.32
-Nodes (16): fetchPendingHandOffs(), advancePipelineAfterTask(), buildDispatch(), createStepTask(), db(), executeStep(), findStepAgent(), getPlaybook() (+8 more)
+Cohesion: 0.07
+Nodes (59): POST(), SweepSchema, POST(), RunSchema, BusEvent, BusStatus, BusTopic, claimBusEvent() (+51 more)
 
 ### Community 8 - "Portfolio & Loop Clients"
-Cohesion: 0.12
-Nodes (33): ConnectionBanner(), ConnectionIndicator(), PRESENTATION, useAgentsQuery(), useLogsQuery(), LOOP_RUNS_KEY, useLoopRunsQuery(), LOOPS_KEY (+25 more)
+Cohesion: 0.10
+Nodes (38): ConnectionBanner(), ConnectionIndicator(), PRESENTATION, LoopsClient(), StagedOrders(), LOGS_KEY, LOOP_RUNS_KEY, useLoopRunsQuery() (+30 more)
 
 ### Community 9 - "Live Terminal & Metrics"
-Cohesion: 0.08
-Nodes (32): LanePane(), FableMeter, fmtTokens(), MetricCell, MetricsBar(), ApprovalIntercept, buildRunGroups(), STATUS_DOT (+24 more)
+Cohesion: 0.15
+Nodes (16): ApprovalIntercept, buildRunGroups(), STATUS_DOT, STATUS_VARIANT, TaskFeed(), TaskRow, TaskRunCard, TimelineScrubber() (+8 more)
 
 ### Community 10 - "Command Console & Store"
-Cohesion: 0.07
-Nodes (34): metadata, CommandConsole(), OUTPUT_COLOR, EmergencyStop(), GlobalControls(), useRoomScope(), MobileTabBar(), MORE_ITEMS (+26 more)
+Cohesion: 0.12
+Nodes (25): CommandConsole(), OUTPUT_COLOR, EmergencyStop(), CommandStore, ConsoleLine, OutputLevel, useCommandStore, AGENT_ROLES (+17 more)
 
 ### Community 11 - "Admin Memory & Task Router"
 Cohesion: 0.11
 Nodes (18): app, macOSPrivateApi, security, windows, build, beforeBuildCommand, beforeDevCommand, devUrl (+10 more)
 
 ### Community 12 - "Tool Call Parser & Policy"
-Cohesion: 0.06
-Nodes (48): POST(), Schema, StreamPreview, anthropicThink(), buildAgent(), getAnthropic(), OpenAICompatibleConfig, openAICompatibleThink() (+40 more)
+Cohesion: 0.10
+Nodes (35): POST(), Schema, StreamPreview, resolveTaskRoomScope(), RoomScope, asToolCall(), ParseResult, parseToolCalls() (+27 more)
 
 ### Community 13 - "Graphify CLI Documentation"
 Cohesion: 0.07
@@ -259,40 +263,40 @@ Cohesion: 0.09
 Nodes (22): AgentCard, AgentFleet(), AgentFleetProps, DenseAgentChip, DerivedTelemetry, EMPTY_DERIVED, InactiveGroup(), inferAgentType() (+14 more)
 
 ### Community 16 - "Trading Execution Adapters"
-Cohesion: 0.06
-Nodes (41): main(), POST(), BridgeAdapter, reads, baseUrl(), call(), DirectAdapter, DryRunAdapter (+33 more)
+Cohesion: 0.13
+Nodes (12): BridgeAdapter, reads, baseUrl(), call(), DirectAdapter, ExecutionAdapterName, OrderIntent, OrderIntentSchema (+4 more)
 
 ### Community 17 - "Order Staging & Portfolio"
-Cohesion: 0.24
+Cohesion: 0.23
 Nodes (13): DryRunOrder, main(), pct(), usd(), computeRsi14(), DailyBars, extractTickerFromObjective(), fetchYahooDaily() (+5 more)
 
 ### Community 18 - "Agent Fleet UI Cards"
-Cohesion: 0.16
-Nodes (26): POST(), Schema, POST(), Schema, POST(), Schema, POST(), Schema (+18 more)
+Cohesion: 0.17
+Nodes (22): POST(), Schema, POST(), Schema, POST(), Schema, POST(), Schema (+14 more)
 
 ### Community 19 - "room-status-strip.tsx"
-Cohesion: 0.25
-Nodes (12): POST(), SweepSchema, db(), getActiveWatchlist(), PER_TICKER_BUDGET_MS, runWatchlistSweep(), SweepOptions, TickerRunResult (+4 more)
+Cohesion: 0.26
+Nodes (15): main(), POST(), selectAdapter(), checkDailyLossHalt(), checkFillPath(), checkKillSwitch(), checkNotification(), createThrowawayLoop() (+7 more)
 
 ### Community 20 - "Voice Task Input UI"
 Cohesion: 0.11
 Nodes (18): 10. Revisiting the Omnigent sandbox question (continuation pass), 11. Wrapper resilience hardening (continuation pass — verified live), 12. Real deploy test — status, 1. Why this exists, 2. Corrections to the original scaffold's assumptions, 3. Phase 1 — what was actually built and verified live (dev, WSL2), 4.1 What a hosted Omnigent deployment actually needs, 4.2 Proposed topology (+10 more)
 
 ### Community 21 - "Agent Status & DB Types"
-Cohesion: 0.17
-Nodes (9): ConsensusView(), EMPTY, LaneState, BRAIN_IDS, BrainDef, BrainId, IntentRoute, RULES (+1 more)
+Cohesion: 0.33
+Nodes (5): ConsensusView(), EMPTY, LanePane(), LaneState, shortModel()
 
 ### Community 22 - "TypeScript Compiler Config"
 Cohesion: 0.10
 Nodes (20): compilerOptions, allowJs, esModuleInterop, incremental, isolatedModules, jsx, lib, module (+12 more)
 
 ### Community 24 - "Dashboard Activity Feed"
-Cohesion: 0.16
-Nodes (21): AgentDispatchInput, AgentDispatchResult, AgentId, anthropicMonthlySpendUsd(), dispatchAgent(), dispatchAnthropic(), dispatchNvidia(), dispatchOpenAI() (+13 more)
+Cohesion: 0.15
+Nodes (22): AgentDispatchInput, AgentDispatchResult, AgentId, anthropicMonthlySpendUsd(), assertOperatorSession(), dispatchAgent(), dispatchAnthropic(), dispatchNvidia() (+14 more)
 
 ### Community 25 - "Cinematic 3D Core Widget"
-Cohesion: 0.07
-Nodes (33): AgentActivity(), BRAINS, BUS_THOUGHTS_KEY, providerBadge(), readProvenance(), ThoughtProvenance, useBusThoughts(), BEACON_POS (+25 more)
+Cohesion: 0.08
+Nodes (22): BEACON_POS, BrainDef, BRAINS, brainStatus(), BUS_POS, camFor(), FloatingTiles(), Focus (+14 more)
 
 ### Community 26 - "Message Transport Layer"
 Cohesion: 0.07
@@ -300,23 +304,23 @@ Nodes (26): For /graphify add and --watch, For /graphify query, For the commit h
 
 ### Community 27 - "Preflight System Checks"
 Cohesion: 0.05
-Nodes (58): assertOperatorSession(), failures, POST(), recordFailure(), Schema, throttled(), authorized(), GET() (+50 more)
+Nodes (53): POST(), Schema, Delegation, EmailAction, parseCeo(), POST(), Schema, classifyComplexity() (+45 more)
 
 ### Community 28 - "Parallel Matrix Pipeline"
-Cohesion: 0.19
-Nodes (16): MatrixSchema, POST(), ClaimedLane, db(), DEBATES, DebateSpec, LANES, MatrixLaneResult (+8 more)
+Cohesion: 0.14
+Nodes (22): MatrixSchema, POST(), generateMatrixEmbedding(), toVectorLiteral(), cleanPreview(), commitMatrixToLongTermMemory(), db(), MatrixMemoryRecord (+14 more)
 
 ### Community 29 - "Hermes Logger & Approvals"
-Cohesion: 0.13
-Nodes (11): useHoverFocus(), AnyRecognition, BAR_DELAYS, getSpeechRecognitionCtor(), Trace, TraceKind, VOICE_LABEL, VoiceState (+3 more)
+Cohesion: 0.14
+Nodes (12): useHoverFocus(), AnyRecognition, BAR_DELAYS, getSpeechRecognitionCtor(), TaskInput(), Trace, TraceKind, VOICE_LABEL (+4 more)
 
 ### Community 30 - "Command Palette UI"
 Cohesion: 0.22
 Nodes (13): AGENT_COLORS, AGENT_ICONS, CommandPalette(), CommandPaletteProps, inferAgentType(), Command, CommandEmpty, CommandGroup (+5 more)
 
 ### Community 31 - "Connection Status & Orders"
-Cohesion: 0.10
-Nodes (27): db(), DEMO_LOOPS, main(), POST(), Schema, POST(), Schema, POST() (+19 more)
+Cohesion: 0.09
+Nodes (31): db(), DEMO_LOOPS, main(), POST(), Schema, POST(), Schema, POST() (+23 more)
 
 ### Community 32 - "Task Feed & Timeline"
 Cohesion: 0.11
@@ -347,8 +351,8 @@ Cohesion: 0.32
 Nodes (11): BaseModel, cancel_order(), CancelRequest, health(), _login(), OrderIntent, place_order(), portfolio() (+3 more)
 
 ### Community 40 - "Loop CRUD Routes"
-Cohesion: 0.16
-Nodes (18): MaterializedArtifact, AgentChat(), ChatTurn, Lane, LANE_LABEL(), routeIntent(), TaskInput(), ConverseResult (+10 more)
+Cohesion: 0.13
+Nodes (19): MaterializedArtifact, AgentChat(), ChatTurn, Lane, LANE_LABEL(), routeIntent(), ConverseResult, ConverseState (+11 more)
 
 ### Community 41 - "Executor Agent Worker"
 Cohesion: 0.14
@@ -431,20 +435,20 @@ Cohesion: 0.40
 Nodes (4): Endpoints, Robinhood sidecar, Safety, Setup
 
 ### Community 87 - "Results Workspace"
-Cohesion: 0.35
-Nodes (10): AUTONOMOUS_TARGETS, AutonomousTickResult, countAutonomousIgnitionsToday(), db(), executeCriticalHalt(), executorHalted(), initializeAutonomousLoop(), runAutonomousTick() (+2 more)
+Cohesion: 0.27
+Nodes (12): failures, POST(), recordFailure(), Schema, throttled(), createSessionToken(), hmacHex(), timingSafeEqualStr() (+4 more)
 
 ### Community 90 - "cinematic-core.tsx"
-Cohesion: 0.43
-Nodes (6): CreateSchema, db(), GET(), POST(), TriggerSchema, LoopRow
+Cohesion: 0.26
+Nodes (10): db(), DELETE(), PATCH(), PatchSchema, CreateSchema, db(), GET(), POST() (+2 more)
 
 ### Community 93 - "API: /api/golive/preflight"
 Cohesion: 0.12
 Nodes (18): buildBeam(), buildGeometry(), CinematicCore(), CinematicCoreProps, COLOR_CYAN, COLOR_PURPLE, CoreFocusTarget, DAMP (+10 more)
 
 ### Community 94 - "API: /api/golive/selftest"
-Cohesion: 0.07
-Nodes (34): DashboardPage(), fetchDashboardData(), AudioBriefing, DashboardClient(), DashboardClientProps, SpatialWorkspace, ActivityResponse, OmnigentActivity() (+26 more)
+Cohesion: 0.11
+Nodes (17): ActivityResponse, OmnigentActivity(), OmnigentItem, OmnigentSessionSummary, chunkRows(), computeRowSizes(), DeckState, DEFAULT_HIDDEN (+9 more)
 
 ### Community 105 - "Dashboard: /dashboard/comms"
 Cohesion: 0.22
@@ -455,24 +459,24 @@ Cohesion: 0.33
 Nodes (5): Files, Networking [VERIFY before first real run], Omnigent runner notes (scaffold), Scope: dev-only for now, Why WSL2
 
 ### Community 125 - "dashboard-client.tsx"
-Cohesion: 0.50
-Nodes (4): chain(), ChainResult, mockDb(), staleTask
+Cohesion: 0.15
+Nodes (20): authorized(), GET(), POST(), pulse(), GET(), POST(), reap(), POST() (+12 more)
 
 ### Community 127 - "route.ts"
-Cohesion: 0.17
-Nodes (12): BRAIN_OPTIONS, KIND_OPTIONS, LoopRow_(), LoopsClient(), patchLoop(), relativeTime(), STATUS_BADGE, Button (+4 more)
+Cohesion: 0.18
+Nodes (11): BRAIN_OPTIONS, KIND_OPTIONS, LoopRow_(), patchLoop(), relativeTime(), STATUS_BADGE, Button, ButtonProps (+3 more)
 
 ### Community 130 - "loop-worker.mts"
 Cohesion: 0.08
 Nodes (44): boot(), collectProps(), compileAttr(), compileTemplate(), contentKey(), createComponentFactory(), createExternalModules(), createHelmetManager() (+36 more)
 
 ### Community 131 - "session.ts"
-Cohesion: 0.07
-Nodes (41): GET(), metadata, CHECK_STATUS, GoLiveClient(), PendingAction, useJsonAction(), ApprovalGate(), ApprovalGateProps (+33 more)
+Cohesion: 0.12
+Nodes (18): ArmPill(), ApprovalGate(), ApprovalGateProps, DeckButton, DeckButtonProps, Size, Variant, Accent (+10 more)
 
 ### Community 132 - "registry.ts"
-Cohesion: 0.29
-Nodes (9): POST(), Schema, db(), EmailInput, EmailResult, rateOk(), safeUpdate(), sendEmail() (+1 more)
+Cohesion: 0.23
+Nodes (14): DOT, Health, RoomChip, RoomStatusStrip(), agentInScope(), agentRooms(), logInScope(), RoomDef (+6 more)
 
 ### Community 133 - "compose-client.tsx"
 Cohesion: 0.31
@@ -487,48 +491,48 @@ Cohesion: 0.40
 Nodes (4): Execution & audit, Signal logic, Sizing & risk (non-negotiable), Strategy: SPY Momentum Swing (IV-filtered MA crossover)
 
 ### Community 136 - "transport.ts"
-Cohesion: 0.23
-Nodes (10): db(), local, LocalTransport, MessageKind, MessageTransport, rateOk(), safeUpdate(), SENT_TIMES (+2 more)
+Cohesion: 0.11
+Nodes (26): GET(), activeTransport(), db(), local, LocalTransport, MessageKind, MessageTransport, rateOk() (+18 more)
 
 ### Community 137 - "consensus-view.tsx"
-Cohesion: 0.10
-Nodes (32): CHANNEL_CLS, CHANNEL_SEVERITY, DEFAULT_FILTER, hhmmss(), LEVEL_CLS, LEVEL_TAG, LiveTerminal(), LiveTerminalProps (+24 more)
+Cohesion: 0.08
+Nodes (29): CHANNEL_CLS, CHANNEL_SEVERITY, DEFAULT_FILTER, hhmmss(), LEVEL_CLS, LEVEL_TAG, LiveTerminal(), LiveTerminalProps (+21 more)
 
 ### Community 138 - "audio-briefing.tsx"
 Cohesion: 0.06
 Nodes (72): fetchPendingOrders(), HEARTBEAT_MS, minutesSince(), NUDGE_AFTER_MIN, NUDGE_REPEAT_MIN, startCron(), etClock(), etParts() (+64 more)
 
 ### Community 140 - "use-simulation-status.ts"
-Cohesion: 0.46
-Nodes (6): generateMatrixEmbedding(), toVectorLiteral(), cleanPreview(), commitMatrixToLongTermMemory(), db(), MatrixMemoryRecord
+Cohesion: 0.18
+Nodes (8): blocked(), checkRisk(), db(), envAllowlist(), envNumber(), LoopRiskConfig, RiskCheckResult, ExecutionAdapter
 
 ### Community 141 - "audio-briefing.tsx"
-Cohesion: 0.08
-Nodes (26): STATUS_CONFIG, StatusDot(), StatusDotProps, STATUS_CONFIG, StatusDot(), StatusDotProps, DEFAULT_PRICE, MODEL_SHORT (+18 more)
+Cohesion: 0.12
+Nodes (16): DEFAULT_PRICE, MODEL_SHORT, PRICING_PER_MTOK, SpendSummary, EventType, InterventionState, LoopRunStatus, Metric (+8 more)
 
 ### Community 143 - "use-risk-state.ts"
 Cohesion: 0.33
 Nodes (5): description, identifier, permissions, $schema, windows
 
 ### Community 144 - "orchestrator.ts"
-Cohesion: 0.11
-Nodes (18): devDependencies, cross-env, genkit-cli, jest, postcss, rimraf, supabase, tailwindcss (+10 more)
+Cohesion: 0.19
+Nodes (9): metadata, GlobalControls(), useRoomScope(), MobileTabBar(), MORE_ITEMS, TABS, NAV_ITEMS, NavSidebar() (+1 more)
 
 ### Community 145 - "command.ts"
-Cohesion: 0.70
-Nodes (3): POST(), twiml(), validateTwilioSignature()
+Cohesion: 0.24
+Nodes (13): POST(), Schema, POST(), twiml(), POST(), Command, CommandContext, db() (+5 more)
 
 ### Community 146 - "transport.ts"
 Cohesion: 0.25
 Nodes (7): Actual behavior, Additional notes, Environment, Expected behavior, Isolating the bug to Omnigent, not to bwrap itself, Repro steps, Summary
 
 ### Community 151 - "layout.tsx"
-Cohesion: 0.10
-Nodes (15): CodingRoomClient(), PersonalRoomClient(), LiveQuote, MarketTick, readTick(), TradingChart(), TradingRoomClient(), WorkspaceIconKey (+7 more)
+Cohesion: 0.24
+Nodes (10): LiveQuote, MarketTick, readTick(), TradingChart(), AGENT_SOCKET_EVENTS_KEY, AGENT_SOCKET_LATEST_KEY, AgentSocketEvent, parseEvent() (+2 more)
 
 ### Community 152 - "task-output-feed.tsx"
-Cohesion: 0.26
-Nodes (9): fullKelly(), KellyInstrument(), KellyReadout(), toProbability(), StagedOrders(), TradingChart, STAGED_ORDERS_KEY, useStagedOrders() (+1 more)
+Cohesion: 0.09
+Nodes (15): CodingRoomClient(), fullKelly(), KellyInstrument(), KellyReadout(), toProbability(), DispatchResponse, RoomComposer(), TradingChart (+7 more)
 
 ### Community 153 - "reaper.test.ts"
 Cohesion: 0.53
@@ -563,8 +567,8 @@ Cohesion: 0.70
 Nodes (4): authorized(), GET(), POST(), pulse()
 
 ### Community 162 - "hermes.ts"
-Cohesion: 0.08
-Nodes (32): PanelSkeleton(), ArmPill(), ExecutionSafetyBar(), MemoryInspector(), MemoryRow, MemoryViewer(), OutboundFeed(), loadTodos() (+24 more)
+Cohesion: 0.13
+Nodes (20): STATUS_CONFIG, StatusDot(), StatusDotProps, PanelSkeleton(), MemoryInspector(), MemoryRow, MemoryViewer(), QuotesPanel() (+12 more)
 
 ### Community 163 - "matrix-memory.ts"
 Cohesion: 0.17
@@ -583,36 +587,48 @@ Cohesion: 0.40
 Nodes (4): About the design files, Bundle contents, CODING AGENTS: READ THIS FIRST, What you should do — IMPORTANT
 
 ### Community 167 - "executor-agent.mts"
-Cohesion: 0.35
-Nodes (11): claimIntent(), connectMcp(), cycle(), db(), isKillSwitchOrHalted(), main(), processIntent(), releaseIntent() (+3 more)
+Cohesion: 0.38
+Nodes (10): claimIntent(), connectMcp(), cycle(), db(), isKillSwitchOrHalted(), main(), processIntent(), releaseIntent() (+2 more)
 
 ### Community 168 - "package.json"
-Cohesion: 0.50
-Nodes (3): name, private, version
+Cohesion: 0.27
+Nodes (11): AgentActivity(), BRAINS, BUS_THOUGHTS_KEY, providerBadge(), readProvenance(), ThoughtProvenance, useBusThoughts(), BrainPanel() (+3 more)
 
 ### Community 169 - "hermes.ts"
-Cohesion: 0.17
-Nodes (16): CommandSchema, POST(), db(), DELETE(), PATCH(), PatchSchema, POST(), Schema (+8 more)
+Cohesion: 0.67
+Nodes (3): ActionSchema, PATCH(), IMPORTANT: approval records a decision — nothing more. No brokerage
+
+### Community 170 - "page.tsx"
+Cohesion: 0.24
+Nodes (7): DashboardPage(), fetchDashboardData(), AudioBriefing, DashboardClient(), LiveClock(), createClient(), Database
+
+### Community 171 - "personal-room-client.tsx"
+Cohesion: 0.29
+Nodes (5): OutboundFeed(), PersonalRoomClient(), loadTodos(), PersonalTodo(), TodoItem
+
+### Community 172 - "select-adapter.ts"
+Cohesion: 0.38
+Nodes (6): bridge, db(), direct, dryRun, isKillSwitchOn(), isTradingArmed()
 
 ## Knowledge Gaps
 - **768 isolated node(s):** `CoreFocusTarget`, `CinematicCoreProps`, `COLOR_CYAN`, `COLOR_PURPLE`, `DAMP` (+763 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **54 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **55 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `ConnectionIndicator()` connect `Portfolio & Loop Clients` to `hermes.ts`, `API: /api/golive/selftest`, `Chat & Dashboard UI`?**
-  _High betweenness centrality (0.201) - this node is a cross-community bridge._
-- **Why does `cn()` connect `hermes.ts` to `session.ts`, `audio-briefing.tsx`, `compose-client.tsx`, `Loop CRUD Routes`, `Portfolio & Loop Clients`, `Command Console & Store`, `Live Terminal & Metrics`, `consensus-view.tsx`, `audio-briefing.tsx`, `App Layout & Providers`, `Dashboard Client & Stats`, `Agent Status & DB Types`, `API: /api/golive/selftest`, `layout.tsx`, `Cinematic 3D Core Widget`, `Hermes Logger & Approvals`, `Command Palette UI`, `route.ts`?**
-  _High betweenness centrality (0.139) - this node is a cross-community bridge._
+- **Why does `ConnectionIndicator()` connect `Portfolio & Loop Clients` to `hermes.ts`, `page.tsx`, `Chat & Dashboard UI`?**
+  _High betweenness centrality (0.202) - this node is a cross-community bridge._
+- **Why does `cn()` connect `hermes.ts` to `Safety Selftest & Commands`, `session.ts`, `registry.ts`, `Model Router & Complexity`, `compose-client.tsx`, `Portfolio & Loop Clients`, `consensus-view.tsx`, `Command Console & Store`, `Live Terminal & Metrics`, `Dashboard Client & Stats`, `orchestrator.ts`, `Agent Status & DB Types`, `layout.tsx`, `task-output-feed.tsx`, `Cinematic 3D Core Widget`, `Hermes Logger & Approvals`, `Command Palette UI`, `audio-briefing.tsx`, `package.json`, `Loop CRUD Routes`, `personal-room-client.tsx`, `App Layout & Providers`, `API: /api/golive/selftest`, `route.ts`?**
+  _High betweenness centrality (0.130) - this node is a cross-community bridge._
 - **What connects `CoreFocusTarget`, `CinematicCoreProps`, `COLOR_CYAN` to the rest of the system?**
   _780 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `NPM Package Dependencies` be split into smaller, more focused modules?**
   _Cohesion score 0.0273972602739726 - nodes in this community are weakly interconnected._
+- **Should `Model Router & Complexity` be split into smaller, more focused modules?**
+  _Cohesion score 0.1368421052631579 - nodes in this community are weakly interconnected._
 - **Should `Dev Build Tooling` be split into smaller, more focused modules?**
-  _Cohesion score 0.10526315789473684 - nodes in this community are weakly interconnected._
-- **Should `Portfolio & Loop Clients` be split into smaller, more focused modules?**
-  _Cohesion score 0.12 - nodes in this community are weakly interconnected._
-- **Should `Live Terminal & Metrics` be split into smaller, more focused modules?**
-  _Cohesion score 0.08250355618776671 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.047619047619047616 - nodes in this community are weakly interconnected._
+- **Should `Bus Event Pipeline Engine` be split into smaller, more focused modules?**
+  _Cohesion score 0.06965174129353234 - nodes in this community are weakly interconnected._

@@ -1,7 +1,7 @@
 {
   ".claude/launch.json": {
-    "mtime": 1783675951.294025,
-    "ast_hash": "4143f0bdc248099a44668662d6fb6d9b",
+    "mtime": 1784039611.5980704,
+    "ast_hash": "1b817e078473eedd28c4553d44b15b86",
     "semantic_hash": ""
   },
   ".claude/settings.json": {
@@ -20,8 +20,8 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1783969854.598919,
-    "ast_hash": "8b931bc4f612a54a6e97871d116e1318",
+    "mtime": 1784039604.0573163,
+    "ast_hash": "e23f84376b4f49dd7aba4dcf9dd4a4f1",
     "semantic_hash": ""
   },
   "postcss.config.mjs": {
@@ -563,11 +563,6 @@
     "mtime": 1783107930.6659465,
     "ast_hash": "c8d096955b4945bd95629b705b4ac5cb",
     "semantic_hash": "c8d096955b4945bd95629b705b4ac5cb"
-  },
-  "src/lib/agents/hermes.ts": {
-    "mtime": 1783343671.4969077,
-    "ast_hash": "46c12f4668ee4d2bc419f6e1d8578c2b",
-    "semantic_hash": "46c12f4668ee4d2bc419f6e1d8578c2b"
   },
   "src/lib/agents/model-router.ts": {
     "mtime": 1783106897.286067,
@@ -1450,8 +1445,8 @@
     "semantic_hash": ""
   },
   "src/app/actions/agent-dispatcher.ts": {
-    "mtime": 1784038153.5521522,
-    "ast_hash": "33cf6317a049e9f8c11acc211520674a",
+    "mtime": 1784039811.8020296,
+    "ast_hash": "2bd40297e79ff0dc1abe31f457fee6cd",
     "semantic_hash": ""
   },
   "src/components/dashboard/settings-client.tsx": {
@@ -1460,13 +1455,13 @@
     "semantic_hash": ""
   },
   "src/lib/agents/brain-matrix.ts": {
-    "mtime": 1784038085.753566,
-    "ast_hash": "c03fe0babc8ae20348c0f22d76d1df4d",
+    "mtime": 1784039811.8040292,
+    "ast_hash": "704aaf9cec17ace3e9eca4e5c532a059",
     "semantic_hash": ""
   },
   "src/components/dashboard/agent-chat.tsx": {
-    "mtime": 1783969606.1127172,
-    "ast_hash": "6148fb6cc1052ea507bbf8c35042bd3a",
+    "mtime": 1784039811.8030288,
+    "ast_hash": "a056358b5240f1e9302d29c3f034aaca",
     "semantic_hash": ""
   },
   "src/app/dashboard/rooms/coding/page.tsx": {

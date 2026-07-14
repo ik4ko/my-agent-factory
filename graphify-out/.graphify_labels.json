@@ -168,5 +168,9 @@
   "166": "CODING AGENTS: READ THIS FIRST",
   "167": "executor-agent.mts",
   "168": "package.json",
-  "169": "hermes.ts"
+  "169": "hermes.ts",
+  "170": "page.tsx",
+  "171": "personal-room-client.tsx",
+  "172": "select-adapter.ts",
+  "173": "DryRunAdapter"
 }
