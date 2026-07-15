@@ -10,6 +10,7 @@ import {
   classifyExit,
   composeGateMessage,
   parseSprintCommand,
+  sprintChildEnv,
 } from './sprint-utils.mjs';
 
 test('short ids are 8-hex and unique-ish', () => {
@@ -78,6 +79,29 @@ test('gate message comes from the manifest alone, missing review is explicit', (
     review: { rubric: { correctness: 'pass', security: 'flag', test_coverage: 'pass', style: 'pass' }, notes: 'ok' },
   });
   assert.match(withRubric, /security=flag/);
+});
+
+test('sprintChildEnv keeps infra/auth, drops every secret', () => {
+  const fake = {
+    PATH: '/usr/bin', HOME: '/root', NODE_ENV: 'production', LANG: 'C.UTF-8',
+    CLAUDE_CODE_OAUTH_TOKEN: 'tok', CODEX_HOME: '/var/data/codex-home', CLAUDE_CONFIG_DIR: '/var/data/claude-config',
+    GIT_AUTHOR_NAME: 'Sprint', GIT_COMMITTER_EMAIL: 'x@y.z', NPM_CONFIG_REGISTRY: 'https://reg',
+    // secrets — must all be dropped
+    SUPABASE_SERVICE_ROLE_KEY: 'SECRET', TELEGRAM_BOT_TOKEN: 'SECRET', OPENROUTER_API_KEY: 'SECRET',
+    MACHINE_API_TOKEN: 'SECRET', WRAPPER_AUTH_TOKEN: 'SECRET', ANTHROPIC_API_KEY: 'SECRET',
+    NVIDIA_API_KEY: 'SECRET', RENDER_API_KEY: 'SECRET', OPENAI_API_KEY: 'SECRET',
+    RANDOM_OTHER_SECRET: 'SECRET',
+  };
+  const kept = sprintChildEnv(fake);
+  // kept infra/auth
+  for (const k of ['PATH','HOME','NODE_ENV','LANG','CLAUDE_CODE_OAUTH_TOKEN','CODEX_HOME','CLAUDE_CONFIG_DIR','GIT_AUTHOR_NAME','GIT_COMMITTER_EMAIL','NPM_CONFIG_REGISTRY']) {
+    assert.equal(kept[k], fake[k], `must keep ${k}`);
+  }
+  // dropped secrets — none may survive
+  for (const k of ['SUPABASE_SERVICE_ROLE_KEY','TELEGRAM_BOT_TOKEN','OPENROUTER_API_KEY','MACHINE_API_TOKEN','WRAPPER_AUTH_TOKEN','ANTHROPIC_API_KEY','NVIDIA_API_KEY','RENDER_API_KEY','OPENAI_API_KEY','RANDOM_OTHER_SECRET']) {
+    assert.equal(k in kept, false, `must DROP ${k}`);
+  }
+  assert.equal(sprintChildEnv(undefined) && typeof sprintChildEnv(undefined), 'object'); // no throw on undefined
 });
 
 test('per-phase breakdown shows both claude and codex, neither hidden', () => {

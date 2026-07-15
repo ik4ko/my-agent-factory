@@ -38,6 +38,7 @@ import {
   classifyExit,
   sprintPrompt,
   composeGateMessage,
+  sprintChildEnv,
 } from './sprint-utils.mjs';
 
 // ── Config ──────────────────────────────────────────────────────────────
@@ -224,7 +225,9 @@ function run(cmd, args, { cwd, timeoutMs, loopId, onChunk } = {}) {
     // stdin MUST be closed ('ignore'), not piped: codex exec treats a piped
     // stdin as pending input and waits for EOF before starting — verified
     // live 2026-07-15 when the first codex sprint hung forever at spawn.
-    const child = spawn(cmd, args, { cwd, detached: true, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+    // env is the SCRUBBED keep-list, never the full host env — the CLIs must
+    // never see SUPABASE_SERVICE_ROLE_KEY / TELEGRAM_BOT_TOKEN / etc.
+    const child = spawn(cmd, args, { cwd, detached: true, env: sprintChildEnv(process.env), stdio: ['ignore', 'pipe', 'pipe'] });
     if (loopId) active = { child, loopId, engineKill: null };
     let stdout = '';
     let stderr = '';
@@ -781,6 +784,18 @@ const server = http.createServer(async (req, res) => {
 // ── Boot ─────────────────────────────────────────────────────────────────
 async function main() {
   fs.mkdirSync(SPRINT_ROOT, { recursive: true });
+  // Env keep-list evidence (names only, never values): what a sprint child
+  // actually inherits, and which known host secrets are dropped from it.
+  const kept = Object.keys(sprintChildEnv(process.env)).sort();
+  const KNOWN_SECRETS = [
+    'SUPABASE_SERVICE_ROLE_KEY', 'OPENROUTER_API_KEY', 'TELEGRAM_BOT_TOKEN', 'MACHINE_API_TOKEN',
+    'WRAPPER_AUTH_TOKEN', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'NVIDIA_API_KEY', 'RENDER_API_KEY',
+  ];
+  const droppedSecrets = KNOWN_SECRETS.filter((k) => process.env[k] && !kept.includes(k));
+  const leakedSecrets = KNOWN_SECRETS.filter((k) => kept.includes(k));
+  console.log(`[env-keeplist] child keeps: ${kept.join(',')}`);
+  console.log(`[env-keeplist] host secrets dropped from child: ${droppedSecrets.join(',') || '(none present)'}`);
+  if (leakedSecrets.length) console.error(`[env-keeplist] WARNING secrets NOT dropped: ${leakedSecrets.join(',')}`);
   await recoverOnBoot().catch((err) => console.error(`[engine] recovery error: ${String(err).slice(0, 200)}`));
   server.listen(ENGINE_PORT, '127.0.0.1', () => {
     console.log(`[engine] sprint engine online · loopback :${ENGINE_PORT} · repo=${REPO_URL}`);

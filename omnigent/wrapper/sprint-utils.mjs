@@ -185,6 +185,42 @@ export function composeGateMessage(manifest) {
   return lines.join('\n');
 }
 
+// Child-process env keep-list for sprint spawns. Full process.env inheritance
+// would hand the CLIs every host secret (SUPABASE_SERVICE_ROLE_KEY,
+// TELEGRAM_BOT_TOKEN, OPENROUTER_API_KEY, MACHINE_API_TOKEN, …). This keeps
+// ONLY what the things run() actually spawns need — verified against the
+// sprints that ran (git clone/fetch/checkout/reset/clean/rev-parse/diff on a
+// PUBLIC repo → no git token; the CLIs' own `git commit` → identity; claude →
+// CLAUDE_CODE_OAUTH_TOKEN; codex → CODEX_HOME/auth.json on disk):
+//   • PATH/HOME — locate binaries + read ~/.gitconfig, ~/.npmrc, CA certs
+//   • the GIT_* and NPM_CONFIG_* namespaces wholesale — git identity
+//     (GIT_AUTHOR_*/GIT_COMMITTER_* if set) and npm registry config, kept
+//     generically so commits work whether identity is env- or config-sourced
+//   • CLAUDE_CODE_OAUTH_TOKEN (claude auth, genuinely in env) + CODEX_HOME /
+//     CLAUDE_CONFIG_DIR (paths to on-disk auth, not secrets themselves)
+//   • benign locale/runtime vars
+// Everything else — every secret — is dropped. This is NOT the sandbox's
+// unrelated 3-var scrub; it's built from run()'s real dependency surface.
+const ENV_KEEP_EXACT = new Set([
+  'PATH', 'HOME', 'SHELL', 'LANG', 'LANGUAGE', 'LC_ALL', 'TERM', 'TZ', 'TMPDIR', 'TEMP', 'TMP',
+  'USER', 'LOGNAME', 'PWD', 'NODE_ENV',
+  'CLAUDE_CODE_OAUTH_TOKEN', 'CODEX_HOME', 'CLAUDE_CONFIG_DIR',
+]);
+const ENV_KEEP_PREFIX = ['GIT_', 'NPM_CONFIG_', 'LC_'];
+
+/** Build the sprint child's environment from `env` (default process.env),
+ *  keeping only the allowlisted infra/auth vars and dropping all secrets.
+ *  Pure + testable — pass a fake env in tests. */
+export function sprintChildEnv(env) {
+  const src = env ?? {};
+  const out = {};
+  for (const k of Object.keys(src)) {
+    if (src[k] === undefined) continue;
+    if (ENV_KEEP_EXACT.has(k) || ENV_KEEP_PREFIX.some((p) => k.startsWith(p))) out[k] = src[k];
+  }
+  return out;
+}
+
 /** Parse `/sprint <objective> | done: cond1; cond2` — DoD is mandatory
  *  (human-authored per task). Returns {objective, definitionOfDone} or null. */
 export function parseSprintCommand(text) {
