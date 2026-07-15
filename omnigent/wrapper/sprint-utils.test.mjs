@@ -36,8 +36,12 @@ test('spawn args carry only verified flags', () => {
   assert.ok(!c.includes('--dangerously-skip-permissions'), 'never bypass all permissions');
   const x = buildCodexArgs('do the thing', '/var/data/repo', '/tmp/last.txt');
   assert.equal(x[0], 'exec');
-  assert.ok(x.includes('-s') && x.includes('workspace-write'), 'sandboxed writes');
-  assert.ok(!x.includes('--dangerously-bypass-approvals-and-sandbox'));
+  // DELIBERATE: bwrap (workspace-write's isolation) is categorically
+  // unavailable on Render's container (unprivileged userns disabled). The
+  // container IS the sandbox, so codex runs with the doc-sanctioned
+  // externally-sandboxed flag. See buildCodexArgs' rationale.
+  assert.ok(x.includes('--dangerously-bypass-approvals-and-sandbox'), 'container-is-sandbox mode');
+  assert.ok(!x.includes('workspace-write'), 'no bwrap sandbox mode on Render');
   assert.equal(x[x.length - 1], 'do the thing');
 });
 
@@ -74,6 +78,23 @@ test('gate message comes from the manifest alone, missing review is explicit', (
     review: { rubric: { correctness: 'pass', security: 'flag', test_coverage: 'pass', style: 'pass' }, notes: 'ok' },
   });
   assert.match(withRubric, /security=flag/);
+});
+
+test('per-phase breakdown shows both claude and codex, neither hidden', () => {
+  const msg = composeGateMessage({
+    task_id: 'abc1234',
+    sprint: { agent: 'codex', objective: 'do X', ended_at: 'y' },
+    diff: { files_changed: 1, insertions: 5, deletions: 0 },
+    summary: 'codex added a helper',
+    review: { rubric: { correctness: 'pass', security: 'pass', test_coverage: 'pass', style: 'pass' } },
+    phases: [
+      { agent: 'claude-code', diff: { files_changed: 2, insertions: 30, deletions: 1 }, review: { rubric: { correctness: 'pass', security: 'pass', test_coverage: 'pass', style: 'pass' } } },
+      { agent: 'codex', diff: { files_changed: 1, insertions: 5, deletions: 0 }, review: { rubric: { correctness: 'pass', security: 'pass', test_coverage: 'pass', style: 'pass' } } },
+    ],
+  });
+  assert.match(msg, /phases:/);
+  assert.match(msg, /claude-code: 2 file\(s\) \+30\/-1/); // claude's work not clobbered
+  assert.match(msg, /codex: 1 file\(s\) \+5\/-0/);        // codex's work also present
 });
 
 test('/sprint parsing demands a human-authored definition of done', () => {

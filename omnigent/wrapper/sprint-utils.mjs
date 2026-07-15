@@ -46,18 +46,34 @@ export function buildClaudeArgs(prompt) {
 }
 
 /**
- * codex CLI invocation — flags verified against the installed codex-cli
- * 0.144.3 (`codex exec --help`, 2026-07-13): exec is the non-interactive
- * mode, --json emits JSONL events on stdout, -s workspace-write sandboxes
- * writes to the working root, -C sets that root, -o writes the agent's final
- * message to a file (the reliable way to get the summary without parsing the
- * event stream).
+ * codex CLI invocation — flags verified against installed codex-cli 0.144.3
+ * (`codex exec --help`). exec = non-interactive; --json emits JSONL events;
+ * -C sets the working root; -o writes the agent's final message to a file.
+ *
+ * SANDBOX DECISION (2026-07-15, verified live, not an arbitrary flip):
+ * `-s workspace-write` / `read-only` enforce isolation via bubblewrap, which
+ * needs an unprivileged user namespace. Render's container disallows that —
+ * codex failed live with `bwrap: setting up uid map: Operation not permitted`,
+ * the canonical unprivileged-userns-disabled signature. That is CATEGORICALLY
+ * unavailable on Render's standard containers (no CAP_SYS_ADMIN, userns
+ * restricted; not fixable without privileged mode Render doesn't offer). So
+ * bwrap cannot be the boundary here. We use
+ * `--dangerously-bypass-approvals-and-sandbox`, whose own help states it is
+ * "Intended solely for running in environments that are externally
+ * sandboxed" — which is exactly this case: the Render container is the
+ * isolation boundary (single-tenant, disposable, holds only the Render env
+ * secrets the engine already exposes to children via process.env). What it
+ * removes: codex's in-process OS sandbox + command-approval prompts (the
+ * latter unanswerable in a headless exec anyway). What still confines codex:
+ * the container itself. Same posture already accepted for the claude lane
+ * (acceptEdits + allowedTools). This flag is NOT safe on a shared/multi-tenant
+ * or secret-bearing host — it is sound ONLY because of the container boundary.
  */
 export function buildCodexArgs(prompt, repoDir, lastMessageFile) {
   return [
     'exec',
     '--json',
-    '-s', 'workspace-write',
+    '--dangerously-bypass-approvals-and-sandbox',
     '-C', repoDir,
     '-o', lastMessageFile,
     prompt,
@@ -139,11 +155,25 @@ export function composeGateMessage(manifest) {
   const flagged = (m.flagged_for_review ?? []).length
     ? `⚑ flagged:\n${m.flagged_for_review.map((f) => `  • ${f}`).join('\n')}`
     : null;
+  // Per-phase breakdown — every completed phase's own diff+rubric, so the
+  // codex phase never hides claude's work (or vice-versa). Preserved in
+  // manifest.phases; falls back to the flat single-phase view when absent.
+  const phases = Array.isArray(m.phases) ? m.phases : [];
+  const phaseBlock = phases.length
+    ? 'phases:\n' + phases.map((p) => {
+        const pd = p.diff ?? {};
+        const pr = p.review?.rubric;
+        const rub = pr ? ` · grok ${pr.correctness}/${pr.security}/${pr.test_coverage}/${pr.style}` : ' · grok n/a';
+        return `  • ${p.agent}: ${pd.files_changed ?? 0} file(s) +${pd.insertions ?? 0}/-${pd.deletions ?? 0}${rub}`;
+      }).join('\n')
+    : null;
   const lines = [
     `⏳ SPRINT GATE · ${m.task_id ? String(m.task_id).slice(0, 8) : '?'}`,
     `objective: ${s.objective ?? '?'}`,
     s.agent ? `last sprint: ${s.agent}${s.ended_at ? ' (finished)' : ''}` : null,
-    `diff: ${d.files_changed ?? 0} file(s), +${d.insertions ?? 0}/-${d.deletions ?? 0}`,
+    phaseBlock,
+    // The flat diff/tests lines describe the phase THIS gate is about (latest).
+    `latest diff: ${d.files_changed ?? 0} file(s), +${d.insertions ?? 0}/-${d.deletions ?? 0}`,
     `tests: ${t.passed ?? 0} pass / ${t.failed ?? 0} fail · typecheck: ${t.typecheck ?? 'not_run'}`,
     m.summary ? `summary: ${m.summary}` : null,
     rubric,

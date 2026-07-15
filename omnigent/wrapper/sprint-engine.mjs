@@ -308,16 +308,17 @@ async function ensureWorkspace(manifest, branch) {
 
 class EngineOom extends Error {}
 
-async function collectDiff(baseSha, taskId) {
+async function collectDiff(baseSha, taskId, agentKind) {
   const git = (args) => run('git', ['-C', REPO_DIR, ...args], { timeoutMs: 60_000 });
   const stat = await git(['diff', '--shortstat', baseSha]);
   const names = await git(['diff', '--name-only', baseSha]);
   const patch = await git(['diff', baseSha]);
-  // The actual patch rides in the manifest (truncated) and on disk in full —
-  // the DB mirror is how a remote reviewer sees the real diff, not just stats.
+  // Full patch on disk per-phase (diff-<agent>.patch) so the codex phase's
+  // file never clobbers claude's; truncated copy also rides in the manifest.
   if (taskId) {
     try {
-      fs.writeFileSync(path.join(workspaceDir(taskId), 'diff.patch'), patch.stdout);
+      const fname = agentKind ? `diff-${agentKind}.patch` : 'diff.patch';
+      fs.writeFileSync(path.join(workspaceDir(taskId), fname), patch.stdout);
     } catch { /* disk write is best-effort; the manifest copy still lands */ }
   }
   const m = /(\d+) files? changed(?:, (\d+) insertions?\(\+\))?(?:, (\d+) deletions?\(-\))?/.exec(stat.stdout) ?? [];
@@ -508,7 +509,9 @@ async function runSprint(loop, agentKind) {
       }
     }
     manifest.summary = summary;
-    manifest.diff = await collectDiff(baseSha, loop.id);
+    // Per-phase diff, keyed by agent — baseSha is THIS phase's start commit,
+    // so the codex phase's diff is codex's own changes (vs claude's commit).
+    manifest.diff = await collectDiff(baseSha, loop.id, agentKind);
     manifest.tests = manifest.tests ?? { passed: 0, failed: 0, skipped: 0, typecheck: 'not_run' };
     appendSprintLog(manifest, `${agentKind} sprint finished ok · ${manifest.diff.files_changed} file(s) changed`);
     await writeManifest(loop, manifest);
@@ -522,6 +525,25 @@ async function runSprint(loop, agentKind) {
     } else {
       manifest.review = { reviewer: 'grok', reviewed_at: null, rubric: null, notes: null };
     }
+
+    // Preserve THIS phase's record separately — the next phase (codex after
+    // claude) must never overwrite it. The complete-task gate needs BOTH
+    // Claude's and Codex's diffs+rubrics visible, or its accuracy is a lie.
+    (manifest.phases ??= []).push({
+      agent: agentKind,
+      summary: manifest.summary,
+      diff: {
+        files_changed: manifest.diff.files_changed,
+        insertions: manifest.diff.insertions,
+        deletions: manifest.diff.deletions,
+        file_list: manifest.diff.file_list,
+        patch: (manifest.diff.patch ?? '').slice(0, 8000),
+      },
+      tests: manifest.tests,
+      review: manifest.review,
+      started_at: manifest.sprint.started_at,
+      ended_at: manifest.sprint.ended_at,
+    });
 
     const nextGate = agentKind === 'claude-code' ? 'launch-codex' : 'complete-task';
     await openGate(loop, manifest, nextGate, runningState);
