@@ -60,6 +60,9 @@ const INSTALL_DEPS = (process.env.SPRINT_INSTALL_DEPS ?? 'true') !== 'false';
 const ESTOP_POLL_MS = 3_000;
 const IDLE_POLL_MS = 5_000;
 const KILL_GRACE_MS = 10_000;
+// Periodic "still working" operator update during a running sprint — a
+// silent multi-minute wait reads as broken and invites a stale re-tap.
+const PROGRESS_MS = Number(process.env.SPRINT_PROGRESS_MS ?? 180_000);
 
 for (const [name, v] of [
   ['SUPABASE_URL', SB_URL],
@@ -218,7 +221,10 @@ function killActive(reason) {
 function run(cmd, args, { cwd, timeoutMs, loopId, onChunk } = {}) {
   return new Promise((resolve) => {
     const oomBefore = oomKillCount();
-    const child = spawn(cmd, args, { cwd, detached: true, env: process.env });
+    // stdin MUST be closed ('ignore'), not piped: codex exec treats a piped
+    // stdin as pending input and waits for EOF before starting — verified
+    // live 2026-07-15 when the first codex sprint hung forever at spawn.
+    const child = spawn(cmd, args, { cwd, detached: true, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
     if (loopId) active = { child, loopId, engineKill: null };
     let stdout = '';
     let stderr = '';
@@ -440,6 +446,13 @@ async function runSprint(loop, agentKind) {
     appendSprintLog(manifest, `spawning ${cmd} (timeout ${Math.round(SPRINT_TIMEOUT_MS / 60000)}m)`);
     await writeManifest(loop, manifest);
 
+    const sprintT0 = Date.now();
+    const progressTimer = setInterval(() => {
+      const mins = Math.round((Date.now() - sprintT0) / 60_000);
+      tgSend(`⏳ ${loop.short_code}: ${agentKind} still working (${mins}m elapsed) — no action needed`);
+    }, PROGRESS_MS);
+    progressTimer.unref?.();
+
     let lastFlush = 0;
     const result = await run(cmd, args, {
       cwd: REPO_DIR,
@@ -457,6 +470,7 @@ async function runSprint(loop, agentKind) {
       },
     });
 
+    clearInterval(progressTimer);
     manifest.sprint.ended_at = new Date().toISOString();
     fs.writeFileSync(path.join(workspaceDir(loop.id), `${agentKind}-stdout.log`), result.stdout);
 
@@ -547,7 +561,7 @@ async function handleGateDecision(payload) {
       });
     } catch (err) {
       if (err.pgCode === '23505' || err.status === 409) {
-        return { status: 409, body: { ok: false, deduped: true, message: 'duplicate delivery — already processed (no change)' } };
+        return { status: 409, body: { ok: false, deduped: true, message: '⚠️ Duplicate delivery — already processed, no action taken' } };
       }
       return { status: 500, body: { ok: false, message: `dedupe claim failed: ${String(err).slice(0, 120)}` } };
     }
@@ -556,6 +570,15 @@ async function handleGateDecision(payload) {
   const rows = await sb(`sprint_loops?short_code=eq.${shortCode}&limit=1`);
   const loop = rows?.[0];
   if (!loop) return { status: 404, body: { ok: false, message: `no sprint loop ${shortCode}` } };
+
+  // Stale-tap pre-check BEFORE any gate_kind use: a decided/superseded gate
+  // (row moved on; gate_id/gate_kind cleared) must always produce this clear,
+  // human-readable rejection — never a raw "unknown gate kind null" (the
+  // exact failure observed live 2026-07-15). The CAS below stays the
+  // race-safe authority; this makes the common case readable.
+  if (loop.state !== 'AWAITING_APPROVAL' || loop.gate_id !== gateId || !loop.gate_kind) {
+    return { status: 409, body: { ok: false, stale: true, message: `⚠️ Already decided — no action taken (${shortCode} is ${loop.state})` } };
+  }
 
   // CAS: only decide a gate that is still open — a stale/replayed callback
   // gets a clear rejection, never a silent drop, never a re-trigger (§5).
@@ -566,7 +589,7 @@ async function handleGateDecision(payload) {
       gate_kind: null,
       decided_by: String(decidedBy ?? ''),
     });
-    if (!row) return { status: 409, body: { ok: false, message: 'stale gate — already decided or not awaiting approval' } };
+    if (!row) return { status: 409, body: { ok: false, stale: true, message: `⚠️ Already decided — no action taken (${shortCode})` } };
     const manifest = readManifest(loop.id);
     if (manifest) {
       manifest.state = 'ABORTED';
@@ -575,7 +598,7 @@ async function handleGateDecision(payload) {
       await writeManifest({ id: loop.id, short_code: loop.short_code }, manifest);
     }
     mirrorToChat('warn', `${shortCode} ABORTED at gate by operator`);
-    return { status: 200, body: { ok: true, message: `⛔ aborted — ${shortCode} stopped, no CLI launched` } };
+    return { status: 200, body: { ok: true, message: `⛔ Aborted — ${shortCode} stopped, nothing launched` } };
   }
 
   const target = { 'launch-claude': 'CLAUDE_RUNNING', 'launch-codex': 'CODEX_RUNNING', 'complete-task': 'DONE' }[loop.gate_kind];
@@ -587,7 +610,7 @@ async function handleGateDecision(payload) {
     decided_by: String(decidedBy ?? ''),
     ...(target === 'CLAUDE_RUNNING' || target === 'CODEX_RUNNING' ? { agent: target === 'CLAUDE_RUNNING' ? 'claude-code' : 'codex' } : {}),
   });
-  if (!row) return { status: 409, body: { ok: false, message: 'stale gate — already decided or not awaiting approval' } };
+  if (!row) return { status: 409, body: { ok: false, stale: true, message: `⚠️ Already decided — no action taken (${shortCode})` } };
 
   const manifest = readManifest(loop.id);
   if (manifest?.approval) {
@@ -604,7 +627,7 @@ async function handleGateDecision(payload) {
   // strictly after the CAS above proved this exact gate was open.
   runSprint(row, row.agent).catch((err) => console.error(`[engine] runSprint crashed: ${String(err).slice(0, 300)}`));
   mirrorToChat('info', `${shortCode} gate approved → ${row.agent} sprint launching`);
-  return { status: 200, body: { ok: true, message: `✅ approved — ${row.agent} sprint launching for ${shortCode}` } };
+  return { status: 200, body: { ok: true, message: `✅ Approved — ${row.agent} sprint launching for ${shortCode}` } };
 }
 
 async function handleCreateTask(payload) {

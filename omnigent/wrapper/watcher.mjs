@@ -202,6 +202,29 @@ async function answerCallback(callbackQueryId, text) {
   }
 }
 
+/** The moment a gate button is tapped and resolved (approved, aborted, or
+ *  rejected as stale), rewrite THAT message: original text + outcome line,
+ *  inline keyboard stripped — so a stale button can never be tapped again.
+ *  Works for old messages too: the callback itself carries the message. */
+async function sealTappedMessage(cb, statusLine) {
+  const msg = cb.message;
+  if (!msg?.message_id) return;
+  try {
+    await fetch(tg('editMessageText'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: operatorChatId(), // never an inbound-derived chat id
+        message_id: msg.message_id,
+        text: `${(msg.text ?? '').slice(0, 3500)}\n\n— ${statusLine.slice(0, 300)}`,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch (err) {
+    console.error(`[watcher] editMessageText failed: ${String(err).slice(0, 120)}`);
+  }
+}
+
 /**
  * Sprint-gate button taps. Runs only after the outer allowlist gate passed
  * (chatIdOf covers callback_query.message.chat) — and re-checks the TAPPING
@@ -227,6 +250,7 @@ async function handleCallbackQuery(update) {
     decidedBy: String(cb.from.id),
   });
   await answerCallback(cb.id, result.message);
+  await sealTappedMessage(cb, result.message);
   await notifyOperator(result.message);
 }
 
