@@ -39,7 +39,7 @@ export function useWorkspaceInit({ initial }: Options = {}): {
 
     // Seed the caches POST-MOUNT, never during render. A render-phase
     // setQueryData synchronously notifies already-subscribed components
-    // (StatsBar, LiveTerminal, …) and trips React's "cannot update a
+    // and trips React's "cannot update a
     // component while rendering a different component" on Fast Refresh
     // remounts. First paint loses nothing: every consumer hook already
     // receives this same SSR payload via its own useQuery `initialData`.

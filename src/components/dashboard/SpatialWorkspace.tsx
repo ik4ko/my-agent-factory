@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -24,14 +24,14 @@ import { WidgetErrorBoundary } from './widget-error-boundary';
 import type { Agent, AgentType, Log, StagedOrderRow, Task } from '@/lib/types/database.types';
 import { cn } from '@/lib/utils';
 
-// ═══════════════════════════════════════════════════════════════════════════
-// BRAIN HUB — the Instrument Deck's WebGL signature (Brain Hub.dc.html).
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// BRAIN HUB â€” the Instrument Deck's WebGL signature (Brain Hub.dc.html).
 // Four brain nodes with LIVE status colors bound to the real agents cache,
-// dependency lines feeding a central bus with token-stream pulses, click →
-// camera fly-in → Instrument-Deck panel reveal → ◄ PULL OUT, and the rose
+// dependency lines feeding a central bus with realtime pulses, click â†’
+// camera fly-in â†’ Instrument-Deck panel reveal â†’ â—„ PULL OUT, and the rose
 // approval-gate beacon that lights when a real staged order is pending.
 // Three.js is reserved for THIS surface only (perf constraint).
-// ═══════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 const IDLE_HEX = '#64748b';
 const ACTIVE_HEX = '#38bdf8';
@@ -48,61 +48,60 @@ interface BrainDef {
   role: string;
   /** Real agent types whose live rows drive this brain's status. */
   types: AgentType[];
-  /** Identity color when active; null → status-driven (active blue / idle grey). */
+  /** Identity color when active; null â†’ status-driven (active blue / idle grey). */
   identity: string | null;
   position: [number, number, number];
   deps: string[];
   /** Pulse-bus room whose events flash this brain. */
   pulseRoom: SpatialRoom;
+  future?: boolean;
 }
 
-/** The four brains of the locked design, each bound to the REAL agent types
- *  that exist in this system (agent-activity.tsx's type→brain mapping):
- *  HERMES ← generic+browser (routing), CODEX ← coder, GROK ← researcher
- *  (real-time data synthesis — GROK theses feed staged orders), GEMINI ←
- *  planner (reasoning/build planning). Status is live from the agents cache. */
+/** Two working brains now, future planets kept dim until they are wired. */
 const BRAINS: BrainDef[] = [
-  { key: 'hermes', name: 'HERMES', role: 'CORE ORCHESTRATION · ROUTING', types: ['generic', 'browser'], identity: null, position: [-2.4, 1.5, -0.4], deps: ['→ CODEX', '→ GROK'], pulseRoom: 'analytics' },
-  { key: 'codex', name: 'CODEX', role: 'CODE GENERATION · SCRIPTING', types: ['coder'], identity: CODEX_HEX, position: [-0.85, 0.75, -1.7], deps: ['← HERMES'], pulseRoom: 'coding' },
-  { key: 'grok', name: 'GROK', role: 'REAL-TIME DATA SYNTHESIS', types: ['researcher'], identity: null, position: [1.0, 1.8, -1.3], deps: ['→ HERMES', '→ TRADING'], pulseRoom: 'trading' },
-  { key: 'gemini', name: 'GEMINI', role: 'PLANNING · MULTIMODAL REASONING', types: ['planner'], identity: null, position: [2.4, 0.9, 0.2], deps: ['→ HERMES'], pulseRoom: 'analytics' },
+  { key: 'claude', name: 'CLAUDE', role: 'CEO ORCHESTRATION Â· DELEGATION', types: ['generic', 'planner'], identity: ACTIVE_HEX, position: [-2.1, 1.45, -0.4], deps: ['â†” CODEX'], pulseRoom: 'analytics' },
+  { key: 'codex', name: 'CODEX', role: 'CODE GENERATION Â· SCRIPTING', types: ['coder'], identity: CODEX_HEX, position: [-0.65, 0.75, -1.65], deps: ['â†” CLAUDE'], pulseRoom: 'coding' },
+  { key: 'hermes', name: 'HERMES', role: 'FUTURE RESEARCH LANE', types: [], identity: null, position: [1.0, 1.8, -1.3], deps: ['FUTURE'], pulseRoom: 'analytics', future: true },
+  { key: 'grok', name: 'GROK', role: 'FUTURE CONTRARIAN LANE', types: [], identity: null, position: [2.4, 0.9, 0.2], deps: ['FUTURE'], pulseRoom: 'trading', future: true },
 ];
 
 type Focus = { kind: 'brain'; key: string } | { kind: 'approval' } | null;
 
 function brainStatus(brain: BrainDef, agents: Agent[]): { active: boolean; color: string } {
-  const active = agents.some((a) => a.type != null && brain.types.includes(a.type) && a.status === 'busy');
-  const color = brain.identity ?? (active ? ACTIVE_HEX : IDLE_HEX);
+  const active = !brain.future && agents.some((a) => a.type != null && brain.types.includes(a.type) && a.status === 'busy');
+  const color = brain.future ? '#263348' : brain.identity ?? (active ? ACTIVE_HEX : IDLE_HEX);
   return { active, color };
 }
 
 function camFor(pos: [number, number, number]): [number, number, number] {
   // Fly to a point pulled back from the node toward the home camera.
   const p = new THREE.Vector3(...pos);
-  const dir = new THREE.Vector3(...HOME_CAM).sub(p).normalize().multiplyScalar(1.6);
+  const dir = new THREE.Vector3(...HOME_CAM).sub(p).normalize().multiplyScalar(1.05);
   const c = p.clone().add(dir);
-  return [c.x, Math.max(c.y, pos[1] + 0.15), c.z];
+  return [c.x, Math.max(c.y, pos[1] + 0.05), c.z];
 }
 
-// ── scene pieces ────────────────────────────────────────────────────────────
+// â”€â”€ scene pieces â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function BrainNode({
   def,
   color,
   active,
   focused,
-  onFocus,
   idToBrain,
+  onFocus,
 }: {
   def: BrainDef;
   color: string;
   active: boolean;
   focused: boolean;
-  onFocus: () => void;
-  /** Live agent-uuid → brain-key lookup, rebuilt only when the agents cache
-   *  changes — hover reads stay out of React entirely. */
+  /** Live agent-uuid â†’ brain-key lookup, rebuilt only when the agents cache
+   *  changes â€” hover reads stay out of React entirely. */
   idToBrain: Map<string, string>;
+  onFocus: () => void;
 }) {
+  const mesh = useRef<THREE.Mesh>(null);
+  const ring = useRef<THREE.Mesh>(null);
   const mat = useRef<THREE.MeshStandardMaterial>(null);
   const ringMat = useRef<THREE.MeshBasicMaterial>(null);
   const highlight = useRef(0);
@@ -117,7 +116,7 @@ function BrainNode({
     const flash = p.at > 0 ? p.mag * Math.exp(-age / 900) : 0;
 
     // Fleet-hover highlight (core-store FX bridge): a getState() read per
-    // frame — a card hover never re-renders this tree. Eased so the glow
+    // frame â€” a card hover never re-renders this tree. Eased so the glow
     // breathes on rather than snapping.
     const focusId = useCoreFxStore.getState().focusedAgentId;
     const target = focusId !== null && idToBrain.get(focusId) === def.key ? 1 : 0;
@@ -126,11 +125,19 @@ function BrainNode({
     m.emissiveIntensity = base + flash * 2.0 + highlight.current * 1.3;
     const rm = ringMat.current;
     if (rm) rm.opacity = ringBase + highlight.current * 0.4;
+    if (mesh.current) {
+      mesh.current.rotation.x += delta * (focused ? 0.55 : 0.16);
+      mesh.current.rotation.y += delta * (active ? 0.9 : 0.38);
+    }
+    if (ring.current) {
+      ring.current.rotation.z += delta * 0.45;
+    }
   });
 
   return (
     <group position={def.position}>
       <mesh
+        ref={mesh}
         onClick={(e: ThreeEvent<MouseEvent>) => {
           e.stopPropagation();
           onFocus();
@@ -146,25 +153,25 @@ function BrainNode({
         <icosahedronGeometry args={[0.3, 2]} />
         <meshStandardMaterial ref={mat} color={color} emissive={color} emissiveIntensity={base} toneMapped={false} roughness={0.35} metalness={0.15} />
       </mesh>
-      {/* orbit ring — reads as "tracked fix", the 1A nav-instrument voice.
+      {/* orbit ring â€” reads as "tracked fix", the 1A nav-instrument voice.
           Opacity is frame-driven (base + hover highlight). */}
-      <mesh rotation={[Math.PI / 2.3, 0, 0]}>
+      <mesh ref={ring} rotation={[Math.PI / 2.3, 0, 0]}>
         <torusGeometry args={[0.46, 0.006, 8, 48]} />
         <meshBasicMaterial ref={ringMat} color={color} transparent opacity={ringBase} toneMapped={false} />
       </mesh>
       <Html center distanceFactor={7} position={[0, -0.62, 0]} style={{ pointerEvents: 'none' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, whiteSpace: 'nowrap' }}>
           <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', color }}>{def.name}</span>
-          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 7.5, letterSpacing: '0.1em', color: '#56657c' }}>{active ? 'BUSY' : 'IDLE'}</span>
+          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 7.5, letterSpacing: '0.1em', color: '#56657c' }}>{def.future ? 'FUTURE' : active ? 'BUSY' : 'IDLE'}</span>
         </div>
       </Html>
     </group>
   );
 }
 
-/** Central bus core. Breathes with TaskInput's live voice state (core-store
+/** Central bus core. Breathes with live voice state (core-store
  *  FX bridge): while the mic is armed the wireframe brightens and swells on a
- *  fast wave — the deck's "the hub is listening" signal. Frame-loop
+ *  fast wave â€” the deck's "the hub is listening" signal. Frame-loop
  *  getState() read only; arm/disarm never re-renders the scene. */
 function BusCore() {
   const mat = useRef<THREE.MeshStandardMaterial>(null);
@@ -191,7 +198,7 @@ function BusCore() {
   );
 }
 
-/** Dependency line brain → bus, with a token pulse traveling along it while
+/** Dependency line brain â†’ bus, with a token pulse traveling along it while
  *  the brain is active. */
 function DepLine({ from, color, active }: { from: [number, number, number]; color: string; active: boolean }) {
   const dot = useRef<THREE.Mesh>(null);
@@ -218,7 +225,7 @@ function DepLine({ from, color, active }: { from: [number, number, number]; colo
   );
 }
 
-/** Rose approval beacon — lit only while a REAL staged order is pending. */
+/** Rose approval beacon â€” lit only while a REAL staged order is pending. */
 function ApprovalBeacon({ pending, focused, onFocus }: { pending: number; focused: boolean; onFocus: () => void }) {
   const mat = useRef<THREE.MeshStandardMaterial>(null);
   const lit = pending > 0;
@@ -258,7 +265,7 @@ function ApprovalBeacon({ pending, focused, onFocus }: { pending: number; focuse
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', fontFamily: 'JetBrains Mono, monospace' }}>
             <span style={{ width: 5, height: 5, borderRadius: '50%', background: GATE_HEX }} />
             <span style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: '0.12em', color: '#ff5c8a' }}>
-              {pending} · ACTION REQUIRED
+              {pending} Â· ACTION REQUIRED
             </span>
           </div>
         </Html>
@@ -290,8 +297,8 @@ function Rig({ focus }: { focus: Focus }) {
     desiredCam.current.set(...cam);
     desiredLook.current.set(...look);
 
-    const arrivedHome = !focus && state.camera.position.distanceTo(desiredCam.current) < 0.03;
-    if (arrivedHome) {
+    const arrived = state.camera.position.distanceTo(desiredCam.current) < 0.03;
+    if (arrived) {
       c.enabled = true;
       return;
     }
@@ -306,20 +313,22 @@ function Rig({ focus }: { focus: Focus }) {
     <OrbitControls
       ref={controls}
       makeDefault
-      enablePan
+      enablePan={false}
+      enableZoom
+      zoomSpeed={2.8}
+      rotateSpeed={0.9}
       enableDamping
       dampingFactor={0.08}
-      autoRotate={!focus}
-      autoRotateSpeed={0.35}
-      minDistance={1.8}
-      maxDistance={15}
+      autoRotate={false}
+      minDistance={0.45}
+      maxDistance={34}
       minPolarAngle={0.15}
       maxPolarAngle={Math.PI / 2 - 0.03}
     />
   );
 }
 
-/** Subscribes the 3D scene to the Supabase data bus — log / staged-order /
+/** Subscribes the 3D scene to the Supabase data bus â€” log / staged-order /
  *  metric INSERTs each flash the corresponding brain. */
 function usePulseBus() {
   const pulse = useSpatialPulse((s) => s.pulse);
@@ -348,13 +357,13 @@ function usePulseBus() {
   }, [pulse]);
 }
 
-// ── Instrument-Deck reveal panels (DOM, real data) ──────────────────────────
+// â”€â”€ Instrument-Deck reveal panels (DOM, real data) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function BrainPanel({ brainKey, onPullOut }: { brainKey: string; onPullOut: () => void }) {
   const def = BRAINS.find((b) => b.key === brainKey)!;
   const { data: agents = [] } = useQuery<Agent[]>({ queryKey: AGENTS_KEY, queryFn: async () => [], enabled: false, initialData: [] });
   const { data: tasks = [] } = useQuery<Task[]>({ queryKey: TASKS_KEY, queryFn: async () => [], enabled: false, initialData: [] });
-  const thoughts = useBusThoughts(null); // cache-only observer — no extra channel
+  const thoughts = useBusThoughts(null); // cache-only observer â€” no extra channel
 
   const mine = agents.filter((a) => a.type != null && def.types.includes(a.type));
   const busy = mine.filter((a) => a.status === 'busy');
@@ -375,10 +384,10 @@ function BrainPanel({ brainKey, onPullOut }: { brainKey: string; onPullOut: () =
       <span className="font-mono text-[8.5px] tracking-[0.16em] text-ink-low">{def.role}</span>
 
       <div className="grid grid-cols-2 gap-2 font-mono">
-        <Metric label="MODEL" value={latest?.model ?? '—'} tone={color} />
-        <Metric label="LATENCY" value={latest?.latencyMs != null ? `${latest.latencyMs}ms` : '—'} tone="#e8eef7" />
+        <Metric label="MODEL" value={latest?.model ?? 'â€”'} tone={color} />
+        <Metric label="LATENCY" value={latest?.latencyMs != null ? `${latest.latencyMs}ms` : 'â€”'} tone="#e8eef7" />
         <Metric label="AGENTS" value={`${busy.length} busy / ${mine.length}`} tone="#e8eef7" />
-        <Metric label="PROVIDER" value={latest?.provider ?? '—'} tone="#e8eef7" />
+        <Metric label="PROVIDER" value={latest?.provider ?? 'â€”'} tone="#e8eef7" />
       </div>
 
       <div className="flex flex-col gap-1">
@@ -387,7 +396,7 @@ function BrainPanel({ brainKey, onPullOut }: { brainKey: string; onPullOut: () =
           <span className="font-mono text-[9.5px] text-ink-low">queue clear</span>
         ) : (
           myTasks.map((t) => (
-            <span key={t.id} className="truncate font-mono text-[9.5px] text-ink-mid">· {t.description}</span>
+            <span key={t.id} className="truncate font-mono text-[9.5px] text-ink-mid">Â· {t.description}</span>
           ))
         )}
       </div>
@@ -416,7 +425,7 @@ function BrainPanel({ brainKey, onPullOut }: { brainKey: string; onPullOut: () =
         onClick={onPullOut}
         className="mt-auto self-start rounded border border-primary/40 bg-primary/[0.08] px-3 py-1.5 font-mono text-[9.5px] font-bold tracking-[0.14em] text-primary-bright transition-colors hover:bg-primary/20"
       >
-        ◄ PULL OUT
+        â—„ PULL OUT
       </button>
     </PanelChrome>
   );
@@ -432,28 +441,36 @@ function ApprovalPanel({ orders, onPullOut }: { orders: StagedOrderRow[]; onPull
       bodyClassName="flex flex-col gap-3 p-3"
       className="pointer-events-auto h-full"
     >
-      <span className="font-mono text-[8.5px] tracking-[0.16em] text-gate-soft">HUMAN-APPROVAL GATE · TRADING</span>
+      <span className="font-mono text-[8.5px] tracking-[0.16em] text-gate-soft">HUMAN-APPROVAL GATE Â· TRADING</span>
       {orders.slice(0, 3).map((o) => (
         <div key={o.id} className="flex flex-col gap-1.5 rounded-[5px] border border-gate/40 bg-gate/[0.05] p-2.5 font-mono">
           <div className="flex items-center gap-2">
             <span className="text-[12px] font-bold text-ink-hi">{o.underlying} {o.option_type} {o.strike}</span>
             <span className="ml-auto tabular text-[10px] text-ink-mid">${Math.round(o.calculated_position_size_usd).toLocaleString()}</span>
           </div>
-          <span className="text-[8.5px] text-ink-mid">½ Kelly {(o.kelly_fraction * 100).toFixed(2)}% · E {o.expectancy.toFixed(2)}R · {o.source}</span>
+          {o.intent_kind === 'option_intent' ? (
+            <span className="text-[8.5px] text-ink-mid">
+              {o.action} {o.contracts}x · {o.price_effect} · max prem ${Math.round(o.max_premium_usd ?? 0).toLocaleString()} · max loss ${Math.round(o.max_loss_usd ?? 0).toLocaleString()}
+            </span>
+          ) : (
+            <span className="text-[8.5px] text-ink-mid">
+              ½ Kelly {(((o.kelly_fraction ?? 0) * 100)).toFixed(2)}% · E {(o.expectancy ?? 0).toFixed(2)}R · {o.source}
+            </span>
+          )}
         </div>
       ))}
       <Link
         href="/dashboard/rooms/trading"
         className="rounded border border-gate bg-gate px-3 py-2 text-center font-mono text-[10px] font-bold tracking-[0.14em] text-gate-foreground transition-colors hover:bg-gate-soft"
       >
-        OPEN TRADING ROOM →
+        OPEN TRADING ROOM â†’
       </Link>
       <button
         type="button"
         onClick={onPullOut}
         className="mt-auto self-start rounded border border-primary/40 bg-primary/[0.08] px-3 py-1.5 font-mono text-[9.5px] font-bold tracking-[0.14em] text-primary-bright transition-colors hover:bg-primary/20"
       >
-        ◄ PULL OUT
+        â—„ PULL OUT
       </button>
     </PanelChrome>
   );
@@ -468,7 +485,7 @@ function Metric({ label, value, tone }: { label: string; value: string; tone: st
   );
 }
 
-// ── Floating workspace tiles (unchanged functionality) ─────────────────────
+// â”€â”€ Floating workspace tiles (unchanged functionality) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type TileId = 'fleet' | 'tasks' | 'memory' | 'approvals';
 const TILE_LABEL: Record<TileId, string> = { fleet: 'Fleet', tasks: 'Tasks', memory: 'Memory', approvals: 'Staged Orders' };
@@ -490,7 +507,7 @@ function TileBody({ id, expanded }: { id: TileId; expanded: boolean }) {
     const live = agents.filter((a) => a.status === 'busy' || a.last_heartbeat).slice(0, expanded ? 12 : 3);
     return (
       <div className="font-mono text-[10px]">
-        <p className="text-ink-low">{idle} idle · {busy} busy · {agents.length} total</p>
+        <p className="text-ink-low">{idle} idle Â· {busy} busy Â· {agents.length} total</p>
         {live.map((a) => (
           <div key={a.id} className="flex items-center gap-1.5 py-0.5">
             <span className={cn('size-1 rounded-full', a.status === 'busy' ? 'bg-primary' : 'bg-neon-green')} />
@@ -506,7 +523,7 @@ function TileBody({ id, expanded }: { id: TileId; expanded: boolean }) {
     const done = tasks.filter((t) => t.status === 'completed').length;
     return (
       <div className="font-mono text-[10px]">
-        <p className="text-ink-low">{running} running · {pending} pending · {done} done</p>
+        <p className="text-ink-low">{running} running Â· {pending} pending Â· {done} done</p>
         {tasks.slice(0, expanded ? 8 : 2).map((t) => (
           <p key={t.id} className="truncate py-0.5 text-ink-hi/75">{t.description}</p>
         ))}
@@ -517,10 +534,12 @@ function TileBody({ id, expanded }: { id: TileId; expanded: boolean }) {
     const pending = staged.filter((s) => s.human_approval_status === 'PENDING');
     return (
       <div className="font-mono text-[10px]">
-        <p className="text-ink-low">{pending.length} awaiting verdict · nothing auto-executes</p>
+        <p className="text-ink-low">{pending.length} awaiting verdict Â· nothing auto-executes</p>
         {pending.slice(0, expanded ? 8 : 2).map((s) => (
           <p key={s.id} className="truncate py-0.5 text-gate-soft/90">
-            {s.underlying} {s.option_type} {s.strike} · Kelly {(s.kelly_fraction * 100).toFixed(1)}%
+            {s.intent_kind === 'option_intent'
+              ? `${s.underlying} ${s.option_type} ${s.strike} · ${s.action} ${s.contracts}x`
+              : `${s.underlying} ${s.option_type} ${s.strike} · Kelly ${(((s.kelly_fraction ?? 0) * 100)).toFixed(1)}%`}
           </p>
         ))}
       </div>
@@ -594,16 +613,22 @@ function FloatingTiles() {
   );
 }
 
-// ── the hub ─────────────────────────────────────────────────────────────────
+// â”€â”€ the hub â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-export function SpatialWorkspace() {
+export function SpatialWorkspace({
+  showTiles = false,
+  onBrainSelect,
+}: {
+  showTiles?: boolean;
+  onBrainSelect?: (brainKey: string) => void;
+}) {
   const [focus, setFocus] = useState<Focus>(null);
   usePulseBus();
 
   const { data: agents = [] } = useQuery<Agent[]>({ queryKey: AGENTS_KEY, queryFn: async () => [], enabled: false, initialData: [] });
   const { data: pendingOrders = [] } = useStagedOrders();
 
-  // Agent uuid → brain key, for the fleet-hover highlight. Rebuilt only when
+  // Agent uuid â†’ brain key, for the fleet-hover highlight. Rebuilt only when
   // the agents cache changes (rare); the per-frame hover read is a Map.get.
   const idToBrain = useMemo(() => {
     const m = new Map<string, string>();
@@ -615,13 +640,59 @@ export function SpatialWorkspace() {
     return m;
   }, [agents]);
 
+  const selectBrain = (brainKey: string) => {
+    setFocus({ kind: 'brain', key: brainKey });
+    onBrainSelect?.(brainKey);
+  };
+
+  // Own the wheel across the ENTIRE scene wrapper so the page scroll container
+  // never competes with OrbitControls zoom. React registers onWheel as passive,
+  // so preventDefault requires a non-passive native listener. OrbitControls
+  // still handles zoom over the canvas; over the HTML overlays (hint pill,
+  // quick-focus rail, approval panel) this simply blocks page scroll so there
+  // are no dead zones where a wheel does nothing / scrolls the page instead.
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      // No dead zones: if the wheel landed on an interactive HTML overlay
+      // (quick-focus rail, approval panel, tiles) instead of the canvas,
+      // forward it to the canvas so OrbitControls zooms everywhere on the
+      // scene surface — not just over the canvas hotspot. Pointer-events-none
+      // overlays (hint pill) already pass through, so target is the canvas there.
+      const canvas = el.querySelector('canvas');
+      if (canvas && e.target !== canvas) {
+        canvas.dispatchEvent(
+          new WheelEvent('wheel', {
+            deltaX: e.deltaX,
+            deltaY: e.deltaY,
+            deltaMode: e.deltaMode,
+            clientX: e.clientX,
+            clientY: e.clientY,
+            bubbles: false,
+            cancelable: true,
+          }),
+        );
+      }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-md border border-border bg-[#070c15]">
+    <div
+      ref={wrapperRef}
+      onWheelCapture={(e) => e.stopPropagation()}
+      className="touch-none relative h-full w-full overflow-hidden rounded-md border border-border bg-[#070c15]">
       <Canvas
         shadows
         dpr={[1, 1.75]}
         camera={{ position: HOME_CAM, fov: 50 }}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
+        onPointerMissed={() => setFocus(null)}
         onCreated={({ scene }) => {
           scene.fog = new THREE.Fog('#070c15', 7, 17);
         }}
@@ -638,7 +709,7 @@ export function SpatialWorkspace() {
         </mesh>
         <gridHelper args={[40, 60, '#12324a', '#0c1626']} position={[0, -0.99, 0]} />
 
-        {/* central bus — breathes while TaskInput's mic is armed */}
+        {/* central bus â€” breathes while Nova / room chat voice is armed */}
         <BusCore />
 
         {BRAINS.map((def) => {
@@ -651,8 +722,8 @@ export function SpatialWorkspace() {
                 color={color}
                 active={active}
                 focused={focus?.kind === 'brain' && focus.key === def.key}
-                onFocus={() => setFocus({ kind: 'brain', key: def.key })}
                 idToBrain={idToBrain}
+                onFocus={() => selectBrain(def.key)}
               />
             </group>
           );
@@ -671,23 +742,19 @@ export function SpatialWorkspace() {
         </EffectComposer>
       </Canvas>
 
-      {/* floating workspace tiles — hidden while a focus panel is open */}
-      {!focus && <FloatingTiles />}
+      {/* floating workspace tiles â€” hidden while a focus panel is open */}
+      {!focus && showTiles && <FloatingTiles />}
 
       {!focus && (
         <div className="pointer-events-none absolute left-1/2 top-2 -translate-x-1/2 rounded-full border border-border/60 bg-background/70 px-2.5 py-0.5 font-mono text-[9px] text-ink-low backdrop-blur">
-          drag to orbit · scroll to zoom · click a brain{pendingOrders.length > 0 ? ' · rose beacon = order awaiting you' : ''}
+          drag to orbit Â· scroll up to zoom in Â· scroll down to zoom out{pendingOrders.length > 0 ? ' Â· rose beacon = order awaiting you' : ''}
         </div>
       )}
 
-      {/* Instrument-Deck reveal panel — right side, over the scene */}
-      {focus && (
+      {/* Instrument-Deck reveal panel â€” right side, over the scene */}
+      {focus?.kind === 'approval' && (
         <div className="pointer-events-none absolute bottom-3 right-3 top-3 z-20 w-[min(340px,88vw)]">
-          {focus.kind === 'brain' ? (
-            <BrainPanel brainKey={focus.key} onPullOut={() => setFocus(null)} />
-          ) : (
-            <ApprovalPanel orders={pendingOrders} onPullOut={() => setFocus(null)} />
-          )}
+          <ApprovalPanel orders={pendingOrders} onPullOut={() => setFocus(null)} />
         </div>
       )}
 
@@ -698,7 +765,7 @@ export function SpatialWorkspace() {
           return (
             <button
               key={b.key}
-              onClick={() => setFocus({ kind: 'brain', key: b.key })}
+              onClick={() => selectBrain(b.key)}
               className={cn(
                 'rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider transition-colors',
                 focus?.kind === 'brain' && focus.key === b.key ? 'border-current' : 'border-border/50 hover:border-current',
@@ -715,3 +782,5 @@ export function SpatialWorkspace() {
 }
 
 export default SpatialWorkspace;
+
+

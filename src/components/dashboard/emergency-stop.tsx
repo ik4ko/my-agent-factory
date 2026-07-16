@@ -7,6 +7,18 @@ import { useControlStore } from '@/lib/control/control-store';
 import { emergencyStop } from '@/lib/control/actions';
 import { cn } from '@/lib/utils';
 
+/**
+ * EmergencyStop — the kill switch, pinned top-right and reachable from every room.
+ *
+ * DESIGN DECISION — intentional asymmetry, NOT an inconsistency to "fix":
+ * E-STOP is gated by a confirm MODAL only, deliberately NOT by the OPERATOR_PIN.
+ * Arming live execution (the arm flow via pin-action-modal) IS PIN-gated. The
+ * asymmetry is by design and correct: enabling risk should carry friction (a
+ * PIN), while the safety egress that HALTS everything must be as fast as
+ * possible — a PIN prompt on the kill switch would be a safety regression under
+ * pressure. The confirm modal keeps it one deliberate step (no accidental
+ * trigger) without the latency of a passphrase. Do not add a PIN here.
+ */
 export function EmergencyStop() {
   const open = useControlStore((s) => s.emergencyOpen);
   const openModal = useControlStore((s) => s.openEmergency);

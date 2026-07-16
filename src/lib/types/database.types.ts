@@ -100,6 +100,10 @@ export type EmergencyStopResult = {
 // Structurally identical to RobinhoodStagedOrder in trading.types.ts;
 // redeclared as a type alias so Database Row typing stays supabase-js
 // compatible (see NOTE on type aliases above).
+export type StagedOrderIntentKind = 'legacy' | 'option_intent';
+export type OptionIntentAction = 'buy_to_open' | 'sell_to_close' | 'sell_to_open' | 'buy_to_close';
+export type OptionPriceEffect = 'debit' | 'credit';
+
 export type StagedOrderRow = {
   id: string;
   underlying: string;
@@ -111,11 +115,19 @@ export type StagedOrderRow = {
   calculated_position_size_usd: number;
   human_approval_status: 'PENDING' | 'APPROVED' | 'DENIED';
   pipeline_id: string | null;
-  kelly_fraction: number;
-  expectancy: number;
-  win_rate: number;
-  r_multiple: number;
+  kelly_fraction: number | null;
+  expectancy: number | null;
+  win_rate: number | null;
+  r_multiple: number | null;
   source: 'SANDBOX' | 'LIVE';
+  intent_kind: StagedOrderIntentKind;
+  action: OptionIntentAction | null;
+  contracts: number | null;
+  price_effect: OptionPriceEffect | null;
+  max_premium_usd: number | null;
+  max_loss_usd: number | null;
+  strategy_label: string | null;
+  source_signal_id: string | null;
   created_at: string;
 };
 
@@ -323,7 +335,28 @@ export type Database = {
       };
       staged_orders: {
         Row: StagedOrderRow;
-        Insert: Omit<StagedOrderRow, 'created_at'> & { created_at?: string };
+        Insert: Omit<
+          StagedOrderRow,
+          | 'created_at'
+          | 'intent_kind'
+          | 'action'
+          | 'contracts'
+          | 'price_effect'
+          | 'max_premium_usd'
+          | 'max_loss_usd'
+          | 'strategy_label'
+          | 'source_signal_id'
+        > & {
+          created_at?: string;
+          intent_kind?: StagedOrderIntentKind;
+          action?: OptionIntentAction | null;
+          contracts?: number | null;
+          price_effect?: OptionPriceEffect | null;
+          max_premium_usd?: number | null;
+          max_loss_usd?: number | null;
+          strategy_label?: string | null;
+          source_signal_id?: string | null;
+        };
         // Only the human decision is mutable — everything else is immutable.
         Update: Partial<Pick<StagedOrderRow, 'human_approval_status'>>;
         Relationships: [];

@@ -1,7 +1,5 @@
 import { ImageResponse } from 'next/og';
 
-export const runtime = 'edge';
-
 // Maskable icon: background must bleed to every edge (no transparency) and
 // the glyph must sit inside the ~80%-diameter safe-zone circle so OS icon
 // masks (circle/squircle/etc.) never clip it.

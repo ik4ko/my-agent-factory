@@ -27,9 +27,8 @@ function loadTodos(): TodoItem[] {
 /**
  * Personal to-do list + tracker — browser-local (no backend), doubling as
  * both the checklist and the lightweight personal task tracker for the
- * Personal Room. Same hydrate-after-mount / write-on-change localStorage
- * pattern used elsewhere in the dashboard (see `LS_KEY` in
- * workspace-deck.tsx, `INACTIVE_DISMISS_KEY` in agent-fleet.tsx).
+ * Personal Room. Uses hydrate-after-mount / write-on-change localStorage so
+ * SSR never reads browser-only state.
  */
 export function PersonalTodo() {
   const [todos, setTodos] = useState<TodoItem[]>([]);

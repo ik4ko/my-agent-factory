@@ -2,6 +2,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { AgentProvider, FederatedAgent, ThinkInput, ThinkResult } from './types';
 import type { AgentType } from '@/lib/types/database.types';
 import { hermesLog } from '@/lib/hermes/hermes-logger';
+import { getSpendSnapshotSince, recordModelEvent } from '@/lib/telemetry/token-ledger';
+import { estimateModelCostUsd } from '@/lib/telemetry/pricing';
 
 /**
  * AgentRegistry — the Federated Brain Network.
@@ -30,6 +32,7 @@ const OPENROUTER_HEADERS: Record<string, string> = {
   'X-Title': 'My Agent Factory',
   'X-OpenRouter-Title': 'My Agent Factory',
 };
+const REGISTRY_MONTHLY_BUDGET_DEFAULT_USD = 3.0;
 
 let _anthropic: Anthropic | null = null;
 function getAnthropic(): Anthropic {
@@ -113,23 +116,123 @@ async function openAICompatibleThink(cfg: OpenAICompatibleConfig, input: ThinkIn
 
 const ANTHROPIC_FALLBACK_MODEL = 'claude-haiku-4-5';
 
+function positiveUsdEnv(name: string): number | null {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function currentUtcMonthStartIso(): string {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+}
+
+function registryBudgetUsd(): number {
+  return (
+    positiveUsdEnv('AGENT_REGISTRY_MONTHLY_BUDGET_USD') ??
+    positiveUsdEnv('ANTHROPIC_MONTHLY_BUDGET_USD') ??
+    REGISTRY_MONTHLY_BUDGET_DEFAULT_USD
+  );
+}
+
+function ledgerMode(input: ThinkInput): 'auto' | 'external' | 'off' {
+  return input.ledger?.mode ?? 'auto';
+}
+
+function telemetryDetail(parts: Array<string | undefined>): string {
+  return parts.filter(Boolean).join(' · ');
+}
+
+async function recordRegistryHalt(name: string, model: string, input: ThinkInput, reason: string): Promise<void> {
+  await Promise.all([
+    hermesLog('error', `[BRAIN] ${name} blocked/failed — ${reason.slice(0, 180)}`),
+    recordModelEvent({
+      model,
+      event: 'HALT',
+      taskId: input.ledger?.taskId ?? null,
+      agentId: input.ledger?.agentId ?? null,
+      detail: telemetryDetail([`registry:${name}`, input.ledger?.detail, reason]),
+    }),
+  ]);
+}
+
+async function guardRegistryBudget(name: string, model: string, input: ThinkInput): Promise<void> {
+  const budgetUsd = registryBudgetUsd();
+  let spentUsd = 0;
+  try {
+    const snapshot = await getSpendSnapshotSince(currentUtcMonthStartIso());
+    spentUsd = snapshot.totalCostUsd ?? 0;
+  } catch (err) {
+    const reason = `AgentRegistry budget check failed closed: ${err instanceof Error ? err.message : 'ledger unavailable'}`;
+    await recordRegistryHalt(name, model, input, reason);
+    throw new Error(reason);
+  }
+
+  if (spentUsd >= budgetUsd) {
+    const reason = `AgentRegistry monthly budget exceeded: $${spentUsd.toFixed(2)} >= $${budgetUsd.toFixed(2)} cap (AGENT_REGISTRY_MONTHLY_BUDGET_USD)`;
+    await recordRegistryHalt(name, model, input, reason);
+    throw new Error(reason);
+  }
+}
+
+async function withRegistryLedger(
+  name: string,
+  configuredModel: string,
+  input: ThinkInput,
+  run: () => Promise<ThinkResult>,
+): Promise<ThinkResult> {
+  if (ledgerMode(input) !== 'auto') return run();
+
+  await guardRegistryBudget(name, configuredModel, input);
+  try {
+    const result = await run();
+    const costUsd = estimateModelCostUsd(result.model, result.inputTokens, result.outputTokens);
+    await recordModelEvent({
+      model: result.model,
+      event: 'USAGE',
+      taskId: input.ledger?.taskId ?? null,
+      agentId: input.ledger?.agentId ?? null,
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
+      detail: telemetryDetail([
+        `registry:${name}`,
+        input.ledger?.detail,
+        `provider=${result.provider}`,
+        `latency=${result.latencyMs}ms`,
+        `est_usd=${costUsd.toFixed(6)}`,
+      ]),
+    });
+    return result;
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    await recordRegistryHalt(name, configuredModel, input, reason.replace(/\s+/g, ' ').slice(0, 220));
+    throw err;
+  }
+}
+
 function buildAgent(name: string, provider: AgentProvider, model: string, openAICfg?: OpenAICompatibleConfig): FederatedAgent {
   return {
     name,
     provider,
     model,
     async think(input: ThinkInput): Promise<ThinkResult> {
+      return withRegistryLedger(name, model, input, async () => {
       if (provider === 'anthropic' || !openAICfg) return anthropicThink(model, input);
       try {
         return await openAICompatibleThink(openAICfg, input);
       } catch (err) {
         const reason = String(err).replace(/\s+/g, ' ').slice(0, 160);
+        if (process.env.AGENT_REGISTRY_ALLOW_ANTHROPIC_FALLBACK !== 'true') {
+          const blocked = `${name} ${provider} call failed and Anthropic fallback is disabled: ${reason}`;
+          void hermesLog('error', `[BRAIN] ${blocked}`);
+          throw new Error(blocked);
+        }
         console.warn(`[registry] ${name} (${provider}) → Haiku fallback: ${reason}`);
         // Surface the real reason in the dashboard terminal so silent fallbacks
         // (missing key / 401 / 402 no-credits / bad model slug) are visible.
         void hermesLog('warn', `[BRAIN] ${name} fell back to Haiku — ${provider} error: ${reason}`);
         return anthropicThink(ANTHROPIC_FALLBACK_MODEL, input);
       }
+      });
     },
   };
 }
@@ -145,7 +248,6 @@ export const AgentRegistry = {
   // Helper — code + quantitative analysis (GPT via OpenRouter).
   CODEX: buildAgent('Codex', 'openrouter', 'openai/gpt-4o-mini', openRouterConfig('openai/gpt-4o-mini')),
   // Helper — research + reconnaissance (the literal "Hermes" model via OpenRouter).
-  HERMES: buildAgent('Hermes', 'openrouter', 'nousresearch/hermes-3-llama-3.1-70b', openRouterConfig('nousresearch/hermes-3-llama-3.1-70b')),
 } as const;
 
 /**
@@ -159,9 +261,12 @@ export function resolveAgent(agentType: AgentType, modelOverride?: string): Fede
   switch (agentType) {
     case 'coder':
       return AgentRegistry.CODEX;
+    // Active brains only — researcher/browser work routes to CLAUDE, never
+    // HERMES (a future/inactive brain that must not spend from autonomous
+    // task execution). HERMES stays exported/visible but code-unreachable.
     case 'researcher':
     case 'browser':
-      return AgentRegistry.HERMES;
+      return AgentRegistry.CLAUDE;
     case 'planner':
     default:
       return AgentRegistry.CLAUDE;

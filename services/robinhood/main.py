@@ -123,13 +123,17 @@ def place_order(intent: OrderIntent):
         raise HTTPException(503, "not authenticated")
 
     side = intent.side.lower()
+    qty = intent.qty
+    if qty is None or qty <= 0:
+        return {"status": "rejected", "reason": "order size is required; qty must be positive"}
+
     try:
         if intent.type == "limit" and intent.limitPrice:
             fn = rh.order_buy_limit if side == "buy" else rh.order_sell_limit
-            resp = fn(intent.symbol.upper(), intent.qty or 1, intent.limitPrice)
+            resp = fn(intent.symbol.upper(), qty, intent.limitPrice)
         else:
             fn = rh.order_buy_market if side == "buy" else rh.order_sell_market
-            resp = fn(intent.symbol.upper(), intent.qty or 1)
+            resp = fn(intent.symbol.upper(), qty)
     except Exception as exc:  # robin_stocks raises on rejected/invalid orders
         return {"status": "rejected", "reason": str(exc)[:300]}
 

@@ -71,6 +71,7 @@ async function doPublish(event: OmnigentEvent): Promise<void> {
  */
 export function publishAgentEvent(event: OmnigentEvent): void {
   if (process.env.OMNIGENT_ENABLED !== 'true') return;
+  if (process.env.OMNIGENT_MIRROR_ENABLED !== 'true') return;
   if (!WRAPPER_TOKEN) return; // not configured — silent no-op, not an error
 
   void doPublish(event).catch((err) => {

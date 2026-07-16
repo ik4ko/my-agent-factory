@@ -2,6 +2,7 @@
 // Every model transition (SEAT/UP/DOWN), usage report, and halt is a row.
 import { getAdminClient } from '@/lib/supabase/admin';
 import type { ModelEvent } from '@/lib/types/database.types';
+import { estimateMetricCostUsd } from '@/lib/telemetry/pricing';
 
 export interface ModelEventInput {
   model: string;
@@ -33,14 +34,14 @@ export async function recordModelEvent(e: ModelEventInput): Promise<void> {
 
 export interface SpendSnapshot {
   totalTokens: number;
+  totalCostUsd?: number;
   byModel: Record<string, number>;
+  byModelCostUsd?: Record<string, number>;
   windowHours: number;
 }
 
-/** Aggregate ecosystem token spend over the trailing window (default 24h). */
-export async function getSpendSnapshot(windowHours = 24): Promise<SpendSnapshot> {
+async function getSpendSnapshotFrom(since: string, windowHours: number): Promise<SpendSnapshot> {
   const db = getAdminClient();
-  const since = new Date(Date.now() - windowHours * 3_600_000).toISOString();
   const { data, error } = await db
     .from('metrics')
     .select('model, input_tokens, output_tokens')
@@ -49,13 +50,30 @@ export async function getSpendSnapshot(windowHours = 24): Promise<SpendSnapshot>
   if (error) throw new Error(`[ledger] spend query failed: ${error.message}`);
 
   const byModel: Record<string, number> = {};
+  const byModelCostUsd: Record<string, number> = {};
   let totalTokens = 0;
+  let totalCostUsd = 0;
   for (const row of data ?? []) {
     const spend = (row.input_tokens ?? 0) + (row.output_tokens ?? 0);
+    const costUsd = estimateMetricCostUsd(row);
     byModel[row.model] = (byModel[row.model] ?? 0) + spend;
+    byModelCostUsd[row.model] = (byModelCostUsd[row.model] ?? 0) + costUsd;
     totalTokens += spend;
+    totalCostUsd += costUsd;
   }
-  return { totalTokens, byModel, windowHours };
+  return { totalTokens, totalCostUsd, byModel, byModelCostUsd, windowHours };
+}
+
+/** Aggregate ecosystem token spend over the trailing window (default 24h). */
+export async function getSpendSnapshot(windowHours = 24): Promise<SpendSnapshot> {
+  const since = new Date(Date.now() - windowHours * 3_600_000).toISOString();
+  return getSpendSnapshotFrom(since, windowHours);
+}
+
+/** Aggregate model spend since an explicit ISO timestamp, e.g. month start. */
+export async function getSpendSnapshotSince(sinceIso: string): Promise<SpendSnapshot> {
+  const windowHours = Math.max(0, (Date.now() - new Date(sinceIso).getTime()) / 3_600_000);
+  return getSpendSnapshotFrom(sinceIso, windowHours);
 }
 
 /** Share (0–1) of total spend attributed to `model` in the snapshot. */

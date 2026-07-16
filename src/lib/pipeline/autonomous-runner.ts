@@ -21,8 +21,7 @@ import { startPipeline, executeStep } from './engine';
  *    status 'error' + metadata.critical_halt — the schema's status check
  *    constraint has no 'CRITICAL_HALT' value, and halted_at is this app's
  *    existing halt semantic, rendering the red HALTED badge), and log the
- *    CRITICAL line. The dashboard forwards it to the useSystemFeed ring
- *    buffer via the halt-transition producer in live-terminal.tsx.
+ *    CRITICAL line.
  *  - Re-arming after a halt is a HUMAN action (clear halted_at), not code.
  */
 

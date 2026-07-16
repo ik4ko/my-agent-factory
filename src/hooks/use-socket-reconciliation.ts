@@ -7,7 +7,6 @@ import { useConnectionStore, selectOverallStatus } from '@/lib/realtime/connecti
 import { AGENTS_KEY } from '@/hooks/use-agents-query';
 import { TASKS_KEY } from '@/hooks/use-tasks-query';
 import { LOGS_KEY } from '@/hooks/use-logs-query';
-import { pushSystemFeed } from '@/lib/fx/system-feed';
 import type { Agent, Log, Task } from '@/lib/types/database.types';
 
 /**
@@ -102,17 +101,9 @@ export function useSocketReconciliation(): void {
           });
         }
 
-        const recovered =
-          (tasksRes.data?.length ?? 0) + (logsRes.data?.length ?? 0);
-        pushSystemFeed(
-          'NETWORK',
-          `Socket reconciliation complete — delta-merged ${recovered} row(s) missed during the disconnect window`,
-        );
+        // Reconciliation is intentionally silent; consumers observe the merged caches.
       } catch (err) {
-        pushSystemFeed(
-          'NETWORK',
-          `Socket reconciliation failed — ${err instanceof Error ? err.message : 'unknown error'}; realtime stream resumed without back-fill`,
-        );
+        console.warn('[socket-reconciliation]', err);
       } finally {
         reconcilingRef.current = false;
       }

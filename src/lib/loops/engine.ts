@@ -88,9 +88,15 @@ async function releaseLoop(loop: LoopRow, ranAt: Date): Promise<void> {
 function resolveBrain(name: string) {
   switch (name.toLowerCase()) {
     case 'codex':
+    case 'scout':
+    case 'research':
+    case 'browser':
       return AgentRegistry.CODEX;
     case 'hermes':
-      return AgentRegistry.HERMES;
+    case 'grok':
+    case 'gemini':
+    case 'nemotron':
+      return AgentRegistry.CLAUDE;
     case 'claude':
     default:
       return AgentRegistry.CLAUDE;
@@ -103,11 +109,43 @@ function resolveBrain(name: string) {
  *  about and it will (correctly, but uselessly) hold every time. */
 function formatTriggerNote(trigger: EventRow | { type: 'manual' } | null): string {
   if (!trigger || !('symbol' in trigger)) return '';
-  const payload = trigger.payload as { headline?: string; sentiment?: number; rationale?: string } | null;
-  const parts = [`Triggered by ${trigger.type} event on ${trigger.symbol ?? 'n/a'} (severity ${trigger.severity ?? 'n/a'})`];
-  if (payload?.headline) parts.push(`headline: "${payload.headline}"`);
-  if (typeof payload?.sentiment === 'number') parts.push(`sentiment: ${payload.sentiment.toFixed(2)}`);
-  if (payload?.rationale) parts.push(`rationale: ${payload.rationale}`);
+  const payload = (trigger.payload ?? {}) as Record<string, unknown>;
+  const base = `Triggered by ${trigger.type} event on ${trigger.symbol ?? 'n/a'} (severity ${trigger.severity ?? 'n/a'})`;
+
+  // Options-flow signal — surface the deterministic scanner's real context
+  // (score/contracts/premium/DTE/side/block-sweep/hedge + validator brief) so
+  // the strategy brain has something to reason about instead of holding blind.
+  // The loop can only place EQUITY orders (see order-intent.ts), so this is
+  // framed as a directional SIGNAL, never an option order.
+  if (payload.kind === 'options_flow') {
+    const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+    const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+    const labels = Array.isArray(payload.labels) ? payload.labels.filter((l): l is string => typeof l === 'string') : [];
+    const contracts = num(payload.contracts);
+    const premium = num(payload.premiumUsd);
+    const dte = num(payload.dte);
+    const parts = [base, `options-flow score ${num(payload.score) ?? '?'}/100`];
+    if (str(payload.optionType)) parts.push(String(payload.optionType));
+    if (contracts !== null) parts.push(`${contracts.toLocaleString()} contracts`);
+    if (premium !== null) parts.push(`~$${Math.round(premium).toLocaleString()} premium`);
+    if (str(payload.expiration)) parts.push(`exp ${payload.expiration}${dte !== null ? ` (${dte}DTE)` : ''}`);
+    if (str(payload.tradeType)) parts.push(String(payload.tradeType).toLowerCase());
+    if (labels.length) parts.push(`labels: ${labels.join(', ')}`);
+    const brief = str(payload.validatorBrief) ?? str(payload.reason);
+    const hedge = labels.some((l) => /hedge/i.test(l)) ? ' Consider whether this is a HEDGE, not a directional bet.' : '';
+    return (
+      ` ${parts.join(' — ')}.` +
+      ` This is a directional options-flow SIGNAL informing an EQUITY decision, not an option order.${hedge}` +
+      (brief ? ` Validator: ${brief}` : '') +
+      ` Actively try to REJECT this trade (liquidity, spread, trend, news/earnings, hedge risk) before emitting any ORDER_INTENT.`
+    );
+  }
+
+  const news = payload as { headline?: string; sentiment?: number; rationale?: string };
+  const parts = [base];
+  if (news.headline) parts.push(`headline: "${news.headline}"`);
+  if (typeof news.sentiment === 'number') parts.push(`sentiment: ${news.sentiment.toFixed(2)}`);
+  if (news.rationale) parts.push(`rationale: ${news.rationale}`);
   return ` ${parts.join(' — ')}.`;
 }
 
@@ -142,6 +180,7 @@ async function runTradeLoop(loop: LoopRow, trigger: EventRow | { type: 'manual' 
       `Omit that line entirely if you are only observing/waiting this cycle, and instead explain your read in a few sentences.`,
     prompt: `${loop.objective}${triggerNote}`,
     maxTokens: 600,
+    ledger: { detail: `loop:${loop.kind}:${loop.id}` },
   });
   const decision = { type: 'brain_decision', text: thought.text, model: thought.model, provider: thought.provider };
   await hermesLog('info', `[LOOP] ${loop.name} (trade) decision: ${thought.text.slice(0, 160)}`);
@@ -258,6 +297,7 @@ export async function runLoop(loop: LoopRow, trigger: EventRow | { type: 'manual
         system: `You are a standing-loop evaluator for kind="${loop.kind}". Reply with a short, concrete next-step decision for this objective. You do not have execution access yet — describe what you would do.`,
         prompt: `${loop.objective}${triggerNote}`,
         maxTokens: 400,
+        ledger: { detail: `loop:${loop.kind}:${loop.id}` },
       });
       const decision = { type: 'brain_decision', text: thought.text, model: thought.model, provider: thought.provider };
       await hermesLog('info', `[LOOP] ${loop.name} (${loop.kind}) decision: ${thought.text.slice(0, 160)}`);

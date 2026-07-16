@@ -13,6 +13,7 @@ import { getAdminClient } from '@/lib/supabase/admin';
 import { hermesLog } from '@/lib/hermes/hermes-logger';
 import { setArmed, setKillSwitch, setHalted, verifyOperatorPin } from '@/lib/control/risk-actions';
 import { selectAdapter } from '@/lib/execution/select-adapter';
+import { AgentRegistry } from '@/lib/agents/registry';
 import type { LoopKind } from '@/lib/types/database.types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -210,13 +211,18 @@ export async function runCommand(cmd: Command, ctx: CommandContext): Promise<{ r
       // are matched FIRST, so no state-changing word can ever reach a model.
       const raw = 'raw' in cmd ? cmd.raw.trim() : '';
       if (raw.length >= 4) {
-        const { completeWithBrain } = await import('@/lib/agents/openrouter');
-        const brain = await completeWithBrain('HERMES', raw, { maxChars: 480 });
-        if (brain.content) {
-          await hermesLog('info', `[COMMSâ†’HERMES] "${raw.slice(0, 60)}${raw.length > 60 ? 'â€¦' : ''}" â†’ replied via ${brain.model} (${ctx.actor})`);
-          return { reply: brain.content };
+        try {
+          const thought = await AgentRegistry.CLAUDE.think({
+            system: 'You are Claude, the active command assistant for My Agent Factory. Reply briefly. This is read-only command help; do not claim to mutate state.',
+            prompt: raw,
+            maxTokens: 220,
+            ledger: { detail: `comms:command:${ctx.actor}` },
+          });
+          await hermesLog('info', `[COMMS->CLAUDE] "${raw.slice(0, 60)}${raw.length > 60 ? '...' : ''}" replied via ${thought.model} (${ctx.actor})`);
+          return { reply: thought.text.slice(0, 480) };
+        } catch (err) {
+          await hermesLog('warn', `[COMMS->CLAUDE] brain pipe failed (${err instanceof Error ? err.message : 'unknown'}) - falling back to help (${ctx.actor})`);
         }
-        await hermesLog('warn', `[COMMSâ†’HERMES] brain pipe failed (${brain.error ?? 'unknown'}) â€” falling back to help (${ctx.actor})`);
       }
       return { reply: `unrecognized command "${raw}". ${HELP_TEXT}` };
     }

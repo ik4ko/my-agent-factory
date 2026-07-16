@@ -12,6 +12,14 @@ export interface ThinkInput {
   system: string;
   prompt: string;
   maxTokens?: number;
+  /** Defaults to `auto`: AgentRegistry budget-gates and records usage.
+   *  Use `external` only when the caller already gates + records this call. */
+  ledger?: {
+    mode?: 'auto' | 'external' | 'off';
+    taskId?: string | null;
+    agentId?: string | null;
+    detail?: string;
+  };
   /** Streaming hook — fires per text delta when the provider streams
    *  (Anthropic), or once with the full text when it doesn't. */
   onDelta?: (text: string) => void;

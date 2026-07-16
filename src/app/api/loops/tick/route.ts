@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { tick, dispatchEvents } from '@/lib/loops/engine';
 import { timingSafeEqualStr } from '@/lib/auth/session';
+import { scanOptionsFlow } from '@/lib/trading/options-flow';
 
 // Lightweight heartbeat backup only — see scripts/loop-worker.mts for the
 // always-on process this exists to back up. Vercel Cron can't hold state or
@@ -21,9 +22,10 @@ function authorized(req: NextRequest): boolean {
 async function pulse(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
+    const optionsFlow = await scanOptionsFlow();
     const events = await dispatchEvents();
     const ticked = await tick();
-    return NextResponse.json({ ok: true, events, ticked, at: new Date().toISOString() });
+    return NextResponse.json({ ok: true, optionsFlow, events, ticked, at: new Date().toISOString() });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Loop tick failed' }, { status: 500 });
   }

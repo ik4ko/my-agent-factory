@@ -12,9 +12,8 @@ const LIMIT = 500; // 24h window, newest first
 const CHANNEL = 'metrics-changes';
 
 /**
- * Live 24h telemetry window. Owns the realtime subscription — mount from ONE
- * component (MetricsBar); everything else reads the shared cache passively
- * via useQuery({ queryKey: METRICS_KEY }).
+ * Live 24h telemetry window. Owns the realtime subscription; other views can
+ * read the shared cache passively via useQuery({ queryKey: METRICS_KEY }).
  */
 export function useMetricsQuery() {
   const supabase = useMemo(() => createClient(), []);

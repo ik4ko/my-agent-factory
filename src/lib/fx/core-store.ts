@@ -4,18 +4,15 @@
  * surface).
  *
  * Producers:
- *  - agent-fleet.tsx  → setFocusTarget(agentId, cardRect) on hover
- *  - task-input.tsx   → setIsListening(true|false) on voice arm/disarm
+ *  - GlobalVoiceControl / AgentChat → setIsListening(true|false) on voice capture
  *
  * Consumers (frame-loop getState() reads only — no React subscriptions, so
  * hover/voice churn never re-renders the scene tree):
- *  - SpatialWorkspace BrainNode → `focusedAgentId` highlights the brain the
- *    hovered fleet card's agent maps to
  *  - SpatialWorkspace BusCore   → `isListening` breathes the central bus
  *
  * `focusTarget` (card center, viewport CSS px) is retained for API
  * stability with the producers; the Brain Hub keys off `focusedAgentId`
- * alone. (It was the beam anchor for the retired CinematicCore layer.)
+ * alone.
  */
 
 import { create } from 'zustand';

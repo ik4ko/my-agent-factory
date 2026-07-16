@@ -12,9 +12,8 @@ import type { AgentType } from '@/lib/types/database.types';
  * One parent objective fans out to up to three agents SIMULTANEOUSLY
  * (Hermes/generic, Codex/coder, Scout/researcher), each with an independent
  * task row tagged `result.matrix = { id, role }`. Streams run concurrently:
- * each worker flushes its own task row, so the dashboard renders three live
- * thought streams at once, and the LiveTerminal's timestamp-sorted merge
- * keeps cross-agent telemetry strictly linear.
+ * each worker flushes its own task row, so room/task views can render live
+ * thought streams independently.
  *
  * Phase C — Cross-Debate: once the three lanes settle, the same three agents
  * cross-examine each other's output (Hermes↔Scout, Codex↔Hermes, Scout↔Codex),

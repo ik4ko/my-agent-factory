@@ -5,7 +5,10 @@ import type { Metric } from '@/lib/types/database.types';
 export const PRICING_PER_MTOK: Record<string, { input: number; output: number }> = {
   'claude-fable-5':   { input: 30, output: 150 },
   'claude-opus-4-8':  { input: 15, output: 75 },
+  'claude-sonnet-5':  { input: 3,  output: 15 },
   'claude-haiku-4-5': { input: 1,  output: 5 },
+  'openai/gpt-4o-mini': { input: 0.15, output: 0.6 },
+  'openai/gpt-5.3-codex': { input: 3, output: 15 },
 };
 const DEFAULT_PRICE = { input: 3, output: 15 };
 
@@ -20,6 +23,15 @@ export function shortModel(model: string | null | undefined): string {
   return MODEL_SHORT[model] ?? model.replace(/^claude-/, '');
 }
 
+export function estimateModelCostUsd(model: string, inputTokens = 0, outputTokens = 0): number {
+  const price = PRICING_PER_MTOK[model] ?? DEFAULT_PRICE;
+  return (inputTokens * price.input + outputTokens * price.output) / 1e6;
+}
+
+export function estimateMetricCostUsd(metric: Pick<Metric, 'model' | 'input_tokens' | 'output_tokens'>): number {
+  return estimateModelCostUsd(metric.model, metric.input_tokens ?? 0, metric.output_tokens ?? 0);
+}
+
 export interface SpendSummary {
   totalTokens: number;
   totalCostUsd: number;
@@ -32,9 +44,8 @@ export function summarizeSpend(metrics: Metric[]): SpendSummary {
   let totalTokens = 0;
   let totalCostUsd = 0;
   for (const m of metrics) {
-    const price = PRICING_PER_MTOK[m.model] ?? DEFAULT_PRICE;
     const tokens = (m.input_tokens ?? 0) + (m.output_tokens ?? 0);
-    const cost = ((m.input_tokens ?? 0) * price.input + (m.output_tokens ?? 0) * price.output) / 1e6;
+    const cost = estimateMetricCostUsd(m);
     const entry = (byModel[m.model] ??= { tokens: 0, costUsd: 0 });
     entry.tokens += tokens;
     entry.costUsd += cost;

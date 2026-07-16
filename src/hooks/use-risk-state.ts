@@ -54,9 +54,7 @@ async function fetchRiskState(): Promise<RiskStateView | null> {
   };
 }
 
-/** The execution-safety choke point (risk_state row 1), polled every 15s.
- *  Shared by the Trading Room's RiskPanel and the Control Room status strip
- *  so the two can never disagree. */
+/** The execution-safety choke point (risk_state row 1), polled every 15s. */
 export function useRiskState() {
   return useQuery({
     queryKey: RISK_STATE_KEY,

@@ -50,10 +50,13 @@ function extractJson(text: string): unknown | null {
 
 export async function classifyHeadline(headline: Headline): Promise<Classification> {
   try {
-    const thought = await AgentRegistry.HERMES.think({
+    // Active brains only (Claude/Codex). HERMES is a future/inactive brain and
+    // must not spend from autonomous paths like the news classifier.
+    const thought = await AgentRegistry.CLAUDE.think({
       system: SYSTEM_PROMPT,
       prompt: cleanHeadline(headline),
       maxTokens: 200,
+      ledger: { detail: 'events:classify' },
     });
     const json = extractJson(thought.text);
     if (json === null) return failClosed(`classifier returned unparseable output: "${thought.text.slice(0, 80)}"`, headline.symbol);

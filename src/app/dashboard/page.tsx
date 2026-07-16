@@ -1,15 +1,9 @@
 // Dashboard uses cookies() for Supabase SSR auth — must never be statically rendered.
 export const dynamic = 'force-dynamic';
 
-import { Cpu, Terminal } from 'lucide-react';
+import { Cpu } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { DashboardClient } from '@/components/dashboard/dashboard-client';
-import { LiveClock } from '@/components/dashboard/live-clock';
-import { ConnectionIndicator } from '@/components/dashboard/connection-indicator';
-import { TimelineScrubber } from '@/components/dashboard/timeline-scrubber';
-import { SystemHealthPill } from '@/components/dashboard/system-health-pill';
-import { WidgetErrorBoundary } from '@/components/dashboard/widget-error-boundary';
-import AudioBriefing from '@/components/dashboard/client-audio-briefing';
 import type { Agent, Task, Log } from '@/lib/types/database.types';
 
 async function fetchDashboardData() {
@@ -22,8 +16,8 @@ async function fetchDashboardData() {
     ]);
     return {
       agents: (agentsRes.data ?? []) as Agent[],
-      tasks:  (tasksRes.data  ?? []) as Task[],
-      logs:   ((logsRes.data  ?? []) as Log[]).reverse(),
+      tasks: (tasksRes.data ?? []) as Task[],
+      logs: ((logsRes.data ?? []) as Log[]).reverse(),
     };
   } catch (err) {
     console.error('[fetchDashboardData]', err);
@@ -33,29 +27,12 @@ async function fetchDashboardData() {
 
 function TopBar() {
   return (
-    // pr-36 reserves the top-right corner for the global controls cluster
-    // (E-STOP + ambient chat) rendered by the shared layout.
-    <header className="hairline-b flex h-11 shrink-0 items-center justify-between px-4 pr-36 surface-glass">
-      <div className="flex items-center gap-2">
+    <header className="hairline-b flex h-11 shrink-0 items-center gap-4 px-4 surface-glass">
+      <div className="flex min-w-0 items-center gap-2">
         <Cpu className="size-3.5 text-primary" />
         <span className="font-display text-sm font-semibold tracking-wide text-foreground/90">
           My Agent Factory
         </span>
-        <span className="hidden text-[10px] uppercase tracking-widest text-muted-foreground sm:block">
-          — Main Dashboard
-        </span>
-      </div>
-      <div className="flex items-center gap-3">
-        <span className="hidden font-terminal text-[10px] text-muted-foreground/40 sm:flex items-center gap-1">
-          <Terminal className="size-2.5" /> ⌘K · / console
-        </span>
-        <WidgetErrorBoundary name="Health" compact>
-          <SystemHealthPill />
-        </WidgetErrorBoundary>
-        <TimelineScrubber />
-        <AudioBriefing />
-        <ConnectionIndicator />
-        <LiveClock />
       </div>
     </header>
   );

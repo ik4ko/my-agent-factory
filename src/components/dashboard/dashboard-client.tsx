@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { MetricsBar } from './metrics-bar';
-import { RoomStatusStrip } from './room-status-strip';
 import { CommandPalette } from './command-palette';
-import { TaskInput } from './task-input';
-import { WorkspaceDeck } from './workspace-deck';
+import { AgentChat, type AgentChatLane } from './agent-chat';
+import { ChatHistoryPanel } from './chat-history-panel';
 import { WidgetErrorBoundary } from './widget-error-boundary';
 import { ConnectionBanner } from './connection-banner';
 import { CommandConsole } from './command-console';
+import { PanelChrome } from '@/components/deck';
 import { useCommandStore } from '@/lib/cli/command-store';
 import { useAgentSocket } from '@/hooks/use-agent-socket';
 import { useWorkspaceInit } from '@/hooks/use-workspace-init';
@@ -17,8 +16,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 
 // The Brain Hub WebGL scene touches window/canvas — client-only, and the ONE
-// Three.js surface on the dashboard (perf constraint: heavy 3D is Brain Hub
-// only, so the old CinematicCore background canvas is retired).
+// Three.js surface on the dashboard.
 const SpatialWorkspace = dynamic(() => import('./SpatialWorkspace'), {
   ssr: false,
   loading: () => <div className="h-[420px] shrink-0 animate-pulse rounded-md border border-border bg-surface-2/40" />,
@@ -32,8 +30,16 @@ interface DashboardClientProps {
 
 export function DashboardClient({ initialAgents, initialTasks, initialLogs }: DashboardClientProps) {
   const [cmdOpen, setCmdOpen] = useState(false);
+  const [hubLane, setHubLane] = useState<AgentChatLane>('CLAUDE');
   const openConsole = useCommandStore((s) => s.setOpen);
   const qc = useQueryClient();
+
+  const selectSpatialBrain = useCallback((brainKey: string) => {
+    // Future planets can focus visually, but they must not re-enable paid
+    // future-brain spend. Only the two active coworkers switch chat lanes.
+    if (brainKey === 'claude') setHubLane('CLAUDE');
+    if (brainKey === 'codex') setHubLane('CODEX');
+  }, []);
 
   // Hydrate the workspace: synchronous SSR seed (no layout shift) + parallel
   // reconcile fetch across all query keys, so tab re-entry is instant.
@@ -67,37 +73,41 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
       <CommandConsole />
 
-      {/* Single coherent metrics strip — fleet, tasks, log rate, spend, Fable cap */}
-      <WidgetErrorBoundary name="Metrics">
-        <MetricsBar />
-      </WidgetErrorBoundary>
-
-      {/* Cross-room overview — one status chip per room; the full trading
-          chrome (simulation banner, risk panel) lives in /dashboard/rooms/trading */}
-      <WidgetErrorBoundary name="Rooms">
-        <RoomStatusStrip />
-      </WidgetErrorBoundary>
-
-      {/* BRAIN HUB — the Instrument Deck's WebGL signature: orbit the four
-          brains, click to fly in, rose beacon when an order awaits approval. */}
-      <div className="h-[420px] shrink-0 px-2 pt-2">
+      <div className="h-[360px] shrink-0 px-2 pt-2">
         <WidgetErrorBoundary name="Brain Hub">
-          <SpatialWorkspace />
+          <SpatialWorkspace onBrainSelect={selectSpatialBrain} />
         </WidgetErrorBoundary>
       </div>
 
-      {/* Multi-pane workspace deck: every orchestration surface on one screen,
-          window-managed by the chip strip (drag to reorder, click to toggle,
-          maximize to solo). */}
-      <WidgetErrorBoundary name="Workspace Deck">
-        <WorkspaceDeck initialAgents={initialAgents} initialTasks={initialTasks} initialLogs={initialLogs} />
-      </WidgetErrorBoundary>
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 p-2 xl:grid-cols-12">
+        <div className="min-h-[24rem] xl:col-span-8">
+          <PanelChrome title="MAIN BRAINS" bodyClassName="p-0" className="h-full">
+            <WidgetErrorBoundary name="Hub Chat">
+              <AgentChat
+                variant="full"
+                historyScope="hub"
+                title="Claude + Codex"
+                lanes={['CLAUDE', 'CODEX']}
+                defaultLane="CLAUDE"
+                selectedLane={hubLane}
+                onLaneChange={setHubLane}
+                emptyText="Talk to Claude for direction, or switch to Codex for implementation."
+              />
+            </WidgetErrorBoundary>
+          </PanelChrome>
+        </div>
+
+        <div className="min-h-[24rem] xl:col-span-4">
+          <PanelChrome title="HISTORY" bodyClassName="p-0" className="h-full">
+            <WidgetErrorBoundary name="History">
+              <ChatHistoryPanel mode="activity" maxItems={60} />
+            </WidgetErrorBoundary>
+          </PanelChrome>
+        </div>
+      </div>
 
       {/* Realtime degraded-state toast (overlay, non-shifting) */}
       <ConnectionBanner />
-
-      {/* Single terminal command dock — queues a pending task (lane-router flow) */}
-      <TaskInput />
     </>
   );
 }

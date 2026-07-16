@@ -64,8 +64,8 @@ export function WorkspaceScaffold({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground/80">{blurb}</p>
-        <div className="mt-4">{children}</div>
+        {blurb.trim() && <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground/80">{blurb}</p>}
+        <div className={blurb.trim() ? 'mt-4' : ''}>{children}</div>
       </div>
     </div>
   );

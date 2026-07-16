@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Check, Loader2, PlugZap, XCircle } from 'lucide-react';
 import { dispatchAgent } from '@/app/actions/agent-dispatcher';
-import { BRAIN_IDS, BRAIN_MATRIX, type BrainId } from '@/lib/agents/brain-matrix';
+import { ACTIVE_BRAIN_IDS, BRAIN_IDS, BRAIN_MATRIX, type ActiveBrainId, type BrainId } from '@/lib/agents/brain-matrix';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
@@ -34,14 +34,16 @@ const TIER_LABEL: Record<1 | 2 | 3, string> = {
 export function SettingsClient({ envFlags }: { envFlags: EnvFlag[] }) {
   const [tests, setTests] = useState<Partial<Record<BrainId, TestState>>>({});
   const [, startTransition] = useTransition();
+  const active = new Set<BrainId>(ACTIVE_BRAIN_IDS);
 
   const runTest = (agentId: BrainId) => {
+    if (!active.has(agentId)) return;
     setTests((t) => ({ ...t, [agentId]: { status: 'pending' } }));
     startTransition(async () => {
       const t0 = performance.now();
       try {
         const result = await dispatchAgent({
-          agentId,
+          agentId: agentId as ActiveBrainId,
           prompt: `Connectivity check. Reply with exactly: ${agentId} online.`,
         });
         const latencyMs = Math.round(performance.now() - t0);
@@ -93,7 +95,7 @@ export function SettingsClient({ envFlags }: { envFlags: EnvFlag[] }) {
       {/* Brain routing matrix */}
       <section>
         <h2 className="mb-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
-          Brain routing matrix — 9 agents via OpenRouter
+          Brain routing matrix — Claude + Codex active; future lanes locked
         </h2>
         <div className="overflow-x-auto rounded-md border border-border">
           <table className="w-full border-collapse font-terminal text-[10px]">
@@ -114,8 +116,8 @@ export function SettingsClient({ envFlags }: { envFlags: EnvFlag[] }) {
           </table>
         </div>
         <p className="mt-1.5 font-terminal text-[9px] text-muted-foreground/40">
-          Each test sends one minimal metered request through the dispatchAgent server action. Failures
-          (missing credits, model offline) render here instead of failing silently.
+          Active tests send one minimal metered request through the dispatchAgent server action. Future
+          lanes are display-only until explicitly enabled.
         </p>
       </section>
     </div>
@@ -132,6 +134,7 @@ function SettingsTierRows({
   onTest: (id: BrainId) => void;
 }) {
   const rows = BRAIN_IDS.filter((id) => BRAIN_MATRIX[id].tier === tier);
+  const active = new Set<BrainId>(ACTIVE_BRAIN_IDS);
   return (
     <>
       <tr className="border-b border-border/40 bg-surface-1/30">
@@ -142,6 +145,7 @@ function SettingsTierRows({
       {rows.map((id) => {
         const def = BRAIN_MATRIX[id];
         const test = tests[id] ?? { status: 'idle' as const };
+        const isActive = active.has(id);
         return (
           <tr key={id} className="border-b border-border/40 last:border-b-0 hover:bg-surface-1/40">
             <td className="px-2.5 py-1.5 font-semibold text-foreground/90">{id}</td>
@@ -153,7 +157,7 @@ function SettingsTierRows({
                 <button
                   type="button"
                   onClick={() => onTest(id)}
-                  disabled={test.status === 'pending'}
+                  disabled={!isActive || test.status === 'pending'}
                   aria-label={`Test ${id} connectivity`}
                   className="flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[9px] text-muted-foreground transition-colors hover:border-neon-cyan/40 hover:text-neon-cyan disabled:opacity-50"
                 >
@@ -162,7 +166,7 @@ function SettingsTierRows({
                   ) : (
                     <PlugZap className="size-2.5" aria-hidden />
                   )}
-                  test
+                  {isActive ? 'test' : 'locked'}
                 </button>
                 {test.status === 'ok' && (
                   <span className="flex min-w-0 items-center gap-1 text-neon-green" title={test.snippet}>
@@ -176,7 +180,7 @@ function SettingsTierRows({
                     <span className="max-w-[180px] truncate">{test.reason}</span>
                   </span>
                 )}
-                {test.status === 'idle' && <Badge variant="muted">untested</Badge>}
+                {!isActive ? <Badge variant="muted">future</Badge> : test.status === 'idle' && <Badge variant="muted">untested</Badge>}
               </div>
             </td>
           </tr>

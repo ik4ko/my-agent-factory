@@ -9,10 +9,11 @@ import { cookies } from 'next/headers';
 import { z } from 'zod';
 import Anthropic from '@anthropic-ai/sdk';
 import { SESSION_COOKIE, verifySessionToken } from '@/lib/auth/session';
-import { BRAIN_IDS, BRAIN_MATRIX, type BrainId, type BrainDef } from '@/lib/agents/brain-matrix';
+import { ACTIVE_BRAIN_IDS, BRAIN_MATRIX, type BrainId, type BrainDef } from '@/lib/agents/brain-matrix';
 import { agentLog } from '@/lib/hermes/hermes-logger';
 import { getAdminClient } from '@/lib/supabase/admin';
-import { recordModelEvent } from '@/lib/telemetry/token-ledger';
+import { getSpendSnapshotSince, recordModelEvent } from '@/lib/telemetry/token-ledger';
+import { estimateModelCostUsd } from '@/lib/telemetry/pricing';
 import { extractTradeParams, buildStagedOrder, persistStagedOrder } from '@/lib/trading/stage';
 import { getActivePortfolioBalance } from '@/lib/market/portfolio';
 import { publishAgentEvent } from '@/lib/omnigent/bridge';
@@ -29,11 +30,12 @@ const ANTHROPIC_INPUT_USD_PER_MTOK = 3;
 const ANTHROPIC_OUTPUT_USD_PER_MTOK = 15;
 const ANTHROPIC_MONTHLY_BUDGET_DEFAULT_USD = 3.0;
 const ANTHROPIC_MAX_TOKENS = 4096;
+const OPENROUTER_MONTHLY_BUDGET_DEFAULT_USD = 1.0;
 
 export type AgentId = BrainId;
 
 const DispatchSchema = z.object({
-  agentId: z.enum(BRAIN_IDS),
+  agentId: z.enum(ACTIVE_BRAIN_IDS),
   prompt: z.string().min(1).max(16_000),
   history: z
     .array(
@@ -67,6 +69,7 @@ export interface AgentDispatchResult {
 
 interface OpenRouterResponse {
   choices?: Array<{ message?: { content?: string } }>;
+  usage?: { prompt_tokens?: number; completion_tokens?: number };
   error?: { message?: string };
 }
 
@@ -137,7 +140,8 @@ async function materializeArtifacts(
             id: staged.id,
             label: `${staged.underlying} ${staged.option_type} ${staged.strike} staged`,
           });
-          await agentLog('success', agentId, `thesis staged → ${staged.underlying} ${staged.option_type} ${staged.strike} (E=${staged.expectancy.toFixed(2)}R, awaiting approval)`);
+          const expectancy = staged.expectancy ?? 0;
+          await agentLog('success', agentId, `thesis staged → ${staged.underlying} ${staged.option_type} ${staged.strike} (E=${expectancy.toFixed(2)}R, awaiting approval)`);
         } else if (reason) {
           await agentLog('warn', agentId, `thesis parsed but not staged — ${reason}`);
         }
@@ -296,7 +300,7 @@ export async function dispatchAgent(rawInput: AgentDispatchInput): Promise<Agent
 
   const parsed = DispatchSchema.safeParse(rawInput);
   if (!parsed.success) {
-    return fail('HERMES', 'none', `invalid dispatch payload: ${parsed.error.issues[0]?.message ?? 'validation failed'}`);
+    return fail('CLAUDE', 'none', `invalid dispatch payload: ${parsed.error.issues[0]?.message ?? 'validation failed'}`);
   }
   const { agentId, prompt, history } = parsed.data;
   // Widen to BrainDef so the optional `provider`/`temperature` fields are
@@ -317,6 +321,23 @@ export async function dispatchAgent(rawInput: AgentDispatchInput): Promise<Agent
 
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) return fail(agentId, agent.model, 'OPENROUTER_API_KEY not configured');
+
+  const openRouterBudgetUsd = positiveUsdEnv('OPENROUTER_MONTHLY_BUDGET_USD') ?? OPENROUTER_MONTHLY_BUDGET_DEFAULT_USD;
+  let openRouterSpentUsd: number;
+  try {
+    openRouterSpentUsd = await openRouterMonthlySpendUsd();
+  } catch (err) {
+    const reason = `OpenRouter budget check failed (fail-closed) — ${err instanceof Error ? err.message : 'metrics query error'}`;
+    await agentLog('error', agentId, reason);
+    await recordModelEvent({ model: agent.model, event: 'HALT', detail: `${agentId} lane · provider=openrouter · ${reason}` });
+    return fail(agentId, agent.model, reason);
+  }
+  if (openRouterSpentUsd >= openRouterBudgetUsd) {
+    const reason = `OpenRouter monthly budget exceeded: $${openRouterSpentUsd.toFixed(2)} ≥ $${openRouterBudgetUsd.toFixed(2)} cap (OPENROUTER_MONTHLY_BUDGET_USD)`;
+    await agentLog('warn', agentId, `dispatch blocked — ${reason}`);
+    await recordModelEvent({ model: agent.model, event: 'HALT', detail: `${agentId} lane · provider=openrouter · ${reason}` });
+    return fail(agentId, agent.model, reason);
+  }
 
   const messages = [
     { role: 'system' as const, content: agent.system },
@@ -358,6 +379,17 @@ export async function dispatchAgent(rawInput: AgentDispatchInput): Promise<Agent
     }
 
     await agentLog('success', agentId, `dispatch completed in ${latencyMs}ms · ${agent.model}`);
+    const inputTokens = Number(data.usage?.prompt_tokens ?? 0);
+    const outputTokens = Number(data.usage?.completion_tokens ?? 0);
+    const costUsd = estimateModelCostUsd(agent.model, inputTokens, outputTokens);
+    await recordModelEvent({
+      model: agent.model,
+      event: 'USAGE',
+      inputTokens,
+      outputTokens,
+      detail: `${agentId} lane · provider=openrouter · latency=${latencyMs}ms · est_usd=${costUsd.toFixed(6)}`,
+    });
+
     const materialized = await materializeArtifacts(agentId, prompt, content, agent.model);
 
     publishAgentEvent({
@@ -386,4 +418,23 @@ export async function dispatchAgent(rawInput: AgentDispatchInput): Promise<Agent
     await agentLog('error', agentId, `dispatch failed after ${latencyMs}ms — ${reason}`);
     return fail(agentId, agent.model, reason);
   }
+}
+
+function currentUtcMonthStartIso(): string {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+}
+
+function positiveUsdEnv(name: string): number | null {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+async function openRouterMonthlySpendUsd(): Promise<number> {
+  const snapshot = await getSpendSnapshotSince(currentUtcMonthStartIso());
+  const byModelCost = snapshot.byModelCostUsd ?? {};
+  return Object.entries(byModelCost).reduce((sum, [model, cost]) => {
+    if (model.startsWith('claude') || model === 'converse-budget-gate') return sum;
+    return sum + cost;
+  }, 0);
 }

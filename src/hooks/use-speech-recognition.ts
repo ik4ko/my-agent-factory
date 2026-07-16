@@ -93,7 +93,7 @@ export function useSpeechRecognition(
 
     recog.onerror = () => setState('idle');
     recog.onend = () =>
-      setState((s: SpeechState) => (s === 'listening' ? 'idle' : s));
+      setState((s: SpeechState) => (s === 'unsupported' ? s : 'idle'));
 
     recogRef.current = recog;
     return recog;

@@ -26,6 +26,7 @@ async function llmFallback(command: string): Promise<ParsedIntent> {
     system: 'You classify operator commands for an AI agent factory. Reply with JSON only — no explanation.',
     prompt: `{"agentType":"coder"|"researcher"|"browser"|"planner"|"generic","priority":1-10}\n\nCommand: ${command}`,
     maxTokens: 128,
+    ledger: { detail: 'intent:parser' },
   });
 
   try {

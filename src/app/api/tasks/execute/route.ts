@@ -54,8 +54,8 @@ export async function POST(req: NextRequest) {
 
     // Scope web_fetch's rate limit per agent (not global, so one busy agent
     // can't starve another's) and its domain allowlist per room — reuses
-    // the same room-inference this app already uses everywhere else
-    // (TaskFeed, AgentFleet, …), not a bespoke rule for the sandbox.
+    // the same room-inference this app already uses elsewhere, not a
+    // bespoke rule for the sandbox.
     const roomScope = resolveTaskRoomScope(task);
     const results = await executeToolCalls(taskId, calls, task.agent_id ?? task.assigned_lane ?? 'unscoped', roomScope);
     const feedback = formatToolResults(results);

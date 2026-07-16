@@ -81,6 +81,60 @@ export const StageOrderInputSchema = TradeParamsSchema.extend({
 });
 export type StageOrderInput = z.infer<typeof StageOrderInputSchema>;
 
+/**
+ * OptionOrderIntent — REPRESENTATION ONLY. Nothing parses, stages, or executes
+ * it yet; it is the canonical validated shape for a single-leg, defined-risk
+ * option order so future work has a safe target.
+ *
+ * LIVE OPTION EXECUTION IS BLOCKED at four layers — all must be closed, in
+ * code, before this is ever wired to a broker:
+ *  1. Adapter: `ExecutionAdapter.placeOrder(intent: OrderIntent)` accepts an
+ *     EQUITY intent only — no adapter exposes an option-order method
+ *     (capability NOT proven from code).
+ *  2. Risk gate: `checkRisk()` is equity-shaped — no per-contract / defined-risk
+ *     / max-loss path exists.
+ *  3. Dispatch: staged orders are decision-only ("no broker dispatch exists"
+ *     in /api/trading/action-order).
+ *  4. Live flag: no explicit env flag enabling live option orders.
+ *
+ * Guardrails encoded here (safety by construction): single-leg only (`.strict()`
+ * rejects a legs[] array), LIMIT only (market option orders disallowed),
+ * positive-integer contracts, and REQUIRED `max_premium_usd` + `max_loss_usd`
+ * (defined risk). Do NOT consume this from a loop/adapter until 1–4 are closed.
+ */
+export const OptionOrderIntentSchema = z
+  .object({
+    /** Buy/sell + open/close in one Robinhood-style field. */
+    action: z.enum(['buy_to_open', 'sell_to_close', 'sell_to_open', 'buy_to_close']),
+    underlying: z
+      .string()
+      .trim()
+      .regex(/^[A-Z]{1,6}$/, 'underlying must be a 1-6 letter uppercase ticker'),
+    option_type: z.enum(['CALL', 'PUT']),
+    expiration: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'expiration must be YYYY-MM-DD')
+      .refine((s) => !Number.isNaN(Date.parse(s)), 'expiration must be a valid date'),
+    strike: z.number().positive().finite(),
+    contracts: z.number().int().positive(),
+    /** LIMIT only — market option orders are disallowed by design. */
+    order_type: z.literal('limit').default('limit'),
+    price_effect: z.enum(['debit', 'credit']),
+    /** Limit price per share (× 100 = per-contract cost). */
+    limit_price: z.number().positive().finite(),
+    /** Hard cap on total premium outlay in USD — sizing guard. */
+    max_premium_usd: z.number().positive().finite(),
+    /** Defined maximum loss in USD the operator accepts on this position. */
+    max_loss_usd: z.number().positive().finite(),
+    /** Human-readable strategy name for the audit trail. */
+    strategy_label: z.string().trim().min(1).max(120),
+    /** UUID of the options-flow / price event that sourced this intent (audit link). */
+    source_signal_id: z.string().uuid().nullable().optional(),
+    source: z.enum(['SANDBOX', 'LIVE']).default('SANDBOX'),
+  })
+  .strict();
+export type OptionOrderIntent = z.infer<typeof OptionOrderIntentSchema>;
+
 /** Expectancy in R units: E = (Win% * R) − (Loss% * 1). */
 export function computeExpectancy(winRate: number, rMultiple: number): number {
   return winRate * rMultiple - (1 - winRate);

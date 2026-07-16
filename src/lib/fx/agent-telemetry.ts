@@ -3,11 +3,9 @@
 /**
  * useAgentTelemetryStore — session-scoped compute telemetry per agent.
  *
- * Feeds the fleet cards' BRAIN / LAT / OPS strip. Data is derived
- * client-side from the shared realtime caches (agents + tasks) by a single
- * producer in agent-fleet.tsx; each memoized AgentCard subscribes to ONLY
- * its own slice, so a pipeline stage finishing updates exactly one card —
- * never the whole fleet, and never on the worker's 1.5s streaming flushes.
+ * Session-scoped model/latency/ops telemetry derived from agent thought
+ * events. Consumers subscribe to individual slices when they need compact
+ * per-agent status without forcing broad dashboard re-renders.
  *
  *  - model:         last model this agent executed with (tasks.model)
  *  - lastLatencyMs: measured busy→idle round-trip of the last step; falls

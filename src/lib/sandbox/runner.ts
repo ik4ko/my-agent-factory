@@ -1,7 +1,6 @@
 // Sandboxed step runner — executes a single vetted ToolCall and streams
-// structured output rows into `logs` (task_id set) so the LiveTerminal renders
-// tool activity in real time. Never throws; every path returns a StepResult
-// and logs it.
+// structured output rows into `logs` (task_id set). Never throws; every path
+// returns a StepResult and logs it.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import { getAdminClient } from '@/lib/supabase/admin';

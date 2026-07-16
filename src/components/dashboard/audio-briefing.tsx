@@ -93,7 +93,7 @@ export function AudioBriefing() {
           if (enabled) stop();
           setEnabled((v) => !v);
         }}
-        title={enabled ? 'Disable audio briefings' : 'Enable audio briefings'}
+        title={enabled ? 'Disable spoken task briefings' : 'Enable spoken task briefings'}
         className={cn(
           'flex items-center gap-1 font-terminal text-[10px] transition-colors duration-150',
           enabled
@@ -102,7 +102,7 @@ export function AudioBriefing() {
         )}
       >
         {enabled ? <Volume2 className="size-3" /> : <VolumeX className="size-3" />}
-        <span className="hidden sm:inline">{enabled ? 'AUDIO ON' : 'AUDIO'}</span>
+        <span className="hidden sm:inline">{enabled ? 'BRIEFINGS ON' : 'BRIEFINGS'}</span>
       </button>
 
       <AnimatePresence>

@@ -4,7 +4,7 @@ import { triageTick, executeDispatches } from '@/lib/agents/orchestrator';
 
 const Schema = z.object({ limit: z.number().int().min(1).max(20).optional() });
 
-// Two-phase tick — auth-gated by src/middleware.ts like every API route.
+// Two-phase tick — auth-gated by src/proxy.ts like every API route.
 // Phase 1 (triage/route/state-lock) runs on the HTTP path and returns
 // immediately; phase 2 (streaming LLM workers) runs via after(), which
 // extends the serverless lifetime beyond the response flush. All worker

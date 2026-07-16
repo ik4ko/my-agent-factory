@@ -14,8 +14,7 @@ const PRESENTATION: Record<
   { label: string; dot: string; text: string; pulse: boolean; icon: 'wifi' | 'off' | 'spin' }
 > = {
   // "SYNC" (not "LIVE"): this badge reports the realtime DATABASE link only.
-  // It must never read as a live-market/trading indicator — the market-data
-  // state is owned by the SimulationBanner.
+  // It must never read as a live-market/trading indicator.
   connected:    { label: 'SYNC',         dot: 'bg-neon-green',  text: 'text-neon-green',  pulse: true,  icon: 'wifi' },
   connecting:   { label: 'CONNECTING',   dot: 'bg-neon-cyan',   text: 'text-neon-cyan',   pulse: true,  icon: 'spin' },
   reconnecting: { label: 'RECONNECTING', dot: 'bg-neon-orange', text: 'text-neon-orange', pulse: true,  icon: 'spin' },

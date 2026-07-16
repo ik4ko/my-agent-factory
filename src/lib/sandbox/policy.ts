@@ -13,7 +13,8 @@ import net from 'node:net';
 import type { RoomScope } from '@/lib/rooms/scope';
 
 export function sandboxRoot(): string {
-  const root = process.env.SANDBOX_ROOT || path.join(process.cwd(), '.sandbox');
+  const configuredRoot = process.env.SANDBOX_ROOT?.trim();
+  const root = configuredRoot ? path.resolve(configuredRoot) : path.resolve('.sandbox');
   fs.mkdirSync(root, { recursive: true });
   return fs.realpathSync(root);
 }

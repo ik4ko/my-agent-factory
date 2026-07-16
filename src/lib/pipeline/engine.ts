@@ -237,7 +237,7 @@ async function runSimulatedStep(dispatch: StepDispatch, step: PlaybookStep): Pro
   const { context, taskId, agentId, agentName } = dispatch;
   const output = step.simulateOutput(context.objective, dispatch.priorOutput);
 
-  // Two streaming flushes so the LiveTerminal stream block renders.
+  // Two streaming flushes so realtime task previews have intermediate states.
   for (const fraction of [0.4, 1]) {
     await sleep(700);
     await db()

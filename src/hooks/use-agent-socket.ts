@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { pushSystemFeed } from '@/lib/fx/system-feed';
 
 export const AGENT_SOCKET_EVENTS_KEY = ['agent-socket', 'events'] as const;
 export const AGENT_SOCKET_LATEST_KEY = ['agent-socket', 'latest'] as const;
@@ -70,7 +69,6 @@ export function useAgentSocket(url: string | undefined = ENV_URL): void {
 
       socket.onopen = () => {
         backoffRef.current = MIN_BACKOFF;
-        pushSystemFeed('NETWORK', 'Local agent socket connected');
       };
 
       socket.onmessage = (message) => {

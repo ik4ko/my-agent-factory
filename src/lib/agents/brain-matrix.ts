@@ -135,3 +135,5 @@ export const BRAIN_MATRIX = {
 export type BrainId = keyof typeof BRAIN_MATRIX;
 
 export const BRAIN_IDS = Object.keys(BRAIN_MATRIX) as [BrainId, ...BrainId[]];
+export const ACTIVE_BRAIN_IDS = ['CLAUDE', 'CODEX'] as const satisfies readonly BrainId[];
+export type ActiveBrainId = (typeof ACTIVE_BRAIN_IDS)[number];

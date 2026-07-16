@@ -47,7 +47,20 @@ export class DirectAdapter implements ExecutionAdapter {
   }
 
   async placeOrder(intent: OrderIntent): Promise<OrderResult> {
-    return call<OrderResult>('/order', { method: 'POST', body: JSON.stringify(intent) });
+    const sized: OrderIntent = { ...intent };
+    if (!sized.qty && sized.notional) {
+      const quote = await this.getQuote(sized.symbol);
+      const qty = Math.floor((sized.notional / quote.price) * 1_000_000) / 1_000_000;
+      if (!Number.isFinite(qty) || qty <= 0) {
+        throw new Error(`cannot size ${sized.symbol} from notional $${sized.notional}`);
+      }
+      sized.qty = qty;
+      sized.reason = `${sized.reason} (sized ${qty} shares from $${sized.notional.toFixed(2)} notional @ $${quote.price.toFixed(2)})`;
+    }
+    if (!sized.qty) {
+      throw new Error('direct adapter refused order with no qty or notional size');
+    }
+    return call<OrderResult>('/order', { method: 'POST', body: JSON.stringify(sized) });
   }
 
   async cancelOrder(brokerId: string): Promise<void> {

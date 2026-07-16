@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { z } from 'zod';
 import { getAdminClient } from '@/lib/supabase/admin';
 import { hermesLog } from '@/lib/hermes/hermes-logger';
 import type { Task } from '@/lib/types/database.types';
+import { runOrchestratorTick } from '@/lib/agents/orchestrator';
 
 // tasks has RLS enabled with no policies, so browser anon inserts are blocked
 // by design. The command bar posts here; this route inserts via the service-
@@ -37,6 +38,18 @@ export async function POST(req: NextRequest) {
 
     const task = data as Task;
     await hermesLog('info', `[TASK] queued ${task.id.slice(0, 8)} — "${prompt.slice(0, 60)}${prompt.length > 60 ? '…' : ''}"`);
+    after(async () => {
+      try {
+        await runOrchestratorTick();
+      } catch (err) {
+        await hermesLog(
+          'error',
+          `[TASK] immediate execution trigger failed for ${task.id.slice(0, 8)}: ${
+            err instanceof Error ? err.message : String(err)
+          }`
+        );
+      }
+    });
     return NextResponse.json({ id: task.id, status: task.status });
   } catch (err) {
     return NextResponse.json(

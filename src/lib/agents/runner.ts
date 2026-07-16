@@ -126,6 +126,7 @@ export async function runAgentWorker(input: AgentWorkerInput): Promise<void> {
       system: input.systemPrompt ?? persona.system,
       prompt: description,
       maxTokens: input.maxTokens,
+      ledger: { taskId, agentId, detail: `runner:${agentType}` },
       onDelta: (delta) => {
         output += delta;
         maybeFlush();
@@ -158,7 +159,6 @@ export async function runAgentWorker(input: AgentWorkerInput): Promise<void> {
       db.from('agents').update({ status: 'idle', current_task_id: null }).eq('id', agentId),
       // Token spend increment — feeds the 24h snapshot the router reads.
       // thought.model = what ACTUALLY ran (fallbacks report themselves).
-      recordModelEvent({ model: thought.model, event: 'USAGE', taskId, agentId, inputTokens, outputTokens }),
     ]);
 
     await hermesLog('success', `${persona.label} task complete (${output.length} chars)`, agentId);

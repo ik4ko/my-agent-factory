@@ -7,7 +7,7 @@ export default function CodingRoom() {
       title="Coding Room"
       icon="code2"
       accent="text-neon-cyan"
-      blurb="Your engineering workspace — spec features, generate and review code, and run the sandboxed tool-runner. Codex is the brain here. Ask Claude in Chat to hand a build task to Codex, or dispatch one below."
+      blurb=""
     >
       <CodingRoomClient />
     </WorkspaceScaffold>

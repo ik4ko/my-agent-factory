@@ -99,8 +99,7 @@ function providerBadge(provider: string): { label: string; cls: string } {
 export function AgentActivity() {
   const thoughts = useBusThoughts('bus-observer-activity');
 
-  // Thinking state: a brain is "thinking" when any busy agent routes to it
-  // (passive cache read — AgentFleet's subscription keeps this hot).
+  // Thinking state: a brain is "thinking" when any busy agent routes to it.
   const { data: agents = [] } = useQuery<Agent[]>({
     queryKey: AGENTS_KEY,
     queryFn: async () => {
