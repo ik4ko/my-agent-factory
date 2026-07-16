@@ -1,95 +1,80 @@
 'use client';
 
-import dynamic from 'next/dynamic';
+import { useState } from 'react';
 import { useAgentSocket } from '@/hooks/use-agent-socket';
-import { SimulationBanner } from './simulation-banner';
-import { ExecutionSafetyBar } from './execution-safety-bar';
-import { RiskPanel } from './risk-panel';
-import { QuotesPanel } from './quotes-panel';
-import { StagedOrders } from './staged-orders';
-import { KellyInstrument } from './kelly-instrument';
-import { AgentFleet } from './agent-fleet';
-import { LiveTerminal } from './live-terminal';
+import { AgentChat } from './agent-chat';
+import { ChatHistoryPanel } from './chat-history-panel';
+import { OptionsFlowPanel } from './options-flow-panel';
+import { StagedIntentsPanel } from './staged-intents-panel';
+import { DEFAULT_SYMBOL, TradingChart } from './trading-chart';
+import { TradingAutonomyPanel } from './trading-autonomy-panel';
+import { WatchlistPanel } from './quotes-panel';
 import { PanelChrome } from '@/components/deck';
 import { WidgetErrorBoundary } from './widget-error-boundary';
 
-// lightweight-charts touches window/canvas at import time, so the canvas
-// layer must never be server-rendered.
-const TradingChart = dynamic(() => import('./trading-chart'), {
-  ssr: false,
-  loading: () => <div className="h-[440px] animate-pulse rounded-[6px] border border-border/90 bg-surface-2/40" />,
-});
-
-/**
- * Trading Room — the Instrument Deck layout (Trading Room.dc.html):
- * Execution Safety bar → SIM quotes ticker → a hairline instrument grid of
- * the rose Staged-Orders gate, the live price chart, and the Kelly-sizing
- * instrument, over a trading-scoped Fleet / Terminal / Risk row.
- *
- * This is a visual reskin: every data binding and safety gate is preserved —
- * the gate still records a real human verdict, the Kelly numbers are bound to
- * the real staged order, and the kill switch opens the real E-Stop flow.
- */
 export function TradingRoomClient() {
   useAgentSocket();
+  const [selectedSymbol, setSelectedSymbol] = useState(DEFAULT_SYMBOL);
+  const handleSelectSymbol = (symbol: string) => setSelectedSymbol(symbol.trim().toUpperCase());
 
   return (
-    <div className="flex flex-col gap-2 p-2">
-      <WidgetErrorBoundary name="Simulation">
-        <SimulationBanner />
-      </WidgetErrorBoundary>
-
-      <WidgetErrorBoundary name="Execution Safety">
-        <ExecutionSafetyBar />
-      </WidgetErrorBoundary>
-
-      <WidgetErrorBoundary name="Quotes">
-        <QuotesPanel />
-      </WidgetErrorBoundary>
-
-      {/* Row 1 — the gate, the chart, the Kelly instrument */}
-      <div className="grid grid-cols-1 gap-2 xl:grid-cols-12">
-        <div className="min-h-[24rem] xl:col-span-3 xl:h-[30rem]">
-          <WidgetErrorBoundary name="Staged Orders">
-            <StagedOrders />
+    <div className="grid h-[calc(100vh-8.5rem)] min-h-[47rem] grid-cols-1 gap-2 p-2 xl:grid-cols-12 xl:grid-rows-[minmax(24rem,1.22fr)_minmax(19rem,0.78fr)]">
+      <div className="min-h-0 xl:col-span-8">
+        <PanelChrome title="CHART" bodyClassName="p-0" className="h-full">
+          <WidgetErrorBoundary name="Trading Chart">
+            <TradingChart selectedSymbol={selectedSymbol} onSelectSymbol={handleSelectSymbol} />
           </WidgetErrorBoundary>
-        </div>
-
-        <div className="min-w-0 xl:col-span-5 xl:h-[30rem]">
-          <WidgetErrorBoundary name="Chart">
-            <TradingChart />
-          </WidgetErrorBoundary>
-        </div>
-
-        <div className="min-h-[24rem] xl:col-span-4 xl:h-[30rem]">
-          <WidgetErrorBoundary name="Kelly Sizing">
-            <KellyInstrument />
-          </WidgetErrorBoundary>
-        </div>
+        </PanelChrome>
       </div>
 
-      {/* Row 2 — trading-scoped fleet / terminal / risk */}
-      <div className="grid grid-cols-1 gap-2 xl:grid-cols-12">
-        <div className="h-[21rem] min-w-0 xl:col-span-3">
-          <PanelChrome title="FLEET · TRADING" bodyClassName="p-0" className="h-full">
-            <WidgetErrorBoundary name="Trading Fleet">
-              <AgentFleet scope="trading" />
-            </WidgetErrorBoundary>
-          </PanelChrome>
-        </div>
-
-        <div className="h-[21rem] min-w-0 xl:col-span-6">
-          <PanelChrome title="TERMINAL · TRADING" bodyClassName="p-0" className="h-full">
-            <WidgetErrorBoundary name="Trading Terminal">
-              <LiveTerminal scope="trading" />
-            </WidgetErrorBoundary>
-          </PanelChrome>
-        </div>
-
-        <div className="h-[21rem] min-w-0 overflow-y-auto xl:col-span-3">
-          <WidgetErrorBoundary name="Risk">
-            <RiskPanel />
+      <div className="min-h-0 xl:col-span-4">
+        <PanelChrome title="WATCHLIST" bodyClassName="p-0" className="h-full">
+          <WidgetErrorBoundary name="Watchlist">
+            <WatchlistPanel selectedSymbol={selectedSymbol} onSelectSymbol={handleSelectSymbol} />
           </WidgetErrorBoundary>
+        </PanelChrome>
+      </div>
+
+      <div className="min-h-0 xl:col-span-8">
+        <PanelChrome title="TRADING CHAT" bodyClassName="p-0" className="h-full">
+          <WidgetErrorBoundary name="Trading Chat">
+            <AgentChat
+              variant="full"
+              historyScope="trading"
+              title="Trading Room"
+              lanes={['TRADING', 'CODEX']}
+              defaultLane="TRADING"
+              emptyText="Ask for market thinking, watchlist analysis, or a plain-English risk read. Nothing here auto-trades."
+            />
+          </WidgetErrorBoundary>
+        </PanelChrome>
+      </div>
+
+      <div className="min-h-0 xl:col-span-4">
+        <div className="grid h-full min-h-0 grid-rows-[minmax(10rem,0.7fr)_minmax(6.5rem,0.45fr)_minmax(13rem,0.95fr)_minmax(10rem,0.7fr)] gap-2">
+          <PanelChrome title="OPTIONS FLOW" bodyClassName="p-0" className="min-h-0">
+            <WidgetErrorBoundary name="Options Flow">
+              <OptionsFlowPanel selectedSymbol={selectedSymbol} onSelectSymbol={handleSelectSymbol} />
+            </WidgetErrorBoundary>
+          </PanelChrome>
+
+          <PanelChrome title="STAGED INTENTS" bodyClassName="p-0" className="min-h-0">
+            <WidgetErrorBoundary name="Staged Intents">
+              <StagedIntentsPanel />
+            </WidgetErrorBoundary>
+          </PanelChrome>
+
+          <PanelChrome title="AUTONOMY" bodyClassName="p-0" className="min-h-0">
+            <WidgetErrorBoundary name="Trading Autonomy">
+              <TradingAutonomyPanel />
+            </WidgetErrorBoundary>
+          </PanelChrome>
+
+          <PanelChrome title="TRADING HISTORY" bodyClassName="p-0" className="min-h-0">
+            <WidgetErrorBoundary name="Trading History">
+              <ChatHistoryPanel scopes={[{ scope: 'trading', label: 'Trading' }]} maxItems={30} />
+            </WidgetErrorBoundary>
+          </PanelChrome>
         </div>
       </div>
     </div>
