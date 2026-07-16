@@ -12,6 +12,7 @@ build/
 
 # env
 .env*
+!.env.example
 
 # typescript
 *.tsbuildinfo
@@ -34,3 +35,4 @@ services/robinhood/__pycache__/
 
 .vercel
 .env*
+!.env.example

@@ -2,29 +2,30 @@ import { NextRequest, NextResponse } from 'next/server';
 import { SESSION_COOKIE, verifySessionToken, timingSafeEqualStr } from '@/lib/auth/session';
 
 // Auth gate for the control room. Every API route executes service-role
-// Supabase writes (and /api/hermes/command spends Anthropic tokens), so
-// nothing is reachable without a valid session cookie.
-// /api/orchestrator/cron self-authorizes via CRON_SECRET (Vercel Cron can't
-// send the session cookie), so it's exempt from the cookie gate here.
-// /api/phone/sms self-authorizes via Twilio's request signature + the
-// OPERATOR_PHONE allowlist (Twilio can't send the session cookie either).
-// /api/phone/voice is the same story for whichever voice provider is
-// configured — it 501s until VAPI_API_KEY/RETELL_API_KEY is set.
-const PUBLIC_PATHS = new Set(['/login', '/api/auth/login', '/api/orchestrator/cron', '/api/loops/tick', '/api/phone/sms', '/api/phone/voice']);
+// Supabase writes (and model routes can spend paid tokens), so nothing is
+// reachable without a valid session cookie unless the route self-authorizes.
+// /api/orchestrator/cron and /api/loops/tick self-authorize via CRON_SECRET.
+// /api/phone/sms self-authorizes via Twilio signature + OPERATOR_PHONE.
+// /api/phone/voice is equivalent for whichever voice provider is configured.
+const PUBLIC_PATHS = new Set([
+  '/login',
+  '/api/auth/login',
+  '/api/orchestrator/cron',
+  '/api/loops/tick',
+  '/api/phone/sms',
+  '/api/phone/voice',
+]);
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (PUBLIC_PATHS.has(pathname)) return NextResponse.next();
 
   const password = process.env.DASHBOARD_PASSWORD;
   const isApi = pathname.startsWith('/api/');
 
-  // Machine-token lane (CRON_SECRET-style) for the event-loop host: API
-  // routes only — never the HTML dashboard — via `Authorization: Bearer
-  // MACHINE_API_TOKEN`. Fails closed when the env is unset; timing-safe
-  // compare. Privileged actions behind these routes keep their own gates
-  // (operator PIN, rate limits) — this token only replaces the session
-  // cookie a headless caller cannot hold.
+  // Machine-token lane for headless API callers. This never grants HTML
+  // dashboard access, and privileged routes keep their own domain gates
+  // such as operator PINs, rate limits, and route-local shared secrets.
   if (isApi) {
     const machineToken = process.env.MACHINE_API_TOKEN?.trim();
     const auth = req.headers.get('authorization') ?? '';
