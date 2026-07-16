@@ -855,8 +855,8 @@
     "semantic_hash": "fbde00049708666cabf4a76ff0429085"
   },
   "src/lib/trading/stage.ts": {
-    "mtime": 1784212185.168839,
-    "ast_hash": "08bf0c6649f9d2bc6d7c6f7bdaf51dfb",
+    "mtime": 1784168855.870778,
+    "ast_hash": "4bea5fc7b60837f218dd956e71ef3c3d",
     "semantic_hash": ""
   },
   "src/lib/types/database.types.ts": {
@@ -1075,8 +1075,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/quotes-panel.tsx": {
-    "mtime": 1784213531.6451757,
-    "ast_hash": "da3a1d0646a98381389eb17bb13e2c4d",
+    "mtime": 1784135731.7108817,
+    "ast_hash": "de0e9059e5cec457261497fe646d5dec",
     "semantic_hash": ""
   },
   "src/hooks/use-quotes-query.ts": {
@@ -1185,8 +1185,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/trading-chart.tsx": {
-    "mtime": 1784213359.0024886,
-    "ast_hash": "f31d28fd6d066adef6f2be62b8c5e465",
+    "mtime": 1784158765.5320053,
+    "ast_hash": "0ada9eb5a364e05177b4b48e834c7830",
     "semantic_hash": ""
   },
   "scripts/research-sync.mts": {
@@ -1235,8 +1235,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/trading-room-client.tsx": {
-    "mtime": 1784207499.4464474,
-    "ast_hash": "33e8f1e1c4a2cbd6bc61a6c661275876",
+    "mtime": 1784160075.4390228,
+    "ast_hash": "3148d4d305c39db4ea0bf7842d180b5d",
     "semantic_hash": ""
   },
   "src/hooks/use-risk-state.ts": {
@@ -1380,8 +1380,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/SpatialWorkspace.tsx": {
-    "mtime": 1784178338.379182,
-    "ast_hash": "4b166a42d9ea5577413d7fef8c89b821",
+    "mtime": 1784168403.325724,
+    "ast_hash": "b0b22275c7d528443f40ba860ff91a03",
     "semantic_hash": ""
   },
   "src/lib/fx/spatial-pulse.ts": {
@@ -1675,13 +1675,13 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/chat-history-panel.tsx": {
-    "mtime": 1784209454.3633385,
-    "ast_hash": "751e36e3b500227674163d8100adfb31",
+    "mtime": 1784146594.5722866,
+    "ast_hash": "c81989f9c0a7610802e944082ce7b5d9",
     "semantic_hash": ""
   },
   "src/components/dashboard/global-voice-control.tsx": {
-    "mtime": 1784179189.390872,
-    "ast_hash": "194b1d5ebb0c8bd9b029d6b4888d8119",
+    "mtime": 1784154786.1292436,
+    "ast_hash": "c1a2bc07b9a9e32c352d63b0944ebf97",
     "semantic_hash": ""
   },
   "src/hooks/use-browser-speech.ts": {
@@ -1700,8 +1700,8 @@
     "semantic_hash": ""
   },
   "src/app/api/activity/route.ts": {
-    "mtime": 1784215535.200859,
-    "ast_hash": "e62df242e86c415069afc8dcc1643546",
+    "mtime": 1784168388.7605069,
+    "ast_hash": "73e1a7b1711a550b168d1468f740ea17",
     "semantic_hash": ""
   },
   "src/app/api/trading/autonomy/route.ts": {
@@ -1735,8 +1735,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/options-flow-panel.tsx": {
-    "mtime": 1784179828.1481078,
-    "ast_hash": "3ee9082457319b16763de4a370d44f1d",
+    "mtime": 1784165204.33521,
+    "ast_hash": "16adba21918bea043196a80d9de9a06e",
     "semantic_hash": ""
   },
   "src/lib/trading/options-flow.ts": {
@@ -1757,21 +1757,6 @@
   "supabase/migrations/20260716_staged_orders_option_intent_fields.sql": {
     "mtime": 1784167960.4730859,
     "ast_hash": "e45660012059a79648a2565834dc428c",
-    "semantic_hash": ""
-  },
-  "src/app/api/trading/watchlist/route.ts": {
-    "mtime": 1784212417.7673342,
-    "ast_hash": "cba5bef704bcdf2f29e010929bd43ac2",
-    "semantic_hash": ""
-  },
-  "src/components/dashboard/staged-intents-panel.tsx": {
-    "mtime": 1784207468.6626291,
-    "ast_hash": "9dcec9ae0288ef25c60f6fee8cda3816",
-    "semantic_hash": ""
-  },
-  "src/lib/trading/__tests__/option-intent.test.ts": {
-    "mtime": 1784212329.8007562,
-    "ast_hash": "1846679b1e66c2d311accc956f8ddf5e",
     "semantic_hash": ""
   }
 }
