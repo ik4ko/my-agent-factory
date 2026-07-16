@@ -1,8 +1,9 @@
 ﻿import { randomUUID } from 'crypto';
 import { getAdminClient } from '@/lib/supabase/admin';
 import { hermesLog } from '@/lib/hermes/hermes-logger';
-import { extractOptionOrderIntent, describeOptionIntent } from '@/lib/trading/option-intent';
+import { extractOptionOrderIntent, describeOptionIntent, validateDefinedRisk } from '@/lib/trading/option-intent';
 import {
+  OptionOrderIntentSchema,
   TradeParamsSchema,
   computeExpectancy,
   kellyFraction,
@@ -93,6 +94,44 @@ export interface RobinhoodStagedOptionOrder extends Omit<RobinhoodStagedOrder, '
   r_multiple: number | null;
 }
 
+function isOptionIntentStagedOrder(order: RobinhoodStagedOrder | RobinhoodStagedOptionOrder): order is RobinhoodStagedOptionOrder {
+  return 'intent_kind' in order && order.intent_kind === 'option_intent';
+}
+
+function validatePersistableOptionIntentRow(order: RobinhoodStagedOptionOrder): string | null {
+  const reconstructed = OptionOrderIntentSchema.safeParse({
+    action: order.action,
+    underlying: order.underlying,
+    option_type: order.option_type,
+    expiration: order.expiration,
+    strike: order.strike,
+    contracts: order.contracts,
+    order_type: 'limit',
+    price_effect: order.price_effect,
+    limit_price: order.limit_price,
+    max_premium_usd: order.max_premium_usd,
+    max_loss_usd: order.max_loss_usd,
+    strategy_label: order.strategy_label,
+    source_signal_id: order.source_signal_id,
+    source: order.source,
+  });
+
+  if (!reconstructed.success) {
+    return `option-intent row failed local schema check: ${reconstructed.error.issues[0]?.message ?? 'invalid option intent row'}`;
+  }
+
+  if (reconstructed.data.source !== 'SANDBOX') {
+    return `option-intent rows must persist as SANDBOX (got ${reconstructed.data.source})`;
+  }
+
+  const rejected = validateDefinedRisk(reconstructed.data, true);
+  if (rejected) {
+    return `option-intent row failed local contract: ${rejected}`;
+  }
+
+  return null;
+}
+
 /** Pure assembly: params + live equity â†’ sized, PENDING order. Equity is an
  *  explicit required input (no hidden static default in this module) so every
  *  caller consciously sources it from getActivePortfolioBalance. */
@@ -174,6 +213,12 @@ export function buildStagedOptionOrder(
 
 /** Persist a staged order. Insert-only â€” approval flips happen elsewhere, by humans. */
 export async function persistStagedOrder(order: RobinhoodStagedOrder | RobinhoodStagedOptionOrder): Promise<void> {
+  if (isOptionIntentStagedOrder(order)) {
+    const reason = validatePersistableOptionIntentRow(order);
+    if (reason) {
+      throw new Error(`staged_orders option-intent row failed before DB insert: ${reason}`);
+    }
+  }
   const { error } = await db().from('staged_orders').insert(order);
   if (error) throw new Error(error.message ?? 'staged_orders insert failed');
 }
