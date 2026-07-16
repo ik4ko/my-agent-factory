@@ -22,6 +22,7 @@
 // TELEGRAM_API_BASE (test override, defaults to https://api.telegram.org).
 
 import { passesOperatorGate, operatorChatId, droppedUpdates } from './telegram-gate.mjs';
+import { parseCallbackData, parseSprintCommand } from './sprint-utils.mjs';
 import { startCron } from './cron.mjs';
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN?.trim();
@@ -33,6 +34,8 @@ const POLL_TIMEOUT_S = 50;
 const BACKOFF_MIN_MS = 1_000;
 const BACKOFF_MAX_MS = 30_000;
 const STARTED_AT = Date.now();
+// The sprint engine's loopback endpoint (same container — see Dockerfile CMD).
+const ENGINE_URL = `http://127.0.0.1:${Number(process.env.ENGINE_PORT ?? 7910)}`;
 
 if (!BOT_TOKEN) {
   console.error('[watcher] TELEGRAM_BOT_TOKEN is not set — refusing to start');
@@ -98,7 +101,9 @@ const HELP = [
   '/status — go-live preflight readout',
   '/approve <order-id> — record APPROVED on a pending staged order',
   '/deny <order-id> — record DENIED on a pending staged order',
+  '/sprint <objective> | done: <cond>; <cond> — create a gated CLI sprint task',
   '',
+  'Sprint gates arrive as messages with Approve/Abort buttons — no CLI ever launches without that tap.',
   'Arm/disarm and the kill switch are dashboard-only (PIN-gated) — never over chat.',
 ].join('\n');
 
@@ -167,6 +172,88 @@ async function decideOrder(update, action, rawId) {
   await notifyOperator(`decision NOT recorded — ${res.status}: ${String(body.error ?? '').slice(0, 120)}`);
 }
 
+/** POST to the sprint engine on loopback. Returns {ok, message} shaped for
+ *  operator display; network failure is reported, never swallowed. */
+async function callEngine(path, payload) {
+  try {
+    const res = await fetch(`${ENGINE_URL}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(20_000),
+    });
+    const body = await res.json().catch(() => ({}));
+    return { ok: res.ok && body.ok === true, message: body.message ?? `engine replied ${res.status}` };
+  } catch (err) {
+    return { ok: false, message: `sprint engine unreachable — ${String(err).slice(0, 100)}` };
+  }
+}
+
+async function answerCallback(callbackQueryId, text) {
+  try {
+    await fetch(tg('answerCallbackQuery'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ callback_query_id: callbackQueryId, text: text.slice(0, 190) }),
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    /* the toast is best-effort; the notifyOperator message is the record */
+  }
+}
+
+/** The moment a gate button is tapped and resolved (approved, aborted, or
+ *  rejected as stale), rewrite THAT message: original text + outcome line,
+ *  inline keyboard stripped — so a stale button can never be tapped again.
+ *  Works for old messages too: the callback itself carries the message. */
+async function sealTappedMessage(cb, statusLine) {
+  const msg = cb.message;
+  if (!msg?.message_id) return;
+  try {
+    await fetch(tg('editMessageText'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: operatorChatId(), // never an inbound-derived chat id
+        message_id: msg.message_id,
+        text: `${(msg.text ?? '').slice(0, 3500)}\n\n— ${statusLine.slice(0, 300)}`,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch (err) {
+    console.error(`[watcher] editMessageText failed: ${String(err).slice(0, 120)}`);
+  }
+}
+
+/**
+ * Sprint-gate button taps. Runs only after the outer allowlist gate passed
+ * (chatIdOf covers callback_query.message.chat) — and re-checks the TAPPING
+ * USER's id here, defense in depth per the reviewed plan: the chat check
+ * proves where the message lives, this proves who pressed the button.
+ * The engine does the update_id dedupe claim + the CAS state check and gives
+ * stale callbacks an explicit rejection ("already decided"), never a silent
+ * drop — mirroring the proven action-order pattern.
+ */
+async function handleCallbackQuery(update) {
+  const cb = update.callback_query;
+  if (String(cb.from?.id ?? '') !== operatorChatId()) return; // silent drop, same policy as the outer gate
+  const parsed = parseCallbackData(cb.data);
+  if (!parsed) {
+    await answerCallback(cb.id, 'unrecognized button');
+    return;
+  }
+  const result = await callEngine('/gate-decision', {
+    shortCode: parsed.shortCode,
+    gateId: parsed.gateId,
+    decision: parsed.decision,
+    dedupeKey: String(update.update_id),
+    decidedBy: String(cb.from.id),
+  });
+  await answerCallback(cb.id, result.message);
+  await sealTappedMessage(cb, result.message);
+  await notifyOperator(result.message);
+}
+
 /** Command handling. Runs ONLY after the operator allowlist gate passed. */
 async function handleOperatorMessage(update) {
   const text = (update.message?.text ?? '').trim();
@@ -189,6 +276,22 @@ async function handleOperatorMessage(update) {
   }
   if (cmd === '/deny') {
     await decideOrder(update, 'DENIED', rest[0]);
+    return;
+  }
+  if (cmd === '/sprint') {
+    const parsed = parseSprintCommand(text);
+    if (!parsed) {
+      await notifyOperator(
+        'usage: /sprint <objective> | done: <condition>; <condition>\n' +
+          'The definition of done is required and human-authored — a sprint without a checkable goal is exactly what the gate design forbids.',
+      );
+      return;
+    }
+    const result = await callEngine('/task', {
+      objective: parsed.objective,
+      definitionOfDone: parsed.definitionOfDone,
+    });
+    await notifyOperator(result.message);
     return;
   }
   await notifyOperator(HELP);
@@ -217,7 +320,9 @@ async function main() {
       const res = await fetch(tg('getUpdates'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timeout: POLL_TIMEOUT_S, offset, allowed_updates: ['message'] }),
+        // callback_query must be listed or Telegram never delivers button
+        // taps at all (allowed_updates is an opt-in filter).
+        body: JSON.stringify({ timeout: POLL_TIMEOUT_S, offset, allowed_updates: ['message', 'callback_query'] }),
         signal: AbortSignal.timeout((POLL_TIMEOUT_S + 15) * 1000),
       });
       const data = await res.json().catch(() => null);
@@ -235,7 +340,8 @@ async function main() {
         // ── ALLOWLIST GATE — first logic, silent drop on failure ──
         if (!passesOperatorGate(update)) continue;
         try {
-          await handleOperatorMessage(update);
+          if (update.callback_query) await handleCallbackQuery(update);
+          else if (update.message) await handleOperatorMessage(update);
         } catch (err) {
           console.error(`[watcher] handler error: ${String(err).slice(0, 200)}`);
         }

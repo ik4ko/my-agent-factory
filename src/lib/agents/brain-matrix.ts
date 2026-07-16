@@ -12,25 +12,32 @@
 export interface BrainDef {
   /** Dispatch provider. Absent = OpenRouter (the default for the matrix, and
    *  what dispatchAgent assumes when the field is missing). 'anthropic-direct'
-   *  routes through the official Anthropic SDK using ANTHROPIC_API_KEY, gated
-   *  by a monthly USD budget — never the OpenRouter proxy. */
-  provider?: 'openrouter' | 'anthropic-direct';
-  /** OpenRouter model slug, or an Anthropic model id on 'anthropic-direct'. */
+   *  and 'openai-direct' route through the vendor's official SDK
+   *  (ANTHROPIC_API_KEY / OPENAI_API_KEY respectively), each gated by its own
+   *  monthly USD budget — never the OpenRouter proxy. */
+  provider?: 'openrouter' | 'anthropic-direct' | 'openai-direct' | 'nvidia-direct';
+  /** OpenRouter model slug, or the vendor's own model id on a direct lane. */
   model: string;
-  /** Sampling temperature. Sent verbatim on OpenRouter lanes. On
-   *  'anthropic-direct' lanes it is INERT — the dispatcher's Anthropic branch
-   *  never sends it, because Claude Sonnet 5 rejects non-default sampling
-   *  params (temperature/top_p/top_k removed on Sonnet 5 / Opus 4.7+) with a
-   *  400. Kept required so every consumer that reads `.temperature` off the
-   *  matrix union (e.g. the SMS/phone OpenRouter path) stays type-safe. */
+  /** Sampling temperature. Sent verbatim on OpenRouter lanes. On the direct
+   *  vendor lanes it is INERT — the dispatcher never sends it, because both
+   *  Claude Sonnet 5 and OpenAI's gpt-5.x reasoning models reject a non-default
+   *  temperature with a 400 ("Unsupported parameter"). Kept required so every
+   *  consumer that reads `.temperature` off the matrix union (e.g. the
+   *  SMS/phone OpenRouter path) stays type-safe. */
   temperature: number;
   tier: 1 | 2 | 3;
   role: string;
   system: string;
+  /** Private lane: prompt/reply snippets are kept OUT of the cross-room
+   *  system feed (pushSystemFeed DISPATCH lines render in every room's
+   *  terminal) and the Omnigent shared-session mirror (publishAgentEvent
+   *  sends snippets off-box). Set on the personal-mentor lanes — a money or
+   *  career conversation must not surface in the Trading/Coding room feeds
+   *  or transit the narration layer. Replies still render in the chat that
+   *  asked, and agentLog/ledger rows (no prompt content) are unaffected. */
+  private?: boolean;
 }
 
-// NOTE: CODEX runs qwen-2.5-coder-32b-instruct — Qwen2.5-Coder's largest
-// published variant is 32B; a "72B coder" does not exist on OpenRouter.
 export const BRAIN_MATRIX = {
   // Tier 1 — core orchestrators
   HERMES: {
@@ -80,9 +87,18 @@ export const BRAIN_MATRIX = {
   },
   // Tier 2 — specialized workers
   CODEX: {
-    // Sovereign: OpenAI — gpt-5.3-codex is the newest codex-line coding
-    // model on OpenRouter (replaces the interim Qwen coder).
-    model: 'openai/gpt-5.3-codex',
+    // Sovereign: OpenAI native — dispatched via the official OpenAI SDK, NOT
+    // the OpenRouter proxy. Model id is OpenAI's own (`gpt-5.3-codex`, no
+    // `openai/` slug prefix — that prefix is OpenRouter-only). gpt-5.3-codex is
+    // a reasoning model: no temperature is carried, and the dispatcher uses
+    // max_completion_tokens (not max_tokens). Budget-gated per month, fail-loud,
+    // no fallback — same sovereign contract as every other lane.
+    provider: 'openai-direct',
+    model: 'gpt-5.3-codex',
+    // INERT — never sent to OpenAI (gpt-5.x reasoning models reject a
+    // non-default temperature). Present only to satisfy the required-field
+    // contract that keeps the OpenRouter/SMS consumers type-safe. See
+    // dispatchOpenAI().
     temperature: 0.1,
     tier: 2,
     role: 'senior engineer',
@@ -97,8 +113,52 @@ export const BRAIN_MATRIX = {
     system:
       'You are SCOUT, a research analyst. Summarize, compare, and extract findings from provided material. You have NO live web access — reason only from the prompt, supplied context, and trained knowledge, and say so when coverage is thin.',
   },
+  // Personal-mentor lanes — on-demand OpenRouter brains (no new key, no
+  // extra wiring: they enter the AgentChat picker automatically via
+  // BRAIN_IDS). Slugs verified against the live OpenRouter catalog 2026-07-13.
+  MENTOR_BUSINESS: {
+    // Sonnet 4.6 — the newest 4.x Sonnet on OpenRouter: strong long-form
+    // strategic judgment and tradeoff analysis at a lower price than
+    // Sonnet 5, and deliberately distinct from GEMINI (gemini-2.5-pro) and
+    // the direct-Anthropic CLAUDE lane so mentor chats never draw down the
+    // Anthropic monthly budget.
+    private: true,
+    model: 'anthropic/claude-sonnet-4.6',
+    temperature: 0.4,
+    tier: 2,
+    role: 'business & career mentor',
+    system:
+      'You are MENTOR_BUSINESS, a candid career and business mentor. Help the operator reason through strategic decisions: name the real tradeoffs, second-order effects, and the option they may be avoiding. Challenge weak reasoning directly but constructively. Ask one sharp clarifying question when the situation is underspecified. Never fabricate market data or statistics — reason from what you are told and general principles, and say which is which.',
+  },
+  MENTOR_MONEY: {
+    // gpt-5.4 — current mainline (non-pro) OpenAI generalist: calibrated,
+    // factual reasoning at moderate cost, which fits a lane whose entire job
+    // is laying out tradeoffs accurately rather than being creative. Low
+    // temperature on purpose.
+    private: true,
+    model: 'openai/gpt-5.4',
+    temperature: 0.2,
+    tier: 2,
+    role: 'money tradeoffs mentor (not an advisor)',
+    system:
+      'You are MENTOR_MONEY, a thinking partner for financial and spending decisions. You are not a licensed financial advisor, and you do not give directive advice — no "you should buy/sell/invest in X". Your job is to lay out the factual tradeoffs so the operator can make their own decision: costs, risks, tax and liquidity considerations, opportunity costs, and the assumptions each option rests on. Present balanced pros and cons, flag what a licensed professional (advisor, CPA) should be consulted for, and state uncertainty plainly. Never fabricate prices, rates, or market data — if you do not have a number, say so.',
+  },
+  MENTOR_LIFE: {
+    // Llama 3.3 70B — warm, fast, and cheap enough for frequent everyday
+    // check-ins; the accountability lane gets used casually or not at all,
+    // and the matrix already trusts this model family for utility work.
+    private: true,
+    model: 'meta-llama/llama-3.3-70b-instruct',
+    temperature: 0.5,
+    tier: 2,
+    role: 'life & accountability mentor',
+    system:
+      'You are MENTOR_LIFE, a grounded accountability partner for day-to-day commitments and decisions. Be warm but direct: help the operator clarify what they actually committed to, notice avoidance, and pick the next concrete step. Keep replies short and practical — a good check-in is three sentences, not an essay. Ask about follow-through on things they previously said they would do when context suggests it.',
+  },
   PHANTOM: {
-    model: 'anthropic/claude-3-haiku',
+    // haiku-4.5 — claude-3-haiku (Mar-2024) still resolves on OpenRouter but
+    // is two generations stale; bumped per the 2026-07-13 cleanup audit.
+    model: 'anthropic/claude-haiku-4.5',
     temperature: 0.0,
     tier: 2,
     role: 'fast extraction',
@@ -106,6 +166,23 @@ export const BRAIN_MATRIX = {
       'You are PHANTOM, a fast extraction worker. Return only the requested structure — no preamble, no commentary. If asked for JSON, return strictly valid JSON.',
   },
   // Tier 3 — utilities
+  NEMOTRON: {
+    // EXPERIMENTAL free-tier lane (the "NVIDIA lane") — dispatched via
+    // NVIDIA's hosted API (integrate.api.nvidia.com, OpenAI-compatible chat
+    // shape, Authorization: Bearer nvapi-…, NVIDIA_API_KEY env). Model id
+    // verified against NVIDIA's own reference docs 2026-07-13. Free tier is
+    // finite (signup credits) and rate-limited (40 RPM), so credit
+    // exhaustion and rate-limiting are DISTINCT, expected failure modes with
+    // their own reporting in dispatchNvidia() — not generic errors. Fail-loud,
+    // no fallback: same sovereign contract as every other lane.
+    provider: 'nvidia-direct',
+    model: 'nvidia/llama-3.3-nemotron-super-49b-v1.5',
+    temperature: 0.4,
+    tier: 3,
+    role: 'experimental free-tier reasoner (best-effort)',
+    system:
+      'You are NEMOTRON, an experimental best-effort brain in My Agent Factory running on a free-tier NVIDIA endpoint. Give concise, structured answers. You are not a primary decision-maker: flag uncertainty openly and never fabricate live market or web data.',
+  },
   CRONOS: {
     model: 'meta-llama/llama-3.1-8b-instruct',
     temperature: 0.1,

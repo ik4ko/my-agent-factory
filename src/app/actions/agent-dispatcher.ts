@@ -8,8 +8,10 @@
 import { cookies } from 'next/headers';
 import { z } from 'zod';
 import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { SESSION_COOKIE, verifySessionToken } from '@/lib/auth/session';
 import { ACTIVE_BRAIN_IDS, BRAIN_MATRIX, type BrainId, type BrainDef } from '@/lib/agents/brain-matrix';
+import { classifyNvidiaFailure } from '@/lib/agents/nvidia-errors';
 import { agentLog } from '@/lib/hermes/hermes-logger';
 import { getAdminClient } from '@/lib/supabase/admin';
 import { getSpendSnapshotSince, recordModelEvent } from '@/lib/telemetry/token-ledger';
@@ -31,6 +33,30 @@ const ANTHROPIC_OUTPUT_USD_PER_MTOK = 15;
 const ANTHROPIC_MONTHLY_BUDGET_DEFAULT_USD = 3.0;
 const ANTHROPIC_MAX_TOKENS = 4096;
 const OPENROUTER_MONTHLY_BUDGET_DEFAULT_USD = 1.0;
+
+// OpenAI-direct lane pricing — gpt-5.3-codex standard rate, priced
+// CONSERVATIVELY at $1.75 / $14.00 per million input / output tokens so the
+// budget cap trips early, never late. Used by both the budget gate and the
+// ledger's running spend.
+const OPENAI_INPUT_USD_PER_MTOK = 1.75;
+const OPENAI_OUTPUT_USD_PER_MTOK = 14;
+const OPENAI_MONTHLY_BUDGET_DEFAULT_USD = 3.0;
+// gpt-5.3-codex is a reasoning model on the Responses API: max_output_tokens
+// caps reasoning + visible answer together — set high enough that low-effort
+// reasoning cannot starve the visible answer.
+const OPENAI_MAX_COMPLETION_TOKENS = 8192;
+// Floor the reasoning effort — the OpenAI analog of Anthropic's
+// thinking:disabled. Keeps latency and (output-priced) reasoning tokens
+// predictable against the budget cap.
+const OPENAI_REASONING_EFFORT = 'low' as const;
+
+// NVIDIA-direct lane (experimental, free-tier). Endpoint + auth verified
+// against NVIDIA's hosted-API docs 2026-07-13: OpenAI-compatible chat
+// completions at integrate.api.nvidia.com, Authorization: Bearer nvapi-….
+// Free tier = finite signup credits + 40 requests/minute, so exhaustion and
+// rate-limiting are expected failure modes with their own reporting.
+const NVIDIA_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
+const NVIDIA_MAX_TOKENS = 2048;
 
 export type AgentId = BrainId;
 
@@ -266,13 +292,16 @@ async function dispatchAnthropic(
     );
     const materialized = await materializeArtifacts(agentId, prompt, content, msg.model);
 
-    publishAgentEvent({
-      kind: 'agent.task_completed',
-      agentId,
-      taskId: null,
-      summary: `${prompt.slice(0, 120)} → ${content.slice(0, 160)}`,
-      ts: Date.now(),
-    });
+    // Private lanes (mentors) never mirror prompt/reply snippets off-box.
+    if (!agent.private) {
+      publishAgentEvent({
+        kind: 'agent.task_completed',
+        agentId,
+        taskId: null,
+        summary: `${prompt.slice(0, 120)} → ${content.slice(0, 160)}`,
+        ts: Date.now(),
+      });
+    }
 
     return {
       agentId,
@@ -284,6 +313,269 @@ async function dispatchAnthropic(
   } catch (err) {
     const latencyMs = Date.now() - t0;
     const reason = err instanceof Error ? err.message : 'dispatch failed';
+    await agentLog('error', agentId, `dispatch failed after ${latencyMs}ms — ${reason}`);
+    return fail(reason);
+  }
+}
+
+/**
+ * Calendar-month OpenAI spend in USD, priced at the conservative gpt-5.3-codex
+ * $1.75/$14.00 rate from the metrics ledger (every openai-direct dispatch
+ * writes a `USAGE` row keyed by the returned model id, which begins "gpt").
+ * Throws on a query failure so the caller can FAIL CLOSED rather than dispatch
+ * blind.
+ */
+async function openaiMonthlySpendUsd(): Promise<number> {
+  const db = getAdminClient();
+  const now = new Date();
+  const monthStartIso = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+  const { data, error } = await db
+    .from('metrics')
+    .select('input_tokens, output_tokens')
+    .like('model', 'gpt%')
+    .gte('created_at', monthStartIso)
+    .limit(50_000);
+  if (error) throw new Error(error.message);
+  let usd = 0;
+  for (const row of data ?? []) {
+    usd +=
+      ((row.input_tokens ?? 0) / 1_000_000) * OPENAI_INPUT_USD_PER_MTOK +
+      ((row.output_tokens ?? 0) / 1_000_000) * OPENAI_OUTPUT_USD_PER_MTOK;
+  }
+  return usd;
+}
+
+/**
+ * OpenAI-direct dispatch (the CODEX lane). Parallel to dispatchAnthropic but
+ * through the official OpenAI SDK — on the RESPONSES API: codex-line models
+ * are not served on /v1/chat/completions at all (404, verified live), and as
+ * reasoning models they take no temperature; reasoning effort is floored to
+ * keep cost predictable. A hard monthly budget gate that fails LOUD with no
+ * downgrade, and exact usage recorded to the same metrics ledger the gate
+ * reads. Honors the sovereign contract — verbatim model, fail-loud, no
+ * provider fallback.
+ */
+async function dispatchOpenAI(
+  agentId: AgentId,
+  agent: BrainDef,
+  prompt: string,
+  history: Array<{ role: 'user' | 'assistant'; content: string }>,
+): Promise<AgentDispatchResult> {
+  const fail = (error: string): AgentDispatchResult => ({
+    agentId,
+    modelUsed: agent.model,
+    content: '',
+    timestamp: new Date().toISOString(),
+    error,
+  });
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return fail('OPENAI_API_KEY not configured');
+
+  // Budget gate — fail CLOSED on a query error, and never silently downgrade.
+  const budgetUsd = Number(process.env.OPENAI_MONTHLY_BUDGET_USD) || OPENAI_MONTHLY_BUDGET_DEFAULT_USD;
+  let spentUsd: number;
+  try {
+    spentUsd = await openaiMonthlySpendUsd();
+  } catch (err) {
+    const reason = `budget check failed (fail-closed) — ${err instanceof Error ? err.message : 'metrics query error'}`;
+    await agentLog('error', agentId, reason);
+    return fail(reason);
+  }
+  if (spentUsd >= budgetUsd) {
+    const reason = `OpenAI monthly budget exceeded: $${spentUsd.toFixed(2)} ≥ $${budgetUsd.toFixed(2)} cap (OPENAI_MONTHLY_BUDGET_USD) — no fallback`;
+    await agentLog('warn', agentId, `dispatch blocked — ${reason}`);
+    return fail(reason);
+  }
+
+  const client = new OpenAI({ apiKey });
+  const t0 = Date.now();
+  try {
+    // RESPONSES API, not chat completions — verified live 2026-07-13: the
+    // codex-line models 404 on /v1/chat/completions ("Use the v1/responses
+    // endpoint instead"). No temperature (gpt-5.x reasoning models reject
+    // non-default sampling); reasoning effort floored (parity with the
+    // Anthropic branch's thinking:disabled); max_output_tokens caps
+    // reasoning + answer together, so it stays generous.
+    const response = await client.responses.create({
+      model: agent.model,
+      instructions: agent.system,
+      input: [
+        ...history.slice(-MAX_HISTORY),
+        { role: 'user' as const, content: prompt },
+      ],
+      max_output_tokens: OPENAI_MAX_COMPLETION_TOKENS,
+      reasoning: { effort: OPENAI_REASONING_EFFORT },
+    });
+    const latencyMs = Date.now() - t0;
+
+    const content = response.output_text ?? '';
+    if (!content) {
+      const why =
+        response.status === 'incomplete' && response.incomplete_details?.reason === 'max_output_tokens'
+          ? 'token cap reached before any answer (reasoning consumed the budget)'
+          : `empty completion (status ${response.status ?? 'unknown'})`;
+      await agentLog('error', agentId, `dispatch failed after ${latencyMs}ms — ${why}`);
+      return fail(`OpenAI returned an empty completion (${why})`);
+    }
+
+    // Usage → ledger (the budget query above reads these rows next call/month).
+    // Keyed by the API-returned model id (begins "gpt"), the genuine OpenAI
+    // proof that this was a direct call, not the OpenRouter proxy. metrics
+    // .agent_id is a uuid column, so the lane name rides in `detail`.
+    await recordModelEvent({
+      model: response.model,
+      event: 'USAGE',
+      inputTokens: response.usage?.input_tokens ?? 0,
+      outputTokens: response.usage?.output_tokens ?? 0,
+      detail: `${agentId} lane · ${latencyMs}ms`,
+    });
+
+    await agentLog(
+      'success',
+      agentId,
+      `dispatch completed in ${latencyMs}ms · ${response.model} · in=${response.usage?.input_tokens ?? 0} out=${response.usage?.output_tokens ?? 0}`,
+    );
+    const materialized = await materializeArtifacts(agentId, prompt, content, response.model);
+
+    // Private lanes (mentors) never mirror prompt/reply snippets off-box.
+    if (!agent.private) {
+      publishAgentEvent({
+        kind: 'agent.task_completed',
+        agentId,
+        taskId: null,
+        summary: `${prompt.slice(0, 120)} → ${content.slice(0, 160)}`,
+        ts: Date.now(),
+      });
+    }
+
+    return {
+      agentId,
+      modelUsed: response.model,
+      content,
+      timestamp: new Date().toISOString(),
+      ...(materialized.length > 0 ? { materialized } : {}),
+    };
+  } catch (err) {
+    const latencyMs = Date.now() - t0;
+    const reason = err instanceof Error ? err.message : 'dispatch failed';
+    await agentLog('error', agentId, `dispatch failed after ${latencyMs}ms — ${reason}`);
+    return fail(reason);
+  }
+}
+
+/**
+ * NVIDIA-direct dispatch (the experimental NEMOTRON lane). OpenAI-compatible
+ * wire shape over plain fetch — but NOT assumed identical: verified against
+ * NVIDIA's docs (model id, endpoint, bearer-token auth; temperature and
+ * max_tokens are supported on this lane, unlike the reasoning-model lanes).
+ * Free-tier reality is encoded here: 429 (40 RPM) and credit exhaustion are
+ * DISTINCT, plainly-worded failures — an expected outcome of a finite free
+ * tier, not a generic dispatch error. Fail-loud, no fallback to any other
+ * lane, per the file's sovereign contract.
+ */
+async function dispatchNvidia(
+  agentId: AgentId,
+  agent: BrainDef,
+  prompt: string,
+  history: Array<{ role: 'user' | 'assistant'; content: string }>,
+): Promise<AgentDispatchResult> {
+  const fail = (error: string): AgentDispatchResult => ({
+    agentId,
+    modelUsed: agent.model,
+    content: '',
+    timestamp: new Date().toISOString(),
+    error,
+  });
+
+  const apiKey = process.env.NVIDIA_API_KEY;
+  if (!apiKey) return fail('NVIDIA_API_KEY not configured (nvapi-… key from build.nvidia.com)');
+
+  const t0 = Date.now();
+  try {
+    const res = await fetch(NVIDIA_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: agent.model,
+        temperature: agent.temperature,
+        max_tokens: NVIDIA_MAX_TOKENS,
+        messages: [
+          { role: 'system' as const, content: agent.system },
+          ...history.slice(-MAX_HISTORY),
+          { role: 'user' as const, content: prompt },
+        ],
+      }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      cache: 'no-store',
+    });
+    const latencyMs = Date.now() - t0;
+    const data = (await res.json().catch(() => ({}))) as {
+      choices?: Array<{ message?: { content?: string } }>;
+      usage?: { prompt_tokens?: number; completion_tokens?: number };
+      model?: string;
+      error?: { message?: string; code?: string };
+    };
+
+    if (!res.ok) {
+      // ── Distinct free-tier failure modes — expected, not exceptional.
+      // Classification is pure + unit-tested (src/lib/agents/nvidia-errors.ts):
+      // 429 → rate-limit, 402/403+credit-text → exhaustion, else generic.
+      const failure = classifyNvidiaFailure(res.status, data.error?.message ?? '');
+      await agentLog(
+        failure.kind === 'api-error' ? 'error' : 'warn',
+        agentId,
+        `dispatch ${failure.kind === 'api-error' ? 'failed' : 'blocked'} after ${latencyMs}ms — ${failure.reason}`,
+      );
+      return fail(failure.reason);
+    }
+
+    const content = data.choices?.[0]?.message?.content;
+    if (typeof content !== 'string' || content.length === 0) {
+      await agentLog('error', agentId, `dispatch failed after ${latencyMs}ms — empty completion`);
+      return fail('NVIDIA returned an empty completion');
+    }
+
+    // Usage → ledger. NVIDIA model ids ("nvidia/…") don't collide with the
+    // claude%/gpt% budget queries; there is no USD budget here — the finite
+    // resource is the credit pool, and its exhaustion reports loudly above.
+    await recordModelEvent({
+      model: data.model ?? agent.model,
+      event: 'USAGE',
+      inputTokens: data.usage?.prompt_tokens ?? 0,
+      outputTokens: data.usage?.completion_tokens ?? 0,
+      detail: `${agentId} lane · ${latencyMs}ms`,
+    });
+
+    await agentLog('success', agentId, `dispatch completed in ${latencyMs}ms · ${data.model ?? agent.model} · in=${data.usage?.prompt_tokens ?? 0} out=${data.usage?.completion_tokens ?? 0}`);
+    const materialized = await materializeArtifacts(agentId, prompt, content, data.model ?? agent.model);
+
+    // Private lanes (mentors) never mirror prompt/reply snippets off-box.
+    if (!agent.private) {
+      publishAgentEvent({
+        kind: 'agent.task_completed',
+        agentId,
+        taskId: null,
+        summary: `${prompt.slice(0, 120)} → ${content.slice(0, 160)}`,
+        ts: Date.now(),
+      });
+    }
+
+    return {
+      agentId,
+      modelUsed: data.model ?? agent.model,
+      content,
+      timestamp: new Date().toISOString(),
+      ...(materialized.length > 0 ? { materialized } : {}),
+    };
+  } catch (err) {
+    const latencyMs = Date.now() - t0;
+    const reason =
+      err instanceof Error && err.name === 'TimeoutError'
+        ? `request timed out after ${REQUEST_TIMEOUT_MS / 1000}s`
+        : err instanceof Error
+          ? err.message
+          : 'dispatch failed';
     await agentLog('error', agentId, `dispatch failed after ${latencyMs}ms — ${reason}`);
     return fail(reason);
   }
@@ -317,6 +609,12 @@ export async function dispatchAgent(rawInput: AgentDispatchInput): Promise<Agent
   // gate above still applies (this is reached only after it passes).
   if (agent.provider === 'anthropic-direct') {
     return dispatchAnthropic(agentId, agent, prompt, history);
+  }
+  if (agent.provider === 'openai-direct') {
+    return dispatchOpenAI(agentId, agent, prompt, history);
+  }
+  if (agent.provider === 'nvidia-direct') {
+    return dispatchNvidia(agentId, agent, prompt, history);
   }
 
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -392,13 +690,16 @@ export async function dispatchAgent(rawInput: AgentDispatchInput): Promise<Agent
 
     const materialized = await materializeArtifacts(agentId, prompt, content, agent.model);
 
-    publishAgentEvent({
-      kind: 'agent.task_completed',
-      agentId,
-      taskId: null,
-      summary: `${prompt.slice(0, 120)} → ${content.slice(0, 160)}`,
-      ts: Date.now(),
-    });
+    // Private lanes (mentors) never mirror prompt/reply snippets off-box.
+    if (!agent.private) {
+      publishAgentEvent({
+        kind: 'agent.task_completed',
+        agentId,
+        taskId: null,
+        summary: `${prompt.slice(0, 120)} → ${content.slice(0, 160)}`,
+        ts: Date.now(),
+      });
+    }
 
     return {
       agentId,
