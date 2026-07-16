@@ -1,7 +1,7 @@
 {
   ".claude/launch.json": {
-    "mtime": 1784128114.1350079,
-    "ast_hash": "4143f0bdc248099a44668662d6fb6d9b",
+    "mtime": 1784217756.371325,
+    "ast_hash": "1b817e078473eedd28c4553d44b15b86",
     "semantic_hash": ""
   },
   ".claude/settings.json": {
@@ -20,8 +20,8 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1784128114.1697097,
-    "ast_hash": "5f8eb246917d65143f5c2056e19316c6",
+    "mtime": 1784217756.4388003,
+    "ast_hash": "f6a3403ea6f2de7a7c8b17fb1ddd98a4",
     "semantic_hash": ""
   },
   "postcss.config.mjs": {
@@ -95,8 +95,8 @@
     "semantic_hash": "68de5d672d9320f1c5a78e05576c5b33"
   },
   "src/app/api/control/emergency-stop/route.ts": {
-    "mtime": 1784128114.1727147,
-    "ast_hash": "8cd2aab7a9ff4f681ab0dc1ab4575820",
+    "mtime": 1784217756.4414105,
+    "ast_hash": "b84993ba05e05a6b89b97331c9ec8bb2",
     "semantic_hash": ""
   },
   "src/app/api/control/halt/route.ts": {
@@ -860,8 +860,8 @@
     "semantic_hash": ""
   },
   "src/lib/types/database.types.ts": {
-    "mtime": 1784167966.5403595,
-    "ast_hash": "8dfa62d11e5700c295d836914fb169a4",
+    "mtime": 1784217756.4446063,
+    "ast_hash": "94ebeab6970ea62ea8785002181ede38",
     "semantic_hash": ""
   },
   "src/lib/types/trading.types.ts": {
@@ -1035,8 +1035,8 @@
     "semantic_hash": ""
   },
   "HANDOFF_PHASE5_GOLIVE_READINESS.md": {
-    "mtime": 1784128114.1350079,
-    "ast_hash": "2608f62adbd3c7f0a7bb0e73687c91d4",
+    "mtime": 1784217756.3755863,
+    "ast_hash": "134d2a5024a3b068c0f5257bf3543bc0",
     "semantic_hash": ""
   },
   "IDEA.md": {
@@ -1065,8 +1065,8 @@
     "semantic_hash": ""
   },
   "RUNBOOK.md": {
-    "mtime": 1784128114.1370604,
-    "ast_hash": "1f811dda4dbf9384034efeb80872e8f2",
+    "mtime": 1784217756.3771663,
+    "ast_hash": "4c5808ab9441a2f52dd286ce5f38d48f",
     "semantic_hash": ""
   },
   "src/app/api/market/quotes/route.ts": {
@@ -1350,8 +1350,8 @@
     "semantic_hash": ""
   },
   "src/app/actions/agent-dispatcher.ts": {
-    "mtime": 1784168710.8181496,
-    "ast_hash": "0e7a299716527d930474cc815aeeced6",
+    "mtime": 1784217837.116319,
+    "ast_hash": "47593122d84d8ae2743ff3a3792888bb",
     "semantic_hash": ""
   },
   "src/components/dashboard/settings-client.tsx": {
@@ -1360,13 +1360,13 @@
     "semantic_hash": ""
   },
   "src/lib/agents/brain-matrix.ts": {
-    "mtime": 1784143963.1415012,
-    "ast_hash": "9022c1255317cd4f8ec1bcb08f4bd20a",
+    "mtime": 1784217756.4435558,
+    "ast_hash": "fe138e9086fe9a304301b70e3636b811",
     "semantic_hash": ""
   },
   "src/components/dashboard/agent-chat.tsx": {
-    "mtime": 1784154385.429368,
-    "ast_hash": "ade3cc335b13edb4f6c48822223c294e",
+    "mtime": 1784217883.741665,
+    "ast_hash": "32b9c7d1367614a919e67a12727c6392",
     "semantic_hash": ""
   },
   "src/app/dashboard/rooms/coding/page.tsx": {
@@ -1640,8 +1640,8 @@
     "semantic_hash": ""
   },
   "omnigent/wrapper/watcher.mjs": {
-    "mtime": 1784128114.1624177,
-    "ast_hash": "ad9dda77bd21fb834e9ead321332654a",
+    "mtime": 1784217756.4335513,
+    "ast_hash": "8a860064e9f0c7c49e391d0e7c5fe7f1",
     "semantic_hash": ""
   },
   "supabase/migrations/20260710_telegram_update_dedupe.sql": {
@@ -1772,6 +1772,41 @@
   "src/lib/trading/__tests__/option-intent.test.ts": {
     "mtime": 1784212329.8007562,
     "ast_hash": "1846679b1e66c2d311accc956f8ddf5e",
+    "semantic_hash": ""
+  },
+  "omnigent/wrapper/sprint-engine.mjs": {
+    "mtime": 1784217756.4314406,
+    "ast_hash": "b4e0c43399ab78307b531da4088566b3",
+    "semantic_hash": ""
+  },
+  "omnigent/wrapper/sprint-utils.mjs": {
+    "mtime": 1784217756.4319668,
+    "ast_hash": "61816f325c1d9e01d664537591b2fe35",
+    "semantic_hash": ""
+  },
+  "omnigent/wrapper/sprint-utils.test.mjs": {
+    "mtime": 1784217756.4324923,
+    "ast_hash": "f13cbf687561db4cbfeeddf6934207ff",
+    "semantic_hash": ""
+  },
+  "src/lib/agents/__tests__/nvidia-errors.test.ts": {
+    "mtime": 1784217756.4430203,
+    "ast_hash": "5b2c194f11ad7691a5c0ec9b6d266aa9",
+    "semantic_hash": ""
+  },
+  "src/lib/agents/nvidia-errors.ts": {
+    "mtime": 1784217756.4440787,
+    "ast_hash": "827ab492a4fa4f20322eef1f277bc3a7",
+    "semantic_hash": ""
+  },
+  ".claude/skills/route/SKILL.md": {
+    "mtime": 1784217756.3728893,
+    "ast_hash": "42f0ff352e1b87352a08d7408fa6a14c",
+    "semantic_hash": ""
+  },
+  "HANDOFF_AUTONOMOUS_LOOP_ENGINE.md": {
+    "mtime": 1784217756.3745275,
+    "ast_hash": "67cbeef5bfa9d7a0e146b8c96644ade1",
     "semantic_hash": ""
   }
 }

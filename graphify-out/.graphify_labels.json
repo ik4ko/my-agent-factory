@@ -163,10 +163,9 @@
   "161": "golive-client.tsx",
   "162": "route.ts",
   "163": "command.ts",
+  "164": "package.json",
   "165": "core-store.ts",
   "166": "CODING AGENTS: READ THIS FIRST",
   "167": "client-audio-briefing.tsx",
-  "168": "transport.ts",
-  "169": "audio-briefing.tsx",
   "170": "executor-agent.mts"
 }
