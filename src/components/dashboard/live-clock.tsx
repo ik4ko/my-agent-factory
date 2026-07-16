@@ -12,8 +12,7 @@ export function LiveClock() {
           hour12: false,
           hour: '2-digit',
           minute: '2-digit',
-          second: '2-digit',
-          timeZone: 'UTC',
+          timeZone: 'America/New_York',
         })
       );
     };
@@ -24,7 +23,7 @@ export function LiveClock() {
 
   return (
     <span className="font-terminal text-[10px] text-muted-foreground/50 tabular">
-      {time} UTC
+      NYC {time}
     </span>
   );
 }

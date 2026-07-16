@@ -11,8 +11,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex h-full overflow-hidden bg-background">
       <NavSidebar />
-      {/* `relative` so the persistent global controls (E-STOP + ambient chat)
-          anchor per-room; they render on top of every room's children. */}
+      {/* `relative` so E-STOP stays anchored over every room. */}
       <main className="relative flex flex-1 flex-col overflow-hidden pb-16 md:pb-0">
         {children}
         <GlobalControls />
