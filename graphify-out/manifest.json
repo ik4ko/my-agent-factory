@@ -855,8 +855,8 @@
     "semantic_hash": "fbde00049708666cabf4a76ff0429085"
   },
   "src/lib/trading/stage.ts": {
-    "mtime": 1784212185.168839,
-    "ast_hash": "08bf0c6649f9d2bc6d7c6f7bdaf51dfb",
+    "mtime": 1784226468.655883,
+    "ast_hash": "75a5f75dd28060ef1de480c259502a27",
     "semantic_hash": ""
   },
   "src/lib/types/database.types.ts": {
@@ -1670,8 +1670,8 @@
     "semantic_hash": ""
   },
   "src/app/api/trading/positions/route.ts": {
-    "mtime": 1784135696.429991,
-    "ast_hash": "eca5e2b9194623c73dfd6b1393aad62a",
+    "mtime": 1784226586.1414597,
+    "ast_hash": "04329402d5096b837c993d6a62888626",
     "semantic_hash": ""
   },
   "src/components/dashboard/chat-history-panel.tsx": {
@@ -1770,8 +1770,8 @@
     "semantic_hash": ""
   },
   "src/lib/trading/__tests__/option-intent.test.ts": {
-    "mtime": 1784212329.8007562,
-    "ast_hash": "1846679b1e66c2d311accc956f8ddf5e",
+    "mtime": 1784226569.7444906,
+    "ast_hash": "756ae1f2e69f3e2179d071e0575cf534",
     "semantic_hash": ""
   },
   "omnigent/wrapper/sprint-engine.mjs": {

@@ -945,8 +945,8 @@
     "semantic_hash": ""
   },
   "tsconfig.json": {
-    "mtime": 1783969550.8848083,
-    "ast_hash": "332211dfac28d8466681cd40bf3836e0",
+    "mtime": 1784223100.936227,
+    "ast_hash": "77371605afd579c12b36924c6a84c984",
     "semantic_hash": ""
   },
   "vercel.json": {
@@ -1075,13 +1075,13 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/quotes-panel.tsx": {
-    "mtime": 1784213531.6451757,
-    "ast_hash": "da3a1d0646a98381389eb17bb13e2c4d",
+    "mtime": 1784221999.854771,
+    "ast_hash": "68443a150169977594aa3ef0d2fd222f",
     "semantic_hash": ""
   },
   "src/hooks/use-quotes-query.ts": {
-    "mtime": 1783309133.7470353,
-    "ast_hash": "9dc2377553e739c3587b4223e159c5b6",
+    "mtime": 1784221769.2588367,
+    "ast_hash": "32f6e9e9093be32f46d946f2d444c989",
     "semantic_hash": ""
   },
   "src/lib/market/finnhub-quotes.ts": {
@@ -1675,8 +1675,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/chat-history-panel.tsx": {
-    "mtime": 1784209454.3633385,
-    "ast_hash": "751e36e3b500227674163d8100adfb31",
+    "mtime": 1784222024.605478,
+    "ast_hash": "eaddf4cbebcbe78c87c98ce82af8473f",
     "semantic_hash": ""
   },
   "src/components/dashboard/global-voice-control.tsx": {
@@ -1695,13 +1695,13 @@
     "semantic_hash": ""
   },
   "src/lib/chat/history.ts": {
-    "mtime": 1784144872.428102,
-    "ast_hash": "380116afee4ce22482a659e7f42cd536",
+    "mtime": 1784221733.158296,
+    "ast_hash": "e2661c6ba0ce3a88f04429542387111d",
     "semantic_hash": ""
   },
   "src/app/api/activity/route.ts": {
-    "mtime": 1784215535.200859,
-    "ast_hash": "e62df242e86c415069afc8dcc1643546",
+    "mtime": 1784225395.5038326,
+    "ast_hash": "1c24cc4073bfaa42b1d3e6fbab645b26",
     "semantic_hash": ""
   },
   "src/app/api/trading/autonomy/route.ts": {
@@ -1807,6 +1807,11 @@
   "HANDOFF_AUTONOMOUS_LOOP_ENGINE.md": {
     "mtime": 1784217756.3745275,
     "ast_hash": "67cbeef5bfa9d7a0e146b8c96644ade1",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260716_ticker_watchlist_restore.sql": {
+    "mtime": 1784218418.5446,
+    "ast_hash": "c92e9ab5a17851a31157a5f5c1316271",
     "semantic_hash": ""
   }
 }
