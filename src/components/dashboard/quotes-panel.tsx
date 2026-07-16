@@ -65,7 +65,7 @@ function useOwnedSymbols() {
  *  Reskinned to the Instrument Deck quotes ticker (Trading Room.dc.html
  *  §Quotes): a horizontal SIM-tagged strip of symbol · price · delta cells. */
 export function QuotesPanel() {
-  const { data: quotes = [], isLoading } = useQuotesQuery();
+  const { data: quotes = [], isLoading, isError, error, refetch } = useQuotesQuery();
 
   return (
     <div className="flex min-h-[34px] items-stretch overflow-x-auto rounded-[6px] border border-border/90 bg-surface-deep">
@@ -78,10 +78,21 @@ export function QuotesPanel() {
       </div>
 
       {isLoading ? (
-        <span className="flex items-center px-4 font-mono text-[10px] text-ink-mid">Loading quotes…</span>
+        <span className="flex items-center px-4 font-mono text-[10px] text-ink-mid">Loading quotes...</span>
+      ) : isError ? (
+        <span className="flex min-w-0 items-center gap-2 px-4 font-mono text-[10px] text-destructive">
+          <span className="truncate">Quotes unavailable - {error instanceof Error ? error.message : 'feed or database error'}</span>
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="rounded border border-destructive/30 px-1.5 py-px font-mono text-[9px] uppercase tracking-wider text-destructive transition-colors hover:bg-destructive/10"
+          >
+            Retry
+          </button>
+        </span>
       ) : quotes.length === 0 ? (
         <span className="flex items-center px-4 font-mono text-[10px] text-ink-low">
-          No quotes cached — run the loop worker (npm run loop-worker) to poll the allowlist.
+          No quotes cached - run the loop worker (npm run loop-worker) to poll the allowlist.
         </span>
       ) : (
         quotes.map((q) => {
@@ -90,7 +101,7 @@ export function QuotesPanel() {
             <div
               key={q.symbol}
               className="flex flex-shrink-0 items-center gap-2 border-r border-border/30 px-[15px]"
-              title={`${q.source} · ${q.symbol}`}
+              title={`${q.source} - ${q.symbol}`}
             >
               <span className="font-mono text-[10px] font-bold text-[#cdd9e8]">{q.symbol}</span>
               <span className="tabular font-mono text-[10.5px] text-ink-mid">${q.price.toFixed(2)}</span>
@@ -106,8 +117,9 @@ export function QuotesPanel() {
   );
 }
 
+
 export function WatchlistPanel({ selectedSymbol, onSelectSymbol }: WatchlistPanelProps) {
-  const { data: quotes = [], isLoading } = useQuotesQuery();
+  const { data: quotes = [], isLoading, isError, error, refetch } = useQuotesQuery();
   const { owned, positions, ready, retry: retryPositions } = useOwnedSymbols();
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [liveQuotes, setLiveQuotes] = useState<Record<string, LiveQuote>>({});
@@ -267,7 +279,7 @@ export function WatchlistPanel({ selectedSymbol, onSelectSymbol }: WatchlistPane
           <LineChart className="size-3.5 text-primary" aria-hidden />
           <span className="font-terminal text-[10px] uppercase tracking-widest text-muted-foreground">Watchlist</span>
           <span className="ml-auto rounded border border-primary/30 px-1.5 py-px font-terminal text-[8.5px] uppercase tracking-wider text-primary/80">
-            owned first · click to chart
+            owned first - click to chart
           </span>
         </div>
         {watchlistError && (
@@ -277,6 +289,20 @@ export function WatchlistPanel({ selectedSymbol, onSelectSymbol }: WatchlistPane
               type="button"
               onClick={() => void loadWatchlist()}
               className="ml-auto rounded border border-neon-red/30 px-1.5 py-px font-terminal text-[8px] uppercase tracking-wider text-neon-red/80 transition-colors hover:bg-neon-red/10"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        {isError && (
+          <div className="flex items-center gap-2 rounded border border-neon-red/25 bg-neon-red/[0.04] px-2 py-1">
+            <span className="min-w-0 flex-1 truncate font-mono text-[9px] text-neon-red/80">
+              Quotes unavailable - {error instanceof Error ? error.message : 'feed or database error'}
+            </span>
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="rounded border border-neon-red/30 px-1.5 py-px font-terminal text-[8px] uppercase tracking-wider text-neon-red/80 transition-colors hover:bg-neon-red/10"
             >
               Retry
             </button>
@@ -349,7 +375,7 @@ export function WatchlistPanel({ selectedSymbol, onSelectSymbol }: WatchlistPane
                       </span>
                     )}
                     <span className="ml-auto tabular font-mono text-xs text-ink-mid">
-                      {row ? `$${row.price.toFixed(2)}` : 'loading…'}
+                      {row ? `$${row.price.toFixed(2)}` : 'loading...'}
                     </span>
                     <button
                       type="button"
@@ -369,7 +395,7 @@ export function WatchlistPanel({ selectedSymbol, onSelectSymbol }: WatchlistPane
                       {row?.change_pct?.toFixed(2) ?? '0.00'}%
                     </span>
                     <span className="text-muted-foreground/45">{row?.source ?? 'pending'}</span>
-                    {pos && <span className="ml-auto text-muted-foreground/60">{pos.qty} sh · ${Math.round(pos.marketValue).toLocaleString()}</span>}
+                    {pos && <span className="ml-auto text-muted-foreground/60">{pos.qty} sh - ${Math.round(pos.marketValue).toLocaleString()}</span>}
                   </div>
                 </div>
               );
@@ -397,3 +423,4 @@ export function WatchlistPanel({ selectedSymbol, onSelectSymbol }: WatchlistPane
     </div>
   );
 }
+

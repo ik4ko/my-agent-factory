@@ -18,7 +18,7 @@ export interface ModelEventInput {
 export async function recordModelEvent(e: ModelEventInput): Promise<void> {
   try {
     const db = getAdminClient();
-    await db.from('metrics').insert({
+    const { error } = await db.from('metrics').insert({
       model: e.model,
       event: e.event,
       task_id: e.taskId ?? null,
@@ -27,8 +27,29 @@ export async function recordModelEvent(e: ModelEventInput): Promise<void> {
       output_tokens: e.outputTokens ?? 0,
       detail: e.detail ?? null,
     });
-  } catch {
-    /* never throw from telemetry */
+    if (error) {
+      console.error('[token-ledger] metrics insert failed', {
+        model: e.model,
+        event: e.event,
+        taskId: e.taskId ?? null,
+        agentId: e.agentId ?? null,
+        inputTokens: e.inputTokens ?? 0,
+        outputTokens: e.outputTokens ?? 0,
+        detail: e.detail ?? null,
+        error: error.message,
+      });
+    }
+  } catch (err) {
+    console.error('[token-ledger] metrics insert threw', {
+      model: e.model,
+      event: e.event,
+      taskId: e.taskId ?? null,
+      agentId: e.agentId ?? null,
+      inputTokens: e.inputTokens ?? 0,
+      outputTokens: e.outputTokens ?? 0,
+      detail: e.detail ?? null,
+      err,
+    });
   }
 }
 

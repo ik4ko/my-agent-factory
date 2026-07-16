@@ -52,8 +52,11 @@ interface ActivityResponse {
 
 async function fetchScope(scope: ChatHistoryScope): Promise<ChatHistoryTurn[]> {
   const res = await fetch(`/api/chat-history?scope=${encodeURIComponent(scope)}`, { cache: 'no-store' });
-  const data = (await res.json().catch(() => ({}))) as { turns?: ChatHistoryTurn[] };
-  return Array.isArray(data.turns) ? data.turns : [];
+  const data = (await res.json().catch(() => null)) as { turns?: ChatHistoryTurn[]; error?: string } | null;
+  if (!res.ok) {
+    throw new Error(data?.error ?? `chat history read failed for ${scope}`);
+  }
+  return Array.isArray(data?.turns) ? data.turns : [];
 }
 
 function labelForScope(scope: ChatHistoryScope | undefined, scopes: Array<{ scope: ChatHistoryScope; label: string }>): string {
@@ -96,10 +99,12 @@ export function ChatHistoryPanel({
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [summary, setSummary] = useState<ActivityResponse['summary']>();
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       if (mode === 'activity') {
         const params = new URLSearchParams({
@@ -110,9 +115,12 @@ export function ChatHistoryPanel({
           includeGlobal: '1',
         });
         const res = await fetch(`/api/activity?${params.toString()}`, { cache: 'no-store' });
-        const data = (await res.json().catch(() => ({}))) as ActivityResponse;
-        setActivity(Array.isArray(data.items) ? data.items : []);
-        setSummary(data.summary);
+        const data = (await res.json().catch(() => null)) as ActivityResponse & { error?: string } | null;
+        if (!res.ok) {
+          throw new Error(data?.error ?? `activity read failed (${res.status})`);
+        }
+        setActivity(Array.isArray(data?.items) ? data.items : []);
+        setSummary(data?.summary);
         return;
       }
 
@@ -129,6 +137,12 @@ export function ChatHistoryPanel({
           .sort((a, b) => Date.parse(b.createdAt ?? '') - Date.parse(a.createdAt ?? ''))
           .slice(0, maxItems),
       );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : `failed to load ${mode === 'activity' ? 'activity' : 'history'}`;
+      setError(message);
+      setActivity([]);
+      setItems([]);
+      setSummary(undefined);
     } finally {
       setLoading(false);
     }
@@ -194,6 +208,20 @@ export function ChatHistoryPanel({
           <RefreshCw className={cn('size-3', loading && 'animate-spin')} aria-hidden />
         </button>
       </div>
+
+      {error && (
+        <div className="mx-2 mt-2 flex items-center gap-2 rounded border border-neon-red/35 bg-neon-red/[0.06] px-2 py-1.5">
+          <AlertTriangle className="size-3 shrink-0 text-neon-red/80" aria-hidden />
+          <span className="min-w-0 flex-1 truncate font-mono text-[9px] text-neon-red/80">{error}</span>
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            className="rounded border border-neon-red/30 px-1.5 py-px font-terminal text-[8px] uppercase tracking-wider text-neon-red/80 transition-colors hover:bg-neon-red/10"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {loading ? (

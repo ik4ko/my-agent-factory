@@ -59,16 +59,21 @@ function cleanTurns(turns: ChatHistoryTurn[]): ChatHistoryTurn[] {
     .slice(-MAX_TURNS);
 }
 
+function isUniqueViolation(error: { code?: string | null; message?: string | null } | null | undefined): boolean {
+  return Boolean(error && (error.code === '23505' || /duplicate key/i.test(error.message ?? '')));
+}
+
 export async function readChatHistory(scope: ChatHistoryScope): Promise<ChatHistoryTurn[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = getAdminClient() as any;
-  const { data } = await db
+  const { data, error } = await db
     .from('memory')
-    .select('value')
+    .select('id, value, updated_at')
     .eq('key', chatHistoryKey(scope))
     .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (error) throw new Error(`[chat-history] read failed for ${scope}: ${error.message}`);
 
   const turns = Array.isArray(data?.value?.turns) ? data.value.turns : [];
   return cleanTurns(turns as ChatHistoryTurn[]);
@@ -85,24 +90,48 @@ export async function writeChatHistory(scope: ChatHistoryScope, turns: ChatHisto
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = getAdminClient() as any;
-  const { data: existing } = await db
-    .from('memory')
-    .select('id')
-    .eq('key', chatHistoryKey(scope))
-    .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const { data: existing, error: readError } = await db
+      .from('memory')
+      .select('id, updated_at')
+      .eq('key', chatHistoryKey(scope))
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-  if (existing?.id) {
-    await db
+    if (readError) {
+      throw new Error(`[chat-history] write preflight failed for ${scope}: ${readError.message}`);
+    }
+
+    if (!existing?.id) {
+      const { error: insertError } = await db.from('memory').insert({
+        key: chatHistoryKey(scope),
+        value,
+        source: 'chat',
+        tags: ['chat', scope],
+      });
+
+      if (!insertError) return cleaned;
+      if (isUniqueViolation(insertError) && attempt < 3) continue;
+      throw new Error(`[chat-history] insert failed for ${scope}: ${insertError.message}`);
+    }
+
+    const { data: updated, error: updateError } = await db
       .from('memory')
       .update({ value, source: 'chat', tags: ['chat', scope], updated_at: new Date().toISOString() })
-      .eq('id', existing.id);
-  } else {
-    await db.from('memory').insert({ key: chatHistoryKey(scope), value, source: 'chat', tags: ['chat', scope] });
+      .eq('id', existing.id)
+      .eq('updated_at', existing.updated_at)
+      .select('id')
+      .maybeSingle();
+
+    if (updateError) {
+      throw new Error(`[chat-history] update failed for ${scope}: ${updateError.message}`);
+    }
+
+    if (updated?.id) return cleaned;
   }
 
-  return cleaned;
+  throw new Error(`[chat-history] concurrent write retry exhausted for ${scope}`);
 }
 
 export async function appendChatHistory(scope: ChatHistoryScope, turns: ChatHistoryTurn[]): Promise<ChatHistoryTurn[]> {

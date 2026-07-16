@@ -44,11 +44,11 @@ export function useQuotesQuery() {
     };
   }, [queryClient, supabase]);
 
-  return useQuery<QuoteRow[]>({
+  return useQuery<QuoteRow[], Error>({
     queryKey: QUOTES_KEY,
     queryFn: async () => {
       const { data, error } = await supabase.from('quotes').select('*').order('symbol', { ascending: true });
-      if (error) throw error;
+      if (error) throw new Error(error.message);
       return data;
     },
     staleTime: 15_000,

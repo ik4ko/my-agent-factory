@@ -115,6 +115,17 @@ function metricCost(metric: Metric): number {
   return Number.isFinite(value) ? value : estimateMetricCostUsd(metric);
 }
 
+async function readPagedRows<T>(fetchPage: (offset: number, pageSize: number) => Promise<T[]>, pageSize = 120): Promise<T[]> {
+  const rows: T[] = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const page = await fetchPage(offset, pageSize);
+    if (page.length === 0) break;
+    rows.push(...page);
+    if (page.length < pageSize) break;
+  }
+  return rows;
+}
+
 function taskScopeFromRoomScope(scope: RoomScope): ChatHistoryScope | undefined {
   if (scope === 'trading' || scope === 'coding') return scope;
   return undefined;
@@ -210,17 +221,20 @@ async function readMetrics(
 ): Promise<{ items: ActivityItem[]; tokens: number; costUsd: number }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = getAdminClient() as any;
-  const { data, error } = await db
-    .from('metrics')
-    .select('id, task_id, agent_id, model, event, input_tokens, output_tokens, detail, created_at')
-    .order('created_at', { ascending: false })
-    .limit(120);
-  if (error) throw new Error(`metrics read failed: ${error.message}`);
+  const rows = await readPagedRows<Metric>(async (offset, pageSize) => {
+    const { data, error } = await db
+      .from('metrics')
+      .select('id, task_id, agent_id, model, event, input_tokens, output_tokens, detail, created_at')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw new Error(`metrics read failed: ${error.message}`);
+    return (data ?? []) as Metric[];
+  });
 
   let tokens = 0;
   let costUsd = 0;
   const items: ActivityItem[] = [];
-  for (const metric of (data ?? []) as Metric[]) {
+  for (const metric of rows) {
     const scope = metricScope(metric.detail) ?? metricScopeFromTask(metric, scopeByTaskId);
     if (scope && !scopes.has(scope)) continue;
     if (!scope && !includeGlobal) continue;
@@ -252,20 +266,20 @@ async function readTasks(
 ): Promise<{ items: ActivityItem[]; scopeByTaskId: Map<string, ChatHistoryScope | undefined> }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = getAdminClient() as any;
-  const { data, error } = await db
-    .from('tasks')
-    .select('id, agent_id, description, status, model, result, created_at, updated_at')
-    .order('updated_at', { ascending: false })
-    .limit(120);
-  if (error) throw new Error(`tasks read failed: ${error.message}`);
+  const rows = await readPagedRows(async (offset, pageSize) => {
+    const { data, error } = await db
+      .from('tasks')
+      .select('id, agent_id, description, status, model, result, created_at, updated_at')
+      .order('updated_at', { ascending: false })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw new Error(`tasks read failed: ${error.message}`);
+    return (data ?? []) as Pick<Task, 'id' | 'agent_id' | 'description' | 'status' | 'model' | 'result' | 'created_at' | 'updated_at'>[];
+  });
 
   const scopeByTaskId = new Map<string, ChatHistoryScope | undefined>();
-  const items = ((data ?? []) as Pick<
-    Task,
-    'id' | 'agent_id' | 'description' | 'status' | 'model' | 'result' | 'created_at' | 'updated_at'
-  >[]).map((task) => {
+  const items = rows.map((task) => {
     const preview = taskResultPreview(task.result);
-    const content = preview ? `${task.description} â€” ${preview}` : task.description;
+    const content = preview ? `${task.description} - ${preview}` : task.description;
     const scope = taskScopeFromRoomScope(resolveTaskRoomScope(task, roomsMap));
     scopeByTaskId.set(task.id, scope);
     return {
@@ -288,15 +302,18 @@ async function readTasks(
 async function readBusThoughts(scopeByTaskId: ReadonlyMap<string, ChatHistoryScope | undefined>): Promise<ActivityItem[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = getAdminClient() as any;
-  const { data, error } = await db
-    .from('system_bus')
-    .select('id, topic, agent, task_id, pipeline_id, payload, status, created_at')
-    .eq('topic', 'agent.thought')
-    .order('created_at', { ascending: false })
-    .limit(60);
-  if (error) throw new Error(`system_bus read failed: ${error.message}`);
+  const rows = await readPagedRows<Pick<SystemBusRow, 'id' | 'agent' | 'task_id' | 'pipeline_id' | 'payload' | 'status' | 'created_at'>>(async (offset, pageSize) => {
+    const { data, error } = await db
+      .from('system_bus')
+      .select('id, topic, agent, task_id, pipeline_id, payload, status, created_at')
+      .eq('topic', 'agent.thought')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw new Error(`system_bus read failed: ${error.message}`);
+    return (data ?? []) as Pick<SystemBusRow, 'id' | 'agent' | 'task_id' | 'pipeline_id' | 'payload' | 'status' | 'created_at'>[];
+  });
 
-  return ((data ?? []) as Pick<SystemBusRow, 'id' | 'agent' | 'task_id' | 'pipeline_id' | 'payload' | 'status' | 'created_at'>[]).map((event) => {
+  return rows.map((event) => {
     const model = busPayloadModel(event.payload);
     const scope = busPayloadScope(event.payload) ?? (event.task_id ? scopeByTaskId.get(event.task_id) : undefined);
     return {
@@ -319,14 +336,17 @@ async function readStagedOrders(scopes: Set<ChatHistoryScope>): Promise<Activity
   if (!scopes.has('trading')) return [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = getAdminClient() as any;
-  const { data, error } = await db
-    .from('staged_orders')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(30);
-  if (error) throw new Error(`staged_orders read failed: ${error.message}`);
+  const rows = await readPagedRows<Partial<StagedOrderRow>>(async (offset, pageSize) => {
+    const { data, error } = await db
+      .from('staged_orders')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw new Error(`staged_orders read failed: ${error.message}`);
+    return (data ?? []) as Partial<StagedOrderRow>[];
+  });
 
-  return ((data ?? []) as Partial<StagedOrderRow>[]).map((order) => ({
+  return rows.map((order) => ({
     id: `staged:${order.id}`,
     kind: 'staged_order' as const,
     createdAt: order.created_at ?? new Date().toISOString(),
@@ -337,10 +357,10 @@ async function readStagedOrders(scopes: Set<ChatHistoryScope>): Promise<Activity
         ? [
             'OPTION INTENT',
             `${order.action ?? 'action?'} ${order.contracts ?? '?'}x ${order.underlying ?? 'underlying?'} ${order.expiration ?? 'exp?'} ${order.strike ?? '?'} ${order.option_type ?? 'CALL'} @ ${Number(order.limit_price ?? 0).toFixed(2)} ${order.price_effect ?? ''}`.trim(),
-            `max premium ${Number(order.max_premium_usd ?? 0).toFixed(0)} · max loss ${Number(order.max_loss_usd ?? 0).toFixed(0)}`,
-            `strategy ${order.strategy_label ?? 'n/a'}${order.source_signal_id ? ` · signal ${String(order.source_signal_id).slice(0, 8)}` : ''}`,
-          ].join(' · ')
-        : `${order.underlying ?? 'staged order'} ${order.option_type ?? 'CALL'} ${order.strike ?? '?'} ${order.expiration ?? 'n/a'} @ ${Number(order.limit_price ?? 0).toFixed(2)} · size ${Number(order.calculated_position_size_usd ?? 0).toFixed(0)} · ${order.source ?? 'sandbox'}`,
+            `max premium ${Number(order.max_premium_usd ?? 0).toFixed(0)} - max loss ${Number(order.max_loss_usd ?? 0).toFixed(0)}`,
+            `strategy ${order.strategy_label ?? 'n/a'}${order.source_signal_id ? ` - signal ${String(order.source_signal_id).slice(0, 8)}` : ''}`,
+          ].join(' - ')
+        : `${order.underlying ?? 'staged order'} ${order.option_type ?? 'CALL'} ${order.strike ?? '?'} ${order.expiration ?? 'n/a'} @ ${Number(order.limit_price ?? 0).toFixed(2)} - size ${Number(order.calculated_position_size_usd ?? 0).toFixed(0)} - ${order.source ?? 'sandbox'}`,
     status: String(order.human_approval_status ?? 'PENDING'),
     intentKind: order.intent_kind ?? null,
     pipelineId: order.pipeline_id ?? null,
