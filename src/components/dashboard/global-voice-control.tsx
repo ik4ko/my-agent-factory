@@ -26,7 +26,7 @@ const WAKE_NAMES = [
   'jarvis',
   'hermes',
 ];
-const SILENCE_MS = 3800;
+const SILENCE_MS = 1600;
 const FOLLOW_UP_MS = 18_000;
 const AUTO_ARM_DELAY_MS = 1200;
 const RESTART_AFTER_TTS_MS = 80;
@@ -170,6 +170,9 @@ export function GlobalVoiceControl({ compact = false }: { compact?: boolean }) {
     const recognition = recognitionRef.current;
     if (!recognition || !armedRef.current || processingRef.current) return;
     if (recognitionActiveRef.current) return;
+    // A backgrounded tab must not grab the single mic away from the tab the
+    // operator is actually using — the common "Nova can't hear me" cause.
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
 
     // Never open the mic while Nova is still speaking, or recognition captures
     // the TTS output instead of the operator. Reschedule until synthesis ends.
@@ -407,7 +410,9 @@ export function GlobalVoiceControl({ compact = false }: { compact?: boolean }) {
         recognition.onend = () => {
           recognitionActiveRef.current = false;
           setCoreListening(false);
-          if (armedRef.current && !processingRef.current) restartRecognition(RESTART_AFTER_END_MS);
+          if (armedRef.current && !processingRef.current && document.visibilityState !== 'hidden') {
+            restartRecognition(RESTART_AFTER_END_MS);
+          }
         };
 
         recognitionRef.current = recognition;
@@ -466,9 +471,42 @@ export function GlobalVoiceControl({ compact = false }: { compact?: boolean }) {
     };
   }, [clearRestart, resetCapture, setCoreListening]);
 
+  // Hand the single microphone to whichever dashboard tab the operator is
+  // actually looking at: a hidden tab releases recognition (so it never fights
+  // a foreground tab), and returning to the tab reclaims it. This is the fix
+  // for the recurring "Nova can't hear me" — usually a background tab holding
+  // the mic (including a tab an assistant opened).
+  useEffect(() => {
+    if (!supported) return;
+    const reclaim = () => {
+      if (armedRef.current && !processingRef.current) restartRecognition(RESTART_AFTER_END_MS);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        clearRestart();
+        try {
+          recognitionRef.current?.stop();
+        } catch {
+          // already stopped
+        }
+        recognitionActiveRef.current = false;
+        setCoreListening(false);
+      } else {
+        reclaim();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', reclaim);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', reclaim);
+    };
+  }, [supported, clearRestart, restartRecognition, setCoreListening]);
+
   const active = armed && state === 'listening';
   const arming = state === 'arming';
   const blocked = state === 'blocked' || state === 'unsupported';
+  const capturing = active && heard.length > 0;
 
   return (
     <div
@@ -488,7 +526,9 @@ export function GlobalVoiceControl({ compact = false }: { compact?: boolean }) {
         className={cn(
           'flex w-full items-center gap-1.5 rounded-md border px-2 font-terminal text-[10px] transition-colors',
           compact ? 'h-7' : 'h-8 gap-2',
-          compact && 'border-border bg-surface-1/90 text-muted-foreground hover:text-foreground',
+          compact && active && 'border-amber-400/50 bg-amber-400/10 text-amber-300',
+          compact && (state === 'processing' || arming) && 'border-primary/45 bg-primary/10 text-primary',
+          compact && !active && state !== 'processing' && !arming && 'border-border bg-surface-1/90 text-muted-foreground hover:text-foreground',
           !compact && active && 'border-amber-400/45 bg-amber-400/10 text-amber-300 shadow-[0_0_18px_rgba(251,191,36,0.16)]',
           !compact && (state === 'processing' || arming) && 'border-primary/45 bg-primary/10 text-primary',
           !compact && !active && state !== 'processing' && !arming && 'border-border bg-surface-1/90 text-muted-foreground hover:text-foreground',
@@ -508,6 +548,26 @@ export function GlobalVoiceControl({ compact = false }: { compact?: boolean }) {
             <span className="truncate text-muted-foreground/70">
               {heard ? `"${heard.slice(0, 34)}${heard.length > 34 ? '...' : ''}"` : target.label}
             </span>
+          )}
+          {compact && capturing && (
+            <span className="max-w-[7rem] truncate text-amber-300/80">{heard.slice(0, 22)}</span>
+          )}
+          {compact && (
+            <span
+              className={cn(
+                'ml-0.5 size-1.5 shrink-0 rounded-full',
+                state === 'processing' || arming
+                  ? 'bg-primary animate-pulse'
+                  : capturing
+                    ? 'bg-amber-300'
+                    : active
+                      ? 'bg-amber-400/80 animate-pulse'
+                      : blocked
+                        ? 'bg-neon-red/70'
+                        : 'bg-muted-foreground/30',
+              )}
+              aria-hidden
+            />
           )}
         </span>
       </button>

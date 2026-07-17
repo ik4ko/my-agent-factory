@@ -81,17 +81,21 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 p-2 xl:grid-cols-12">
         <div className="min-h-[24rem] xl:col-span-8">
-          <PanelChrome title="MAIN BRAINS" bodyClassName="p-0" className="h-full">
+          <PanelChrome title={`MAIN BRAINS · ${hubLane}`} bodyClassName="p-0" className="h-full">
             <WidgetErrorBoundary name="Hub Chat">
               <AgentChat
                 variant="full"
                 historyScope="hub"
-                title="Claude + Codex"
+                title={hubLane === 'CODEX' ? 'Codex' : 'Claude'}
                 lanes={['CLAUDE', 'CODEX']}
                 defaultLane="CLAUDE"
                 selectedLane={hubLane}
                 onLaneChange={setHubLane}
-                emptyText="Talk to Claude for direction, or switch to Codex for implementation."
+                emptyText={
+                  hubLane === 'CODEX'
+                    ? 'Codex is the active brain — ask for implementation.'
+                    : 'Claude is the active brain — ask for direction. Click the Codex planet to switch.'
+                }
               />
             </WidgetErrorBoundary>
           </PanelChrome>

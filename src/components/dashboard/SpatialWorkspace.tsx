@@ -280,25 +280,43 @@ function Rig({ focus }: { focus: Focus }) {
   const controls = useRef<any>(null);
   const desiredCam = useRef(new THREE.Vector3());
   const desiredLook = useRef(new THREE.Vector3());
+  // Fly to a focus ONLY while transitioning. Once arrived, hand the camera back
+  // to the user so drag-to-orbit and free zoom aren't yanked back to the focus
+  // point every frame. A new focus (planet click) re-arms the fly-to.
+  const flying = useRef(true);
+  const lastFocusKey = useRef('');
 
   useFrame((state, dt) => {
     const c = controls.current;
     if (!c) return;
-    let cam = HOME_CAM;
-    let look = HOME_LOOK;
-    if (focus?.kind === 'brain') {
-      const b = BRAINS.find((x) => x.key === focus.key)!;
-      cam = camFor(b.position);
-      look = b.position;
-    } else if (focus?.kind === 'approval') {
-      cam = camFor(BEACON_POS);
-      look = BEACON_POS;
-    }
-    desiredCam.current.set(...cam);
-    desiredLook.current.set(...look);
 
-    const arrived = state.camera.position.distanceTo(desiredCam.current) < 0.03;
-    if (arrived) {
+    const focusKey =
+      focus?.kind === 'brain' ? `brain:${focus.key}` : focus?.kind === 'approval' ? 'approval' : 'home';
+    if (focusKey !== lastFocusKey.current) {
+      lastFocusKey.current = focusKey;
+      let cam = HOME_CAM;
+      let look = HOME_LOOK;
+      if (focus?.kind === 'brain') {
+        const b = BRAINS.find((x) => x.key === focus.key)!;
+        cam = camFor(b.position);
+        look = b.position;
+      } else if (focus?.kind === 'approval') {
+        cam = camFor(BEACON_POS);
+        look = BEACON_POS;
+      }
+      desiredCam.current.set(...cam);
+      desiredLook.current.set(...look);
+      flying.current = true;
+    }
+
+    // Free exploration: the user owns the camera; OrbitControls damping runs.
+    if (!flying.current) {
+      c.enabled = true;
+      return;
+    }
+
+    if (state.camera.position.distanceTo(desiredCam.current) < 0.03) {
+      flying.current = false;
       c.enabled = true;
       return;
     }
@@ -315,15 +333,15 @@ function Rig({ focus }: { focus: Focus }) {
       makeDefault
       enablePan={false}
       enableZoom
-      zoomSpeed={2.8}
-      rotateSpeed={0.9}
+      zoomSpeed={2.2}
+      rotateSpeed={1.0}
       enableDamping
-      dampingFactor={0.08}
+      dampingFactor={0.06}
       autoRotate={false}
       minDistance={0.45}
       maxDistance={34}
-      minPolarAngle={0.15}
-      maxPolarAngle={Math.PI / 2 - 0.03}
+      minPolarAngle={0.12}
+      maxPolarAngle={Math.PI * 0.62}
     />
   );
 }
