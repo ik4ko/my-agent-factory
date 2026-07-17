@@ -162,9 +162,9 @@ function busPayloadScope(payload: Record<string, unknown>): ChatHistoryScope | u
 function metricSummary(metric: Metric, costUsd: number): string {
   const tokens = (metric.input_tokens ?? 0) + (metric.output_tokens ?? 0);
   const tokenPart = tokens > 0 ? `${tokens.toLocaleString()} tokens` : 'no token count';
-  const costPart = costUsd > 0 ? ` Â· ~$${costUsd.toFixed(4)}` : '';
-  const detail = metric.detail ? ` Â· ${metric.detail}` : '';
-  return `${metric.event} Â· ${tokenPart}${costPart}${detail}`;
+  const costPart = costUsd > 0 ? ` - ~$${costUsd.toFixed(4)}` : '';
+  const detail = metric.detail ? ` - ${metric.detail}` : '';
+  return `${metric.event} - ${tokenPart}${costPart}${detail}`;
 }
 
 function activityDedupKey(item: ActivityItem): string {
