@@ -1,7 +1,7 @@
 # Graph Report - my agent factory  (2026-07-16)
 
 ## Corpus Check
-- 329 files · ~306,927 words
+- 329 files · ~307,302 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `42c27976`
+- Built from commit: `6e9b6dd7`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 

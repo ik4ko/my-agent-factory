@@ -158,16 +158,10 @@
   "156": "coding-room-client.tsx",
   "157": "pricing.ts",
   "158": "hermes.ts",
-  "159": "safe-fetch.ts",
   "160": "Claude ↔ Codex Local Handoff Spec",
   "161": "golive-client.tsx",
   "162": "route.ts",
-  "163": "page.tsx",
-  "164": "audio-briefing.tsx",
   "165": "core-store.ts",
   "166": "CODING AGENTS: READ THIS FIRST",
-  "167": "client-audio-briefing.tsx",
-  "168": "select-adapter.ts",
-  "169": "route.ts",
-  "170": "executor-agent.mts"
+  "167": "client-audio-briefing.tsx"
 }

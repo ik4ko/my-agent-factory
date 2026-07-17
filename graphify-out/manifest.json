@@ -350,8 +350,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/dashboard-client.tsx": {
-    "mtime": 1784154411.5701826,
-    "ast_hash": "89b9e01ce2e424824a6d454d28004b81",
+    "mtime": 1784250316.404235,
+    "ast_hash": "f1f488b95dd2230489e2e2008afa1383",
     "semantic_hash": ""
   },
   "src/components/dashboard/emergency-stop.tsx": {
@@ -1380,8 +1380,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/SpatialWorkspace.tsx": {
-    "mtime": 1784178338.379182,
-    "ast_hash": "4b166a42d9ea5577413d7fef8c89b821",
+    "mtime": 1784250223.6887648,
+    "ast_hash": "622ffda29c979a51dcaa0c7d58ea66d2",
     "semantic_hash": ""
   },
   "src/lib/fx/spatial-pulse.ts": {
@@ -1680,8 +1680,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/global-voice-control.tsx": {
-    "mtime": 1784179189.390872,
-    "ast_hash": "194b1d5ebb0c8bd9b029d6b4888d8119",
+    "mtime": 1784250493.1458373,
+    "ast_hash": "fd462f2c8a44d84877d2ffc110267c59",
     "semantic_hash": ""
   },
   "src/hooks/use-browser-speech.ts": {
