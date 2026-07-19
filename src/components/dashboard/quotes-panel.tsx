@@ -357,12 +357,12 @@ export function WatchlistPanel({ selectedSymbol, onSelectSymbol }: WatchlistPane
                     }
                   }}
                   className={cn(
-                    'w-full rounded-md border px-2.5 py-2 text-left transition-colors',
-                    isSelected ? 'border-primary/55 bg-primary/[0.10]' : isOwned ? 'border-primary/35 bg-primary/[0.07]' : 'border-border/60 bg-surface-1/50',
+                    'row-hover w-full rounded-md border px-2.5 py-2 text-left',
+                    isSelected ? 'border-primary/55 bg-primary/[0.10]' : isOwned ? 'border-primary/35 bg-primary/[0.07]' : 'border-border/[0.05] bg-white/[0.012]',
                   )}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-bold text-foreground">{symbol}</span>
+                    <span className="wt-hover font-mono text-xs text-foreground">{symbol}</span>
                     {isOwned && (
                       <span className="inline-flex items-center gap-1 rounded border border-primary/30 px-1.5 py-px font-terminal text-[8px] uppercase tracking-wider text-primary">
                         <Briefcase className="size-2.5" aria-hidden />

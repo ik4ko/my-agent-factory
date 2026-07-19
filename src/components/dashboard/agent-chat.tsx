@@ -550,12 +550,12 @@ export function AgentChat({
                 )}
                 <div
                   className={cn(
-                    'max-w-[80%] rounded-lg px-2.5 py-1.5 text-xs leading-relaxed',
+                    'max-w-[78%] rounded-[9px] px-[14px] py-[10px] text-xs leading-relaxed',
                     isUser
-                      ? 'bg-surface-3 text-foreground'
+                      ? 'border border-primary/25 bg-primary/[0.08] text-foreground'
                       : turn.error
                         ? 'border border-neon-red/30 bg-neon-red/[0.05] text-neon-red/90'
-                        : 'border border-border bg-surface-1 text-foreground/90',
+                        : 'border border-border/[0.1] bg-white/[0.02] text-foreground/90',
                   )}
                 >
                   {!isUser && turn.agentId && (

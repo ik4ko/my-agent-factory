@@ -28,15 +28,21 @@ import { cn } from '@/lib/utils';
 // BRAIN HUB — the Instrument Deck's WebGL signature (Brain Hub.dc.html).
 // Four brain nodes with LIVE status colors bound to the real agents cache,
 // dependency lines feeding a central bus with realtime pulses, click →
-// camera fly-in → Instrument-Deck panel reveal → ◄ PULL OUT, and the rose
+// camera fly-in → Instrument-Deck panel reveal → ◄ PULL OUT, and the
 // approval-gate beacon that lights when a real staged order is pending.
 // Three.js is reserved for THIS surface only (perf constraint).
+//
+// Scope guard (HANDOFF_SPEC §6): node placement, drag orbit, scroll zoom,
+// and camera easing below are UNTOUCHED — only the scene/grid/light/node
+// hex colors are re-tokened to the charcoal + ice-violet palette.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const IDLE_HEX = '#64748b';
-const ACTIVE_HEX = '#38bdf8';
-const CODEX_HEX = '#a78bfa';
-const GATE_HEX = '#ff2d6b';
+const ACTIVE_HEX = '#a3b1f7';
+const CODEX_HEX = '#b7a8f7';
+const GATE_HEX = '#a3b1f7';
+const FILL_LIGHT_HEX = '#8494f0';
+const SCENE_BG_HEX = '#0d0e11';
 const BUS_POS: [number, number, number] = [0, 1.05, 0];
 const BEACON_POS: [number, number, number] = [2.1, 2.15, 0.8];
 const HOME_CAM: [number, number, number] = [0, 1.9, 6.4];
@@ -69,7 +75,7 @@ type Focus = { kind: 'brain'; key: string } | { kind: 'approval' } | null;
 
 function brainStatus(brain: BrainDef, agents: Agent[]): { active: boolean; color: string } {
   const active = !brain.future && agents.some((a) => a.type != null && brain.types.includes(a.type) && a.status === 'busy');
-  const color = brain.future ? '#263348' : brain.identity ?? (active ? ACTIVE_HEX : IDLE_HEX);
+  const color = brain.future ? '#2a2c33' : brain.identity ?? (active ? ACTIVE_HEX : IDLE_HEX);
   return { active, color };
 }
 
@@ -162,7 +168,7 @@ function BrainNode({
       <Html center distanceFactor={7} position={[0, -0.62, 0]} style={{ pointerEvents: 'none' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, whiteSpace: 'nowrap' }}>
           <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', color }}>{def.name}</span>
-          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 7.5, letterSpacing: '0.1em', color: '#56657c' }}>{def.future ? 'FUTURE' : active ? 'BUSY' : 'IDLE'}</span>
+          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 7.5, letterSpacing: '0.1em', color: '#565c68' }}>{def.future ? 'FUTURE' : active ? 'BUSY' : 'IDLE'}</span>
         </div>
       </Html>
     </group>
@@ -254,8 +260,8 @@ function ApprovalBeacon({ pending, focused, onFocus }: { pending: number; focuse
         <octahedronGeometry args={[0.24, 0]} />
         <meshStandardMaterial
           ref={mat}
-          color={lit ? GATE_HEX : '#22304a'}
-          emissive={lit ? GATE_HEX : '#111b2e'}
+          color={lit ? GATE_HEX : '#1a1c22'}
+          emissive={lit ? GATE_HEX : '#101115'}
           emissiveIntensity={lit ? 1.6 : 0.12}
           toneMapped={false}
         />
@@ -264,7 +270,7 @@ function ApprovalBeacon({ pending, focused, onFocus }: { pending: number; focuse
         <Html center distanceFactor={7} position={[0, -0.5, 0]} style={{ pointerEvents: 'none' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', fontFamily: 'JetBrains Mono, monospace' }}>
             <span style={{ width: 5, height: 5, borderRadius: '50%', background: GATE_HEX }} />
-            <span style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: '0.12em', color: '#ff5c8a' }}>
+            <span style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: '0.12em', color: '#c3cdfa' }}>
               {pending} · ACTION REQUIRED
             </span>
           </div>
@@ -429,9 +435,9 @@ function BrainPanel({ brainKey, onPullOut }: { brainKey: string; onPullOut: () =
 
       <div className="grid grid-cols-2 gap-2 font-mono">
         <Metric label="MODEL" value={latest?.model ?? '—'} tone={color} />
-        <Metric label="LATENCY" value={latest?.latencyMs != null ? `${latest.latencyMs}ms` : '—'} tone="#e8eef7" />
-        <Metric label="AGENTS" value={`${busy.length} busy / ${mine.length}`} tone="#e8eef7" />
-        <Metric label="PROVIDER" value={latest?.provider ?? '—'} tone="#e8eef7" />
+        <Metric label="LATENCY" value={latest?.latencyMs != null ? `${latest.latencyMs}ms` : '—'} tone="#e8eaef" />
+        <Metric label="AGENTS" value={`${busy.length} busy / ${mine.length}`} tone="#e8eaef" />
+        <Metric label="PROVIDER" value={latest?.provider ?? '—'} tone="#e8eaef" />
       </div>
 
       <div className="flex flex-col gap-1">
@@ -709,7 +715,7 @@ export function SpatialWorkspace({
   return (
     <div
       ref={wrapperRef}
-      className="touch-none relative h-full w-full overflow-hidden rounded-md border border-border bg-[#070c15]">
+      className="touch-none relative h-full w-full overflow-hidden rounded-md border border-border bg-[#0d0e11]">
       <Canvas
         shadows
         dpr={[1, 1.75]}
@@ -717,20 +723,20 @@ export function SpatialWorkspace({
         gl={{ antialias: true, powerPreference: 'high-performance' }}
         onPointerMissed={() => setFocus(null)}
         onCreated={({ scene }) => {
-          scene.fog = new THREE.Fog('#070c15', 7, 17);
+          scene.fog = new THREE.Fog(SCENE_BG_HEX, 7, 17);
         }}
       >
-        <ambientLight intensity={0.3} />
-        <hemisphereLight args={['#16233d', '#05070c', 0.5]} />
+        <ambientLight intensity={0.3} color="#3a3f55" />
+        <hemisphereLight args={['#3a3f55', '#0d0e11', 0.5]} />
         <pointLight position={[0, 3.5, 3]} intensity={20} color={ACTIVE_HEX} distance={16} />
-        <pointLight position={[-4, 2, 2]} intensity={10} color={CODEX_HEX} distance={14} />
+        <pointLight position={[-4, 2, 2]} intensity={10} color={FILL_LIGHT_HEX} distance={14} />
 
         {/* deck floor */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.0, 0]} receiveShadow>
           <planeGeometry args={[40, 40]} />
-          <meshStandardMaterial color="#0a1120" metalness={0.2} roughness={0.9} />
+          <meshStandardMaterial color={SCENE_BG_HEX} metalness={0.2} roughness={0.9} />
         </mesh>
-        <gridHelper args={[40, 60, '#12324a', '#0c1626']} position={[0, -0.99, 0]} />
+        <gridHelper args={[40, 60, '#24262e', '#16181d']} position={[0, -0.99, 0]} />
 
         {/* central bus — breathes while Nova / room chat voice is armed */}
         <BusCore />

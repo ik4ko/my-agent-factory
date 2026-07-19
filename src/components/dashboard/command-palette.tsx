@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Activity, Code2, Globe, Layers, RefreshCw, Search,
-  Terminal, Zap, Keyboard, type LucideIcon,
+  Terminal, Zap, Keyboard, MapPin, LineChart, Siren, Sparkles, type LucideIcon,
 } from 'lucide-react';
 import {
   Command, CommandEmpty, CommandGroup, CommandInput,
@@ -15,8 +15,22 @@ import {
 import { AGENTS_KEY } from '@/hooks/use-agents-query';
 import { TASKS_KEY } from '@/hooks/use-tasks-query';
 import { LOGS_KEY } from '@/hooks/use-logs-query';
+import { QUOTES_KEY } from '@/hooks/use-quotes-query';
+import { useControlStore } from '@/lib/control/control-store';
+import { useMotionStore } from '@/lib/ui/motion-store';
 import type { Agent, AgentType } from '@/lib/types/database.types';
+import type { QuoteRow } from '@/lib/types/database.types';
 import { cn } from '@/lib/utils';
+
+/** Briefly outlines a `[data-screen-label]` panel — the ⌘K "jump" action. */
+function flashPanel(label: string) {
+  const el = document.querySelector<HTMLElement>(`[data-screen-label="${CSS.escape(label)}"]`);
+  if (!el) return;
+  el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  el.style.outline = '2px solid #a3b1f7';
+  el.style.outlineOffset = '-2px';
+  setTimeout(() => { el.style.outline = ''; }, 900);
+}
 
 const AGENT_ICONS: Record<AgentType, LucideIcon> = {
   generic: Activity, coder: Code2, researcher: Search,
@@ -46,6 +60,22 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const router = useRouter();
   const qc = useQueryClient();
   const agents = qc.getQueryData<Agent[]>(AGENTS_KEY) ?? [];
+  const quotes = qc.getQueryData<QuoteRow[]>(QUOTES_KEY) ?? [];
+  const emergencyOpen = useControlStore((s) => s.openEmergency);
+  const motionOn = useMotionStore((s) => s.motion);
+  const toggleMotion = useMotionStore((s) => s.toggle);
+
+  // Panels currently mounted in this room, discovered from the
+  // `data-screen-label` PanelChrome stamps every panel with — so the PANEL
+  // group always matches whatever room is on screen, no hardcoded list.
+  const [panelLabels, setPanelLabels] = useState<string[]>([]);
+  useEffect(() => {
+    if (!open) return;
+    const labels = Array.from(document.querySelectorAll<HTMLElement>('[data-screen-label]'))
+      .map((el) => el.dataset.screenLabel)
+      .filter((v): v is string => Boolean(v));
+    setPanelLabels(Array.from(new Set(labels)));
+  }, [open]);
 
   const close = useCallback(() => onOpenChange(false), [onOpenChange]);
 
@@ -85,9 +115,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97, y: -8 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            className="fixed left-1/2 top-[20%] z-50 w-full max-w-lg -translate-x-1/2"
+            className="fixed left-1/2 top-[160px] z-50 w-full max-w-[480px] -translate-x-1/2"
           >
-            <div className="overflow-hidden rounded-lg border border-border bg-popover shadow-[0_0_40px_hsl(var(--neon-green)/0.08)] card-neon">
+            <div className="overflow-hidden rounded-lg border border-primary/25 bg-card shadow-[0_40px_90px_-30px_rgba(0,0,0,0.9)]">
               <Command>
                 <CommandInput placeholder="Type a command or search…" autoFocus />
                 <CommandList>
@@ -153,6 +183,20 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
                   {/* ── Actions ────────────────────────────── */}
                   <CommandGroup heading="Actions">
+                    <CommandItem value="action-estop" onSelect={() => run(emergencyOpen)}>
+                      <Siren className="text-warning" />
+                      <span className="text-warning">Trigger E-STOP</span>
+                      <span className="ml-auto font-terminal text-[8px] uppercase tracking-[0.1em] text-muted-foreground/40">
+                        safety
+                      </span>
+                    </CommandItem>
+                    <CommandItem value={`action-motion-${motionOn ? 'disable' : 'enable'}`} onSelect={() => run(toggleMotion)}>
+                      <Sparkles className="text-warning" />
+                      <span className="text-warning">{motionOn ? 'Disable' : 'Enable'} motion</span>
+                      <span className="ml-auto font-terminal text-[8px] uppercase tracking-[0.1em] text-muted-foreground/40">
+                        demo
+                      </span>
+                    </CommandItem>
                     <CommandItem value="refresh-all" onSelect={() => run(refreshAll)}>
                       <RefreshCw className="text-muted-foreground" />
                       <span>Refresh all data</span>
@@ -169,6 +213,42 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                       <CommandShortcut>?</CommandShortcut>
                     </CommandItem>
                   </CommandGroup>
+
+                  {/* ── Panels — discovered from [data-screen-label] ── */}
+                  {panelLabels.length > 0 && (
+                    <>
+                      <CommandSeparator />
+                      <CommandGroup heading="Panels">
+                        {panelLabels.map((label) => (
+                          <CommandItem key={label} value={`panel-${label}`} onSelect={() => run(() => flashPanel(label))}>
+                            <MapPin className="text-ink-label" />
+                            <span>{label}</span>
+                            <span className="ml-auto font-terminal text-[8px] uppercase tracking-[0.1em] text-muted-foreground/40">
+                              jump
+                            </span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </>
+                  )}
+
+                  {/* ── Tickers — from the live watchlist cache ─── */}
+                  {quotes.length > 0 && (
+                    <>
+                      <CommandSeparator />
+                      <CommandGroup heading="Tickers">
+                        {quotes.map((q) => (
+                          <CommandItem key={q.symbol} value={`ticker-${q.symbol}`} onSelect={() => run(() => flashPanel('Watchlist'))}>
+                            <LineChart className="text-ink-label" />
+                            <span className="wt-hover font-bold">{q.symbol}</span>
+                            <span className="ml-auto font-terminal text-[8px] uppercase tracking-[0.1em] text-muted-foreground/40">
+                              watchlist
+                            </span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </>
+                  )}
                 </CommandList>
               </Command>
 

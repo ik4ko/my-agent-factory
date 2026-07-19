@@ -210,8 +210,8 @@
     "semantic_hash": "813f9e6517a1adce0957ccce1cc5423f"
   },
   "src/app/dashboard/layout.tsx": {
-    "mtime": 1784134646.9492743,
-    "ast_hash": "dce60365631f03d81cc2bf075eb426d1",
+    "mtime": 1784494297.8952744,
+    "ast_hash": "5263d9a39eb1974349da85ca28550193",
     "semantic_hash": ""
   },
   "src/app/dashboard/loading.tsx": {
@@ -315,8 +315,8 @@
     "semantic_hash": "b30445378b2990679b80c6636bdb2209"
   },
   "src/components/dashboard/command-palette.tsx": {
-    "mtime": 1783483937.1544237,
-    "ast_hash": "7892c6b1a98969666862b5aa1a070f9d",
+    "mtime": 1784494539.4882848,
+    "ast_hash": "1eda2eaffc189cd1ec9fa6aa2b0377b7",
     "semantic_hash": ""
   },
   "src/components/dashboard/connection-banner.tsx": {
@@ -335,8 +335,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/emergency-stop.tsx": {
-    "mtime": 1784436280.4858842,
-    "ast_hash": "054d2ac312210e30fa8dfe26c71ae321",
+    "mtime": 1784494262.6322103,
+    "ast_hash": "2868b00aab996961c3c0ab9c7a3ce9c9",
     "semantic_hash": ""
   },
   "src/components/dashboard/live-clock.tsx": {
@@ -905,8 +905,8 @@
     "semantic_hash": "0153be94b73b759a09f3b09bb9246a7e"
   },
   "tailwind.config.ts": {
-    "mtime": 1783675951.4682555,
-    "ast_hash": "74c32a4efc92c8c4deef5f33382f5892",
+    "mtime": 1784494074.8667529,
+    "ast_hash": "b8a16553ad4befaaa6d8f6917e7e6405",
     "semantic_hash": ""
   },
   "tsconfig.json": {
@@ -1030,8 +1030,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/quotes-panel.tsx": {
-    "mtime": 1784221999.854771,
-    "ast_hash": "68443a150169977594aa3ef0d2fd222f",
+    "mtime": 1784494388.4124625,
+    "ast_hash": "63d81c21baa7e8356f0c029bace32963",
     "semantic_hash": ""
   },
   "src/hooks/use-quotes-query.ts": {
@@ -1320,8 +1320,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/agent-chat.tsx": {
-    "mtime": 1784434238.318869,
-    "ast_hash": "0e9b968c72b3ae1f4e82082e9b8e4ff7",
+    "mtime": 1784494407.8150084,
+    "ast_hash": "6f90133c62db4a0dc57a9c405cbf966b",
     "semantic_hash": ""
   },
   "src/app/dashboard/rooms/coding/page.tsx": {
@@ -1335,8 +1335,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/SpatialWorkspace.tsx": {
-    "mtime": 1784425763.176404,
-    "ast_hash": "b9a8c0e80bddcb7bb45d193195e78383",
+    "mtime": 1784494486.4017649,
+    "ast_hash": "35ef156e0a1722ac43a024df489b6f44",
     "semantic_hash": ""
   },
   "src/lib/fx/spatial-pulse.ts": {
@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "src/components/deck/approval-gate.tsx": {
-    "mtime": 1783675951.4552052,
-    "ast_hash": "3b6f7e4aa17f27396efddf872e2dcdc4",
+    "mtime": 1784494284.8951936,
+    "ast_hash": "8833aaef2a913c7c3a49b0736109d260",
     "semantic_hash": ""
   },
   "src/components/deck/data-chip.tsx": {
@@ -1445,8 +1445,8 @@
     "semantic_hash": ""
   },
   "src/components/deck/deck-button.tsx": {
-    "mtime": 1783675951.4563446,
-    "ast_hash": "53776ac270a3e7e759a520faed516b8f",
+    "mtime": 1784494147.9913428,
+    "ast_hash": "429eb6b1ce247160c3b0a641e91453c1",
     "semantic_hash": ""
   },
   "src/components/deck/index.ts": {
@@ -1455,8 +1455,8 @@
     "semantic_hash": ""
   },
   "src/components/deck/panel-chrome.tsx": {
-    "mtime": 1783675951.4579284,
-    "ast_hash": "19bc8dc464415698e7ba25024c4efb65",
+    "mtime": 1784494114.1317759,
+    "ast_hash": "98ae3de78346cc9b1d8628783995f8ca",
     "semantic_hash": ""
   },
   "src/components/deck/status.tsx": {
@@ -1715,8 +1715,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/staged-intents-panel.tsx": {
-    "mtime": 1784207468.6626291,
-    "ast_hash": "9dcec9ae0288ef25c60f6fee8cda3816",
+    "mtime": 1784494393.235151,
+    "ast_hash": "62f353d76cfc670a03d0234679ea16ec",
     "semantic_hash": ""
   },
   "src/lib/trading/__tests__/option-intent.test.ts": {
@@ -2077,6 +2077,31 @@
   "src/lib/agents/__tests__/anthropic-tool-stream.test.ts": {
     "mtime": 1784475171.6057808,
     "ast_hash": "60d4c3f3756cdd54ef371e5a6f28ac6d",
+    "semantic_hash": ""
+  },
+  "Design/Cyberpunk terminal UI redesign-handoff/Trading dashboard polish pass/handoff/support.js": {
+    "mtime": 1784493184.0572305,
+    "ast_hash": "843c817ed1abf0fa4deacf7162814833",
+    "semantic_hash": ""
+  },
+  "src/lib/ui/motion-store.ts": {
+    "mtime": 1784494174.562877,
+    "ast_hash": "dad02efbeca456972dbeb709fac62f2e",
+    "semantic_hash": ""
+  },
+  "src/lib/ui/tones.ts": {
+    "mtime": 1784494178.087001,
+    "ast_hash": "c681c1e142518b5de0763d44e04f308b",
+    "semantic_hash": ""
+  },
+  "Design/Cyberpunk terminal UI redesign-handoff/Trading dashboard polish pass/handoff/HANDOFF_SPEC.md": {
+    "mtime": 1784493183.9546437,
+    "ast_hash": "3526e8b187fc98f670ee3c6dcbe0cfd8",
+    "semantic_hash": ""
+  },
+  "Design/Cyberpunk terminal UI redesign-handoff/Trading dashboard polish pass/handoff/Trading Dashboard.dc.html": {
+    "mtime": 1784493184.0362256,
+    "ast_hash": "eefb1a6f69253c98745550aa69779f8e",
     "semantic_hash": ""
   }
 }

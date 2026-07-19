@@ -67,7 +67,7 @@ export function StagedIntentsPanel() {
               const premium = intent.max_premium_usd ?? 0;
               const loss = intent.max_loss_usd ?? 0;
               return (
-                <div key={intent.id} className="rounded-md border border-border/60 bg-surface-1/50 px-2.5 py-2">
+                <div key={intent.id} className="row-hover rounded-md border border-border/[0.08] bg-surface-1/50 px-2.5 py-2">
                   <div className="mb-1 flex flex-wrap items-center gap-1.5 font-terminal text-[9px] uppercase tracking-wider">
                     <span className="text-primary">{intent.action ?? 'action?'}</span>
                     <span className="text-foreground">

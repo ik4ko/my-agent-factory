@@ -4,34 +4,36 @@ import { cn } from '@/lib/utils';
 /**
  * DeckButton — instrument-deck control button.
  *
- * Encodes the full state set from Direction Board §1A (default / hover /
- * active / disabled / loading) in the deck's mono voice. Variants map to
- * semantic hues; the `gate` variant is the solid-fill APPROVE control and is
- * reserved for the rose approval gate. `danger` is the kill-switch red —
- * visually distinct from the gate on purpose.
+ * Encodes the full state set (default / hover / active / disabled / loading)
+ * in the deck's mono voice. Variants map to semantic hues; the `gate`
+ * variant is the tinted-fill APPROVE control — ice-violet accent, same hue
+ * as every other instrument control (HANDOFF_SPEC retires the separate rose
+ * approval gate). `danger` is the E-STOP kill-switch red — visually distinct
+ * from both on purpose. All variants tween font weight 700→800 on hover
+ * instead of adding new color/scale states (HANDOFF_SPEC §5).
  */
 type Variant = 'primary' | 'gate' | 'reject' | 'danger' | 'ghost';
 type Size = 'sm' | 'md';
 
 const VARIANT: Record<Variant, string> = {
-  // ice-blue instrument control
+  // ice-violet instrument control
   primary:
     'border-primary/40 bg-primary/[0.08] text-primary-bright ' +
-    'hover:border-primary hover:bg-primary/20 hover:text-[#bae6fd] ' +
-    'active:bg-[#0e2740] active:text-primary active:shadow-[inset_0_1px_5px_rgba(0,0,0,0.5)]',
-  // solid-fill rose APPROVE (approval gate only)
+    'hover:border-primary hover:bg-primary/20 hover:text-primary-bright ' +
+    'active:bg-primary/15 active:text-primary active:shadow-[inset_0_1px_5px_rgba(0,0,0,0.5)]',
+  // tinted-fill ice-violet APPROVE (Trading Dashboard.dc.html §Staged Intents)
   gate:
-    'border-gate bg-gate text-gate-foreground font-bold ' +
-    'hover:bg-gate-soft hover:border-gate-soft ' +
-    'active:brightness-90',
+    'border-gate/50 bg-gate/[0.12] text-gate-soft ' +
+    'hover:bg-gate/[0.22] hover:border-gate/70 ' +
+    'active:brightness-95',
   // paired REJECT — quiet until hovered, then error-red
   reject:
     'border-ink-low/40 bg-transparent text-ink-mid ' +
     'hover:border-destructive/60 hover:text-destructive',
   // kill-switch destructive halt (NOT the gate)
   danger:
-    'border-destructive/70 bg-destructive/15 text-destructive ' +
-    'hover:bg-destructive/25 hover:border-destructive',
+    'border-estop/35 bg-estop/[0.08] text-estop ' +
+    'hover:bg-estop/[0.18] hover:border-estop/55',
   ghost:
     'border-transparent bg-transparent text-ink-mid ' +
     'hover:bg-surface-3/60 hover:text-ink-hi',
@@ -60,7 +62,7 @@ export const DeckButton = React.forwardRef<HTMLButtonElement, DeckButtonProps>(f
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={cn(
-        'inline-flex items-center justify-center gap-[6px] rounded border font-mono font-semibold uppercase tracking-[0.14em] transition-colors',
+        'wt-hover inline-flex items-center justify-center gap-[6px] rounded border font-mono uppercase tracking-[0.14em] transition-colors',
         'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary/80',
         'disabled:cursor-not-allowed disabled:border-ink-low/20 disabled:bg-ink-low/[0.03] disabled:text-[#3d4a5c] disabled:shadow-none',
         SIZE[size],
