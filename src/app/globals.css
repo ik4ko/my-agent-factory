@@ -3,104 +3,117 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════════════════
-   INSTRUMENT DECK — Design System 1A
-   Matte slate-navy base · restrained ice-blue primary · rose approval gate.
-   Source of truth: Direction Board.dc.html (§1A) + the room mockups.
+   INSTRUMENT DECK — Design System 1B (Cyberpunk terminal polish pass)
+   Matte charcoal base · ice-violet primary · no rose gate, no glow chrome.
+   Source of truth: Trading Dashboard.dc.html + HANDOFF_SPEC.md (Design/
+   Cyberpunk terminal UI redesign-handoff/Trading dashboard polish pass/).
    All colors are `H S% L%` triplets, consumed via hsl(var(--x)).
    ═══════════════════════════════════════════════════════════════════════ */
 
 @layer base {
   :root {
-    /* ── Matte slate-navy base (#0B1220) — no plain black ──── */
-    --background:           220 49% 8%;   /* #0B1220 */
-    --foreground:           216 48% 94%;  /* #E8EEF7 text-hi */
+    /* ── Matte charcoal base (#0b0c0e) — no blue cast ──────── */
+    --background:           220 12% 5%;   /* #0b0c0e bg-base */
+    --foreground:           223 18% 92%;  /* #e8eaef text-hi */
 
     /* ── Surface depth ─────────────────────────────────────── */
-    --card:                 219 46% 12%;  /* #111B2E */
-    --card-foreground:      216 48% 94%;
-    --popover:              219 46% 12%;
-    --popover-foreground:   216 48% 94%;
-    --surface-1:            219 46% 12%;  /* #111B2E panel */
-    --surface-2:            218 53% 12%;  /* #0E1A2E */
-    --surface-3:            219 42% 18%;  /* #1A2740 */
-    --deep:                 219 49% 7%;   /* #090F1A wells */
+    --card:                 228 14% 7%;   /* #101115 bg-surface */
+    --card-foreground:      223 18% 92%;
+    --popover:              228 14% 7%;
+    --popover-foreground:   223 18% 92%;
+    --surface-1:            228 12% 8%;   /* #131418 panel top stop */
+    --surface-2:            225 13% 6%;   /* #0e0f12 panel bottom stop / chrome */
+    --surface-3:            225 13% 12%;  /* #1a1c22 lightest surface (shimmer) */
+    --deep:                 225 13% 6%;   /* #0d0e11 terminal/ledger/scene bg */
+    --panel-gradient:       linear-gradient(180deg, hsl(var(--surface-1)), hsl(var(--surface-2)));
 
-    /* ── Primary — ice-blue (#38BDF8) ──────────────────────── */
-    --primary:              198 93% 60%;
-    --primary-foreground:   220 49% 8%;
-    --primary-bright:       199 95% 74%;  /* #7DD3FC hover/active text */
+    /* ── Primary / accent — ice-violet (#a3b1f7) ───────────────
+       Replaces the old ice-blue (#38BDF8) AND the rose approval
+       gate (#FF2D6B) — one accent drives both instrument controls
+       and the approval flow now. ─────────────────────────────── */
+    --primary:              230 84% 80%;  /* #a3b1f7 accent */
+    --primary-foreground:   220 12% 5%;
+    --primary-bright:       229 85% 87%;  /* #c3cdfa accent-hover */
+    --accent-deep:          231 78% 73%;  /* #8494f0 secondary accent (fills, lights) */
 
     /* ── Secondary — deck slate ────────────────────────────── */
-    --secondary:            214 34% 21%;  /* #243449 */
-    --secondary-foreground: 215 20% 65%;  /* #94A3B8 text-mid */
+    --secondary:            222 11% 18%;
+    --secondary-foreground: 220 11% 67%;  /* #a2a8b4 text-mid */
 
     /* ── Muted ─────────────────────────────────────────────── */
-    --muted:                219 46% 12%;
-    --muted-foreground:     215 20% 65%;
+    --muted:                228 12% 8%;
+    --muted-foreground:     220 11% 67%;
 
-    /* ── Accent — ice-blue ─────────────────────────────────── */
-    --accent:               198 93% 60%;
-    --accent-foreground:    220 49% 8%;
+    /* ── Accent — ice-violet (same hue as primary) ─────────── */
+    --accent:               230 84% 80%;
+    --accent-foreground:    220 12% 5%;
 
-    /* ── Destructive — kill-switch error red (#F87171) ─────────
-       Distinct from the rose approval gate: red = destructive halt,
-       rose = "action required". Never interchange them. ───────── */
+    /* ── Destructive — price-red / generic error (#f87171) ──── */
     --destructive:          0 91% 71%;
     --destructive-foreground: 0 0% 100%;
 
-    /* ── Approval gate — ROSE (#FF2D6B) ────────────────────────
-       Dedicated exclusively to "action required" states (staged
-       orders, pending approvals). Appears NOWHERE else. ───────── */
-    --gate:                 342 100% 59%; /* #FF2D6B */
-    --gate-foreground:      0 0% 100%;
-    --gate-soft:            344 96% 65%;  /* #FB4E7D pulse/border */
+    /* ── E-STOP — dedicated kill-switch red (#ef4444) ──────────
+       Distinct from price-red: this is the ONLY color for the
+       emergency-halt control. Never interchange with destructive. */
+    --estop:                0 84% 60%;
+    --estop-foreground:     0 0% 100%;
+
+    /* ── Approval gate — retired as a separate rose hue. Now the
+       same ice-violet accent as every other instrument control
+       (Trading Dashboard.dc.html APPROVE button). ─────────────── */
+    --gate:                 230 84% 80%;
+    --gate-foreground:      220 12% 5%;
+    --gate-soft:            229 85% 87%;
 
     /* ── Agent identity / live-status ──────────────────────────
-       CODEX carries its own purple identity always; the other
-       agents render by status: active = ice-blue, idle = grey. ── */
-    --agent-codex:          255 92% 76%;  /* #A78BFA */
-    --agent-active:         198 93% 60%;  /* #38BDF8 */
-    --agent-idle:           215 16% 47%;  /* #64748B */
+       HERMES = accent ice-violet, CODEX = light purple, GROK =
+       sky blue, idle = grey (BRAINS array, Trading Dashboard.dc.html). */
+    --agent-codex:          251 83% 81%;  /* #b7a8f7 */
+    --agent-grok:           211 100% 78%; /* #8ec5ff */
+    --agent-active:         230 84% 80%;  /* #a3b1f7 */
+    --agent-idle:           215 16% 47%;  /* #64748b */
 
     /* ── Text tiers (ink) ──────────────────────────────────── */
-    --ink-hi:               216 48% 94%;  /* #E8EEF7 */
-    --ink-mid:              215 20% 65%;  /* #94A3B8 */
-    --ink-low:              216 18% 41%;  /* #56657C */
+    --ink-hi:               223 18% 92%;  /* #e8eaef text-hi */
+    --ink-mid:              220 11% 67%;  /* #a2a8b4 text-mid */
+    --ink-low:              220 9%  37%;  /* #565c68 text-dim */
+    --text-label:           218 9%  52%;  /* #7a8290 panel labels */
+    --text-faint:           222 11% 35%;  /* #4f5563 ledger timestamps */
 
     /* ── Structural ────────────────────────────────────────── */
-    --border:               214 34% 21%; /* #243449 */
-    --input:                218 53% 12%;
-    --ring:                 198 93% 60%;
-    --radius:               0.3125rem;    /* 5px — deck panels */
+    --border:               222 11% 66%; /* rgb(158,164,178) hairline base — always used with /0.05–0.08 alpha */
+    --input:                228 14% 7%;
+    --ring:                 230 84% 80%;
+    --radius:               0.375rem;    /* 6px — deck panels */
 
-    /* ── Warning / amber (#FBBF24) — warning + simulation ──── */
+    /* ── Warning / amber (#fbbf24) — NOVA voice + warning + sim ── */
     --warning:              43 96% 56%;
     --warning-foreground:   0 0% 0%;
 
     /* ── Sidebar (nav rail) ────────────────────────────────── */
-    --sidebar-background:         219 49% 7%;
-    --sidebar-foreground:         215 20% 65%;
-    --sidebar-primary:            198 93% 60%;
-    --sidebar-primary-foreground: 220 49% 8%;
-    --sidebar-accent:             219 46% 12%;
-    --sidebar-accent-foreground:  216 48% 94%;
-    --sidebar-border:             214 34% 21%;
-    --sidebar-ring:               198 93% 60%;
+    --sidebar-background:         225 13% 6%;
+    --sidebar-foreground:         220 11% 67%;
+    --sidebar-primary:            230 84% 80%;
+    --sidebar-primary-foreground: 220 12% 5%;
+    --sidebar-accent:             228 12% 8%;
+    --sidebar-accent-foreground:  223 18% 92%;
+    --sidebar-border:             222 11% 66%;
+    --sidebar-ring:               230 84% 80%;
 
     /* ── Charts ────────────────────────────────────────────── */
-    --chart-1: 198 93% 60%;   /* ice-blue   */
-    --chart-2: 255 92% 76%;   /* codex      */
+    --chart-1: 230 84% 80%;   /* ice-violet */
+    --chart-2: 251 83% 81%;   /* codex      */
     --chart-3: 43  96% 56%;   /* amber      */
     --chart-4: 158 64% 52%;   /* active grn */
     --chart-5: 0   91% 71%;   /* error red  */
 
     /* ── Neon raw HSL — retinted to the deck palette ───────────
        Kept for back-compat with existing .glow-* / neon-* utils. */
-    --neon-green:  158 64% 52%;  /* #34D399 active/profit */
-    --neon-cyan:   198 93% 60%;  /* #38BDF8 ice-blue      */
-    --neon-purple: 255 92% 76%;  /* #A78BFA codex         */
-    --neon-orange: 43  96% 56%;  /* #FBBF24 warn/sim      */
-    --neon-red:    0   91% 71%;  /* #F87171 error         */
+    --neon-green:  158 64% 52%;  /* #34d399 price green (do not change) */
+    --neon-cyan:   230 84% 80%;  /* #a3b1f7 ice-violet — replaces cyan  */
+    --neon-purple: 251 83% 81%;  /* #b7a8f7 codex                      */
+    --neon-orange: 43  96% 56%;  /* #fbbf24 NOVA amber (do not change) */
+    --neon-red:    0   91% 71%;  /* #f87171 price red (do not change)  */
   }
 
   * {
@@ -116,11 +129,6 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'General Sans', var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-    background-image: radial-gradient(
-      1200px 700px at 30% -6%,
-      hsl(219 52% 13% / 0.9) 0%,
-      transparent 62%
-    );
     min-height: 100dvh;
   }
 
@@ -148,17 +156,18 @@
 
 @layer utilities {
   /* ══ INSTRUMENT DECK PANEL ══════════════════════════════════
-     Matte framed instrument: surface fill + hairline border. Corner
-     brackets are drawn by the <PanelChrome> component (4 spans). ── */
+     Matte framed instrument: gradient fill + hairline border. Corner
+     brackets are drawn by the <PanelChrome> component (top-left +
+     top-right only — see HANDOFF_SPEC §3). ─────────────────────── */
   .panel-deck {
     position: relative;
-    background: hsl(var(--surface-1));
-    border: 1px solid hsl(var(--border) / 0.9);
+    background: var(--panel-gradient);
+    border: 1px solid hsl(var(--border) / 0.08);
     border-radius: var(--radius);
   }
   .panel-well {
     background: hsl(var(--deep));
-    border: 1px solid hsl(var(--border) / 0.55);
+    border: 1px solid hsl(var(--border) / 0.06);
     border-radius: var(--radius);
   }
 
@@ -169,28 +178,75 @@
     height: 12px;
     pointer-events: none;
     z-index: 1;
-    border-color: hsl(var(--primary) / 0.4);
+    border-color: hsl(var(--primary) / 0.35);
   }
 
-  /* ══ THE ROSE GATE ══════════════════════════════════════════
-     Highest-stakes surface. Slow edge-pulse (~1.3s) + live dot carry
-     the "this needs you" signal so it never reads as a passive chip. */
+  /* ── Panel label — small-caps mono header text (HANDOFF_SPEC §2).
+     Color intentionally omitted so callers can apply a text-* utility
+     (e.g. text-ink-label / text-gate-soft) without a specificity fight. */
+  .panel-label {
+    font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+
+  /* ── Approval surface — ice-violet accent, no rose, no glow ──── */
   .gate-surface {
-    border: 1px solid hsl(var(--gate) / 0.55);
-    background: linear-gradient(180deg, hsl(var(--gate) / 0.07), hsl(var(--gate) / 0.02));
+    border: 1px solid hsl(var(--gate) / 0.3);
+    background: hsl(var(--gate) / 0.04);
     border-radius: var(--radius);
   }
   .gate-glow-col {
-    box-shadow: 0 0 32px -10px hsl(var(--gate) / 0.5);
+    box-shadow: none;
   }
 
-  /* ── Neon glow box-shadows (deck-retinted) ──────────────────── */
+  /* ── Neon glow box-shadows (deck-retinted; avoid on rows/buttons —
+     HANDOFF_SPEC §4 hover is a background lift only, no glow) ──── */
   .glow-green  { box-shadow: 0 0 6px hsl(var(--neon-green)  / 0.55), 0 0 20px hsl(var(--neon-green)  / 0.2); }
   .glow-cyan   { box-shadow: 0 0 6px hsl(var(--neon-cyan)   / 0.55), 0 0 20px hsl(var(--neon-cyan)   / 0.2); }
   .glow-purple { box-shadow: 0 0 6px hsl(var(--neon-purple) / 0.55), 0 0 20px hsl(var(--neon-purple) / 0.2); }
   .glow-red    { box-shadow: 0 0 6px hsl(var(--neon-red)    / 0.55), 0 0 20px hsl(var(--neon-red)    / 0.2); }
   .glow-orange { box-shadow: 0 0 6px hsl(var(--neon-orange) / 0.55), 0 0 20px hsl(var(--neon-orange) / 0.2); }
-  .glow-gate   { box-shadow: 0 0 6px hsl(var(--gate)        / 0.6),  0 0 22px hsl(var(--gate)        / 0.28); }
+  .glow-gate   { box-shadow: none; }
+
+  /* ── Row hover lift (watchlist, staged intents) — background only ── */
+  .row-hover {
+    transition: background 0.15s;
+  }
+  .row-hover:hover {
+    background: rgba(255, 255, 255, 0.035);
+  }
+
+  /* ── Variable-weight hover tween (E-STOP, APPROVE/REJECT, tickers,
+     active nav) — no new color/scale hover states (HANDOFF_SPEC §5) ── */
+  .wt-hover {
+    font-variation-settings: 'wght' 700;
+    transition: font-variation-settings 0.15s;
+  }
+  .wt-hover:hover,
+  .wt-hover:focus-visible {
+    font-variation-settings: 'wght' 800;
+  }
+  .wt-hover-regular {
+    font-variation-settings: 'wght' 400;
+    transition: font-variation-settings 0.15s;
+  }
+  .wt-hover-regular:hover,
+  .wt-hover-regular:focus-visible {
+    font-variation-settings: 'wght' 500;
+  }
+
+  /* ── Grain overlay — single static full-viewport layer, opacity .03 ── */
+  .grain-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 160px 160px;
+  }
 
   /* ── Text glow ──────────────────────────────────────────────── */
   .text-glow-green  { text-shadow: 0 0 10px hsl(var(--neon-green)  / 0.7); }
@@ -278,12 +334,23 @@
     animation: shimmer 1.6s infinite;
   }
 
+  /* ── Micro-interaction keyframes (HANDOFF_SPEC §4) ──────────── */
+  @keyframes msgIn    { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+  @keyframes ledgerNew{ 0% { background: hsl(var(--gate) / 0.14); } 100% { background: transparent; } }
+  @keyframes digitIn  { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  .animate-msg-in     { animation: msgIn 0.18s ease-out; }
+  .animate-ledger-new { animation: ledgerNew 1.4s ease-out; }
+  .animate-digit-in   { animation: digitIn 0.15s ease-out; }
+
   /* ── Reduced motion: kill all decorative animation (a11y floor) ── */
   @media (prefers-reduced-motion: reduce) {
     .animate-gate-pulse,
     .animate-dot-blink,
     .animate-glitch,
     .skeleton-shimmer,
-    .animate-glow-pulse { animation: none !important; }
+    .animate-glow-pulse,
+    .animate-msg-in,
+    .animate-ledger-new,
+    .animate-digit-in { animation: none !important; }
   }
 }

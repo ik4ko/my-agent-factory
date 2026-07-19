@@ -1,20 +1,22 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
+import { playApproveTone } from '@/lib/ui/tones';
 import { DeckButton } from './deck-button';
 import { StatusDot } from './status';
 
 /**
  * ApprovalGate — the highest-stakes surface in the system.
  *
- * The rose hue (#FF2D6B) appears NOWHERE else. A slow ~1.3s edge-pulse plus a
- * live "action required" dot carry the "this needs you" signal so it never
- * reads as a passive status chip (Direction Board §1A · Trading/Personal
- * Room mockups). This renders the inner pulsing action card; wrap it in a
- * <PanelChrome accent="gate" glow> for the rose-glowed column treatment.
+ * Ice-violet accent (same hue as every other instrument control —
+ * HANDOFF_SPEC retires the separate rose gate). A left accent border plus a
+ * live "action required" dot carry the "this needs you" signal; no
+ * box-shadow glow (HANDOFF_SPEC §4: hover/attention states are background
+ * or border only, never glow). This renders the inner action card; wrap it
+ * in a <PanelChrome accent="gate"> for the bracket treatment.
  *
  * Accessibility: the card is an aria-live region, the tag pairs an icon-shape
  * with text (never color alone), and both controls are real buttons with the
- * deck focus ring. `pending={false}` freezes the pulse (already-resolved).
+ * deck focus ring. `pending={false}` freezes the live dot (already-resolved).
  */
 export interface ApprovalGateProps {
   /** Order / action body (symbol, size, provenance chips, etc.). */
@@ -49,9 +51,7 @@ export function ApprovalGate({
       aria-label={tag}
       aria-live="polite"
       className={cn(
-        'flex flex-col gap-[9px] rounded-[5px] border border-gate/55 p-[12px]',
-        'bg-[linear-gradient(180deg,hsl(var(--gate)/0.07),hsl(var(--gate)/0.02))]',
-        pending && 'animate-gate-pulse motion-reduce:animate-none',
+        'flex flex-col gap-[9px] rounded-[6px] border border-gate/30 border-l-2 border-l-gate bg-gate/[0.04] p-[12px]',
         className,
       )}
     >
@@ -70,7 +70,10 @@ export function ApprovalGate({
           size="md"
           glyph="✓"
           loading={busy}
-          onClick={onApprove}
+          onClick={() => {
+            playApproveTone();
+            onApprove?.();
+          }}
           className="flex-1"
         >
           {approveLabel}

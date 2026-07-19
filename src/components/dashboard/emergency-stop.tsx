@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { AlertOctagon, Loader2, X } from 'lucide-react';
 import { useControlStore } from '@/lib/control/control-store';
 import { emergencyStop } from '@/lib/control/actions';
+import { playEstopArmTone } from '@/lib/ui/tones';
 import { cn } from '@/lib/utils';
 
 /**
@@ -31,6 +32,7 @@ export function EmergencyStop() {
   const confirm = async () => {
     setPending(true);
     setError(null);
+    playEstopArmTone();
     try {
       const res = await emergencyStop();
       // Pull fresh state so HALTED treatment appears immediately.
@@ -52,9 +54,9 @@ export function EmergencyStop() {
         title="Emergency Stop — halts all active agents & tasks (agent orchestration only; does not and cannot touch a brokerage)"
         aria-label="Emergency stop: halt all active agents and tasks. Agent orchestration only — no live trading is connected."
         className={cn(
-          'flex items-center gap-1.5 rounded-md border px-2 py-1 font-terminal text-[10px] font-bold uppercase tracking-wider',
-          'border-neon-red/40 bg-neon-red/10 text-neon-red transition-colors',
-          'hover:bg-neon-red/20 hover:border-neon-red/60'
+          'wt-hover flex items-center gap-1.5 rounded-md border px-2 py-1 font-terminal text-[10px] uppercase tracking-wider',
+          'border-estop/35 bg-estop/[0.08] text-estop transition-colors',
+          'hover:bg-estop/[0.18] hover:border-estop/55'
         )}
       >
         <AlertOctagon className="size-3" />
@@ -63,9 +65,9 @@ export function EmergencyStop() {
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-xl border border-neon-red/40 bg-surface-1 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-neon-red/20 px-4 py-3">
-              <div className="flex items-center gap-2 text-neon-red">
+          <div className="w-full max-w-md rounded-xl border border-estop/40 bg-surface-1 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-estop/20 px-4 py-3">
+              <div className="flex items-center gap-2 text-estop">
                 <AlertOctagon className="size-4" />
                 <span className="font-terminal text-xs font-bold uppercase tracking-[0.2em]">Emergency Stop</span>
               </div>
@@ -76,14 +78,14 @@ export function EmergencyStop() {
 
             <div className="space-y-3 px-4 py-4">
               <p className="text-xs leading-relaxed text-foreground/80">
-                This halts <span className="text-neon-red font-semibold">all active agents and running/pending tasks</span>:
-                tasks are cancelled, agents are taken offline, and each is stamped <code className="font-terminal text-neon-red">halted_at</code>.
+                This halts <span className="text-estop font-semibold">all active agents and running/pending tasks</span>:
+                tasks are cancelled, agents are taken offline, and each is stamped <code className="font-terminal text-estop">halted_at</code>.
               </p>
               <p className="font-terminal text-[10px] text-muted-foreground/50">
                 Scoped to the agent-orchestration tables only. This cannot be auto-undone.
               </p>
               {error && (
-                <p className="rounded border border-neon-red/30 bg-neon-red/10 px-2 py-1.5 font-terminal text-[10px] text-neon-red">
+                <p className="rounded border border-estop/30 bg-estop/10 px-2 py-1.5 font-terminal text-[10px] text-estop">
                   {error}
                 </p>
               )}
@@ -100,7 +102,7 @@ export function EmergencyStop() {
               <button
                 onClick={confirm}
                 disabled={pending}
-                className="flex items-center gap-1.5 rounded-md border border-neon-red/50 bg-neon-red/15 px-3 py-1.5 font-terminal text-[10px] font-bold uppercase tracking-wider text-neon-red transition-colors hover:bg-neon-red/25 disabled:opacity-50"
+                className="wt-hover flex items-center gap-1.5 rounded-md border border-estop/50 bg-estop/15 px-3 py-1.5 font-terminal text-[10px] uppercase tracking-wider text-estop transition-colors hover:bg-estop/25 disabled:opacity-50"
               >
                 {pending ? <Loader2 className="size-3 animate-spin" /> : <AlertOctagon className="size-3" />}
                 Confirm Halt

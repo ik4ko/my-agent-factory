@@ -51,6 +51,10 @@ export default {
           DEFAULT:    'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
         },
+        estop: {
+          DEFAULT:    'hsl(var(--estop))',
+          foreground: 'hsl(var(--estop-foreground))',
+        },
         warning: {
           DEFAULT:    'hsl(var(--warning))',
           foreground: 'hsl(var(--warning-foreground))',
@@ -69,15 +73,18 @@ export default {
         /* ── Agent identity / live-status ────────────────── */
         agent: {
           codex:  'hsl(var(--agent-codex))',
+          grok:   'hsl(var(--agent-grok))',
           active: 'hsl(var(--agent-active))',
           idle:   'hsl(var(--agent-idle))',
         },
 
         /* ── Text tiers (ink) ────────────────────────────── */
         ink: {
-          hi:  'hsl(var(--ink-hi))',
-          mid: 'hsl(var(--ink-mid))',
-          low: 'hsl(var(--ink-low))',
+          hi:    'hsl(var(--ink-hi))',
+          mid:   'hsl(var(--ink-mid))',
+          low:   'hsl(var(--ink-low))',
+          label: 'hsl(var(--text-label))',
+          faint: 'hsl(var(--text-faint))',
         },
 
         /* ── Surface depth ───────────────────────────────── */
@@ -146,6 +153,19 @@ export default {
           from: { height: 'var(--radix-accordion-content-height)' },
           to:   { height: '0' },
         },
+        /* ── Cyberpunk polish-pass micro-interactions ──────── */
+        msgIn: {
+          from: { opacity: '0', transform: 'translateY(7px)' },
+          to:   { opacity: '1', transform: 'none' },
+        },
+        ledgerNew: {
+          '0%':   { background: 'hsl(var(--gate) / 0.14)' },
+          '100%': { background: 'transparent' },
+        },
+        digitIn: {
+          from: { opacity: '0', transform: 'translateY(-6px)' },
+          to:   { opacity: '1', transform: 'none' },
+        },
         /* ── Cyberpunk additions ───────────────────────────── */
         'glow-pulse': {
           '0%, 100%': { opacity: '1' },
@@ -198,6 +218,9 @@ export default {
         waveform:           'waveform 0.9s ease-in-out infinite',
         'gate-pulse':       'gate-pulse 1.3s ease-in-out infinite',
         'dot-blink':        'dot-blink 1.4s ease-in-out infinite',
+        'msg-in':           'msgIn 0.18s ease-out',
+        'ledger-new':       'ledgerNew 1.4s ease-out',
+        'digit-in':         'digitIn 0.15s ease-out',
       },
     },
   },
