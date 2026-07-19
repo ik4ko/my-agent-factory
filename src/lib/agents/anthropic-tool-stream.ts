@@ -50,6 +50,9 @@ export async function runAnthropicToolStream(opts: {
     const stream = await opts.client.messages.create({
       model: opts.model,
       max_tokens: opts.maxTokens,
+      // Anthropic's automatic five-minute prompt cache reuses the stable
+      // tools -> system -> history prefix across turns and within tool loops.
+      cache_control: { type: 'ephemeral' },
       system: opts.system,
       messages,
       ...(tools ? { tools } : {}),

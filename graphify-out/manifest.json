@@ -2050,8 +2050,8 @@
     "semantic_hash": ""
   },
   "src/lib/agents/anthropic-tool-stream.ts": {
-    "mtime": 1784474341.6431935,
-    "ast_hash": "5b637f32ab869e00c2cb19541a898081",
+    "mtime": 1784475171.6027822,
+    "ast_hash": "eeb6e269f96a563dd14c9505c97cfa29",
     "semantic_hash": ""
   },
   "src/lib/tools/__tests__/tool-budget.test.ts": {
@@ -2072,6 +2072,11 @@
   "src/lib/tools/quick-info.ts": {
     "mtime": 1784474894.7087047,
     "ast_hash": "480575a34c264d5e822b6099efb6318e",
+    "semantic_hash": ""
+  },
+  "src/lib/agents/__tests__/anthropic-tool-stream.test.ts": {
+    "mtime": 1784475171.6057808,
+    "ast_hash": "60d4c3f3756cdd54ef371e5a6f28ac6d",
     "semantic_hash": ""
   }
 }
