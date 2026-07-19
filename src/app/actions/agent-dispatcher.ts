@@ -26,7 +26,8 @@ import { readLifeContext, proposeLifeContextCandidates } from '@/lib/life-contex
 import { LIFE_CONTEXT_MODEL_INSTRUCTIONS, parseLifeContextProposals } from '@/lib/life-context/model-proposals';
 import { LifeContextProposalHoldback } from '@/lib/life-context/proposal-stream';
 import { recordFeedbackEvent } from '@/lib/telemetry/feedback-ledger';
-import { toOpenAIResponsesTools, toOpenAITools } from '@/lib/tools/live-tools';
+import { executeLiveTool, toOpenAIResponsesTools, toOpenAITools } from '@/lib/tools/live-tools';
+import { detectQuickInfo } from '@/lib/tools/quick-info';
 import { runResponsesToolRounds, runToolCallRounds } from '@/lib/agents/tool-loop';
 import { runAnthropicToolStream } from '@/lib/agents/anthropic-tool-stream';
 import { consumeOpenAICompatibleStream } from '@/lib/agents/openai-compatible-stream';
@@ -889,8 +890,8 @@ async function completeStreamedDispatch(
     modelUsed: model,
     content,
     timestamp: new Date().toISOString(),
-    ...(usage.modelRoundMs?.length
-      ? { toolLoopTimings: { modelRoundMs: usage.modelRoundMs, toolCalls: usage.toolCalls ?? [] } }
+    ...(usage.modelRoundMs?.length || usage.toolCalls?.length
+      ? { toolLoopTimings: { modelRoundMs: usage.modelRoundMs ?? [], toolCalls: usage.toolCalls ?? [] } }
       : {}),
     ...(materialized.length ? { materialized } : {}),
   }, prepared);
@@ -927,6 +928,19 @@ async function guardStreamingBudget(prepared: PreparedDispatch): Promise<string 
 
 async function runStreamingProvider(prepared: PreparedDispatch, onDelta: (delta: string) => void): Promise<AgentDispatchResult> {
   const { agentId, agent, prompt, dispatchPrompt, history } = prepared;
+  const quickInfo = detectQuickInfo(prompt);
+  if (quickInfo) {
+    const started = performance.now();
+    const content = await executeLiveTool(quickInfo.toolName, quickInfo.args);
+    const latencyMs = Math.round(performance.now() - started);
+    onDelta(content);
+    return completeStreamedDispatch(prepared, content, 'direct-tool-fast-path', {
+      inputTokens: 0,
+      outputTokens: 0,
+      modelRoundMs: [],
+      toolCalls: [{ name: quickInfo.toolName, latencyMs }],
+    }, latencyMs);
+  }
   const budgetFailure = await guardStreamingBudget(prepared);
   if (budgetFailure) return dispatchFailure(agentId, agent.model, budgetFailure);
   const started = Date.now();

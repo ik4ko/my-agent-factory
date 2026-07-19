@@ -62,6 +62,23 @@ describe('live-tools — graceful degradation contract', () => {
       jest.useRealTimers();
     }
   });
+
+  it('serves an identical normalized tool call from the short-TTL cache', async () => {
+    let executions = 0;
+    const restore = __setLiveToolForTest({
+      name: 'web_search',
+      description: 'cache probe',
+      inputSchema: { type: 'object', properties: {} },
+      execute: async () => `result-${++executions}`,
+    });
+    try {
+      await expect(executeLiveTool('web_search', { query: 'same', max_results: 3 })).resolves.toBe('result-1');
+      await expect(executeLiveTool('web_search', { max_results: 3, query: 'same' })).resolves.toBe('result-1');
+      expect(executions).toBe(1);
+    } finally {
+      restore();
+    }
+  });
 });
 
 describe('runToolCallRounds — loop mechanics', () => {
@@ -142,6 +159,50 @@ describe('runToolCallRounds — loop mechanics', () => {
       expect(outcome.toolRounds).toBe(3);
     } finally {
       restore();
+    }
+  });
+
+  it('executes multiple tool calls from one model round concurrently', async () => {
+    let started = 0;
+    let release!: () => void;
+    const bothStarted = new Promise<void>((resolve) => { release = resolve; });
+    const makeTool = (name: 'web_search' | 'get_weather') => __setLiveToolForTest({
+      name,
+      description: 'parallel probe',
+      inputSchema: { type: 'object', properties: {} },
+      execute: async () => {
+        started += 1;
+        if (started === 2) release();
+        await bothStarted;
+        return `${name}-ok`;
+      },
+    });
+    const restoreSearch = makeTool('web_search');
+    const restoreWeather = makeTool('get_weather');
+    let modelRound = 0;
+    try {
+      const outcome = await runToolCallRounds({
+        messages: [{ role: 'user', content: 'search and weather' }],
+        callModel: async (messages) => {
+          modelRound += 1;
+          if (modelRound === 1) {
+            return {
+              text: '', inputTokens: 1, outputTokens: 1, finishReason: 'tool_calls',
+              toolCalls: [
+                { id: 'search', name: 'web_search', argsJson: '{"query":"x"}' },
+                { id: 'weather', name: 'get_weather', argsJson: '{"location":"Chicago"}' },
+              ],
+            };
+          }
+          expect(messages.slice(-2).map((message) => message.content).sort()).toEqual(['get_weather-ok', 'web_search-ok']);
+          return finalResult('both complete');
+        },
+      });
+      expect(outcome.text).toBe('both complete');
+      expect(started).toBe(2);
+    } finally {
+      restoreWeather();
+      restoreSearch();
     }
   });
 });

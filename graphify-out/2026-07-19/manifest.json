@@ -1305,8 +1305,8 @@
     "semantic_hash": ""
   },
   "src/app/actions/agent-dispatcher.ts": {
-    "mtime": 1784468687.643377,
-    "ast_hash": "86f16c7c7cbada5fa97c2ea2fe1a4769",
+    "mtime": 1784474341.6461837,
+    "ast_hash": "cf58c3f47685a48679f30823c9822d61",
     "semantic_hash": ""
   },
   "src/components/dashboard/settings-client.tsx": {
@@ -2050,8 +2050,8 @@
     "semantic_hash": ""
   },
   "src/lib/agents/anthropic-tool-stream.ts": {
-    "mtime": 1784468651.6808424,
-    "ast_hash": "6c66d18578209e0102b8166842902eb6",
+    "mtime": 1784474341.6431935,
+    "ast_hash": "5b637f32ab869e00c2cb19541a898081",
     "semantic_hash": ""
   },
   "src/lib/tools/__tests__/tool-budget.test.ts": {

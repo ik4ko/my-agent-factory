@@ -1305,8 +1305,8 @@
     "semantic_hash": ""
   },
   "src/app/actions/agent-dispatcher.ts": {
-    "mtime": 1784474341.6461837,
-    "ast_hash": "cf58c3f47685a48679f30823c9822d61",
+    "mtime": 1784474839.1977353,
+    "ast_hash": "1115cfa0fb172082c98aae895f9cf46b",
     "semantic_hash": ""
   },
   "src/components/dashboard/settings-client.tsx": {
@@ -2040,13 +2040,13 @@
     "semantic_hash": ""
   },
   "src/lib/tools/__tests__/live-tools.test.ts": {
-    "mtime": 1784473271.245904,
-    "ast_hash": "096056c46566446030718bc7a3f9c3b2",
+    "mtime": 1784474839.1997344,
+    "ast_hash": "b048700851d9aad0101892b05cf7b591",
     "semantic_hash": ""
   },
   "src/lib/tools/live-tools.ts": {
-    "mtime": 1784473117.5961251,
-    "ast_hash": "b01e5f451c92b027b5e15a4406dd77ba",
+    "mtime": 1784474773.1027007,
+    "ast_hash": "b1810ea99c93ab13672ce0e77ae24486",
     "semantic_hash": ""
   },
   "src/lib/agents/anthropic-tool-stream.ts": {
@@ -2062,6 +2062,16 @@
   "src/lib/tools/tool-budget.ts": {
     "mtime": 1784468524.646544,
     "ast_hash": "558dfd3c6ae6025889dd46713e0f2e37",
+    "semantic_hash": ""
+  },
+  "src/lib/tools/__tests__/quick-info.test.ts": {
+    "mtime": 1784474894.7097056,
+    "ast_hash": "fdd691e81546a8d742dd7801a33422ca",
+    "semantic_hash": ""
+  },
+  "src/lib/tools/quick-info.ts": {
+    "mtime": 1784474894.7087047,
+    "ast_hash": "480575a34c264d5e822b6099efb6318e",
     "semantic_hash": ""
   }
 }

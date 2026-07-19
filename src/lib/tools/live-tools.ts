@@ -22,6 +22,8 @@ import { consumeToolBudget } from './tool-budget';
 
 const TOOL_TIMEOUT_MS = 8_000;
 const MAX_RESULT_CHARS = 4_000;
+const TOOL_CACHE_TTL_MS = 45_000;
+const TOOL_RESULT_CACHE = new Map<string, { value: string; expiresAt: number }>();
 
 export interface LiveTool {
   name: string;
@@ -171,6 +173,7 @@ export function listLiveTools(): LiveTool[] {
 
 /** TEST-ONLY: swap a tool implementation; returns a restore function. */
 export function __setLiveToolForTest(tool: LiveTool): () => void {
+  TOOL_RESULT_CACHE.clear();
   const previous = REGISTRY.get(tool.name);
   REGISTRY.set(tool.name, tool);
   return () => {
@@ -209,17 +212,30 @@ export function toOpenAIResponsesTools() {
 export async function executeLiveTool(name: string, args: Record<string, unknown>): Promise<string> {
   const tool = REGISTRY.get(name);
   if (!tool) return `Tool "${name}" does not exist. Available: ${listLiveTools().map((t) => t.name).join(', ')}.`;
+  const cacheKey = `${name}:${stableArgs(args ?? {})}`;
+  const cached = TOOL_RESULT_CACHE.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    recordToolCall(name, 'ok', 0);
+    return cached.value;
+  }
+  if (cached) TOOL_RESULT_CACHE.delete(cacheKey);
   const denial = await consumeToolBudget();
   if (denial) return denial;
   const started = Date.now();
   try {
     const result = await tool.execute(args ?? {});
     recordToolCall(name, 'ok', Date.now() - started);
-    return result.slice(0, MAX_RESULT_CHARS);
+    const bounded = result.slice(0, MAX_RESULT_CHARS);
+    TOOL_RESULT_CACHE.set(cacheKey, { value: bounded, expiresAt: Date.now() + TOOL_CACHE_TTL_MS });
+    return bounded;
   } catch (err) {
     recordToolCall(name, 'error', Date.now() - started);
     return `Tool "${name}" failed: ${err instanceof Error ? err.message : 'unknown error'}. Reply using what you already know and mention the lookup failed.`;
   }
+}
+
+function stableArgs(args: Record<string, unknown>): string {
+  return JSON.stringify(Object.keys(args).sort().map((key) => [key, args[key]]));
 }
 
 function recordToolCall(name: string, outcome: 'ok' | 'error', latencyMs: number): void {
