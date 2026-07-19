@@ -4930,7 +4930,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_tauri_gen_schemas_windows_schema",
-      "community": 177,
+      "community": 144,
       "norm_label": "windows-schema.json"
     },
     {
@@ -4940,7 +4940,7 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "src_tauri_gen_schemas_windows_schema_schema",
-      "community": 177,
+      "community": 144,
       "norm_label": "$schema"
     },
     {
@@ -4950,7 +4950,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "src_tauri_gen_schemas_windows_schema_title",
-      "community": 177,
+      "community": 144,
       "norm_label": "title"
     },
     {
@@ -4960,7 +4960,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "src_tauri_gen_schemas_windows_schema_description",
-      "community": 177,
+      "community": 144,
       "norm_label": "description"
     },
     {
@@ -4970,7 +4970,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "src_tauri_gen_schemas_windows_schema_anyof",
-      "community": 177,
+      "community": 144,
       "norm_label": "anyof"
     },
     {
@@ -5510,7 +5510,7 @@
       "source_location": "L2215",
       "_origin": "ast",
       "id": "src_tauri_gen_schemas_windows_schema_definitions_value",
-      "community": 144,
+      "community": 182,
       "norm_label": "value"
     },
     {
@@ -5520,7 +5520,7 @@
       "source_location": "L2216",
       "_origin": "ast",
       "id": "src_tauri_gen_schemas_windows_schema_value_description",
-      "community": 144,
+      "community": 182,
       "norm_label": "description"
     },
     {
@@ -5530,7 +5530,7 @@
       "source_location": "L2217",
       "_origin": "ast",
       "id": "src_tauri_gen_schemas_windows_schema_value_anyof",
-      "community": 144,
+      "community": 182,
       "norm_label": "anyof"
     },
     {
@@ -7877,7 +7877,7 @@
       "label": "rangeToMs()",
       "file_type": "code",
       "source_file": "src/app/api/market/quotes/route.ts",
-      "source_location": "L83",
+      "source_location": "L117",
       "_origin": "ast",
       "id": "src_app_api_market_quotes_route_rangetoms",
       "community": 173,
@@ -9730,7 +9730,7 @@
       "source_location": "L406",
       "_origin": "ast",
       "id": "src_components_dashboard_spatialworkspace_brainpanel",
-      "community": 16,
+      "community": 177,
       "norm_label": "brainpanel()"
     },
     {
@@ -9850,7 +9850,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "src_components_dashboard_agent_activity_readprovenance",
-      "community": 16,
+      "community": 177,
       "norm_label": "readprovenance()"
     },
     {
@@ -9860,7 +9860,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "src_components_dashboard_agent_activity_usebusthoughts",
-      "community": 16,
+      "community": 177,
       "norm_label": "usebusthoughts()"
     },
     {
@@ -9880,7 +9880,7 @@
       "source_location": "L93",
       "_origin": "ast",
       "id": "src_components_dashboard_agent_activity_providerbadge",
-      "community": 16,
+      "community": 177,
       "norm_label": "providerbadge()"
     },
     {
@@ -9890,7 +9890,7 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "src_components_dashboard_agent_activity_agentactivity",
-      "community": 16,
+      "community": 177,
       "norm_label": "agentactivity()"
     },
     {
@@ -11390,7 +11390,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_components_dashboard_system_health_pill",
-      "community": 16,
+      "community": 177,
       "norm_label": "system-health-pill.tsx"
     },
     {
@@ -11400,7 +11400,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "src_components_dashboard_system_health_pill_systemhealthpill",
-      "community": 16,
+      "community": 177,
       "norm_label": "systemhealthpill()"
     },
     {
@@ -42481,7 +42481,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/app/api/market/quotes/route.ts",
-      "source_location": "L83",
+      "source_location": "L117",
       "weight": 1.0,
       "source": "src_app_api_market_quotes_route",
       "target": "src_app_api_market_quotes_route_rangetoms",
@@ -81468,5 +81468,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "bec1f8cb193c7ac582a697549c0660af7a35bce0"
+  "built_at_commit": "e2a07f51a3cf6366ca83e11b74332e257569fccb"
 }

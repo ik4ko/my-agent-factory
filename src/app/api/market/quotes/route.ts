@@ -77,7 +77,41 @@ export async function GET(request: Request) {
   const db = getAdminClient() as any;
   const { data, error } = await db.from('quotes').select('*').order('symbol', { ascending: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ quotes: data ?? [] });
+
+  // The worker cache is the durable symbol list and fallback, not the source
+  // served as "live" data. Refresh every symbol concurrently so an idle or
+  // stopped worker cannot leave the dashboard presenting days-old prices.
+  const cachedQuotes = (data ?? []) as Array<Record<string, unknown> & { symbol: string }>;
+  const refreshed = await Promise.all(
+    cachedQuotes.map(async (cached) => {
+      try {
+        const quote = await withToolTimeout(yahooFinance.quote(cached.symbol.toUpperCase()), 'Yahoo quote');
+        if (typeof quote.regularMarketPrice !== 'number') throw new Error('Yahoo returned no market price');
+        const marketTime = quote.regularMarketTime ?? new Date();
+        return {
+          ...cached,
+          symbol: quote.symbol,
+          price: quote.regularMarketPrice,
+          change: quote.regularMarketChange ?? cached.change,
+          change_pct: quote.regularMarketChangePercent ?? cached.change_pct,
+          high: quote.regularMarketDayHigh ?? cached.high,
+          low: quote.regularMarketDayLow ?? cached.low,
+          open: quote.regularMarketOpen ?? cached.open,
+          prev_close: quote.regularMarketPreviousClose ?? cached.prev_close,
+          source: 'yahoo',
+          updated_at: marketTime.toISOString(),
+          stale: false,
+        };
+      } catch (refreshError) {
+        return {
+          ...cached,
+          stale: true,
+          refresh_error: refreshError instanceof Error ? refreshError.message : 'Yahoo refresh failed',
+        };
+      }
+    }),
+  );
+  return NextResponse.json({ quotes: refreshed, refreshed_at: new Date().toISOString() });
 }
 
 function rangeToMs(range: string): number {
