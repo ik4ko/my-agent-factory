@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100..800&family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    /* tokens: bg #0b0c0e · panel #131418→#0e0f12 · hairline rgba(158,164,178,.08) · accent ice-violet #a3b1f7 · keep #34d399/#f87171 P&L, #fbbf24 NOVA, #ef4444 E-STOP */
+    html, body { margin: 0; padding: 0; height: 100%; background: #0b0c0e; }
+    * { box-sizing: border-box; }
+    a { color: #a3b1f7; text-decoration: none; }
+    a:hover { color: #c3cdfa; }
+    ::selection { background: rgba(163,177,247,0.22); color: #e8eaef; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-thumb { background: #24262e; border-radius: 3px; }
+    :focus-visible { outline: 2px solid #a3b1f7; outline-offset: 1px; }
+    @keyframes dotBlink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+    @keyframes msgIn { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes ledgerNew { 0% { background: rgba(163,177,247,0.14); } 100% { background: transparent; } }
+    @keyframes digitIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+    @media (prefers-reduced-motion: reduce) { * { animation-duration: 0.001ms !important; } }
+  </style>
+</helmet>
+
+<div data-screen-label="Trading Dashboard" style="position: relative; width: 1600px; height: 1000px; display: flex; overflow: hidden; border-radius: 8px; border: 1px solid rgba(158,164,178,0.08); background: #0b0c0e; color: #a2a8b4; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; box-shadow: 0 40px 120px -30px rgba(0,0,0,0.9);">
+
+  <!-- Command palette — ⌘K -->
+  <sc-if value="{{ palOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; z-index: 8; display: flex; align-items: flex-start; justify-content: center; padding-top: 160px; background: rgba(11,12,14,0.6);" onClick="{{ onPalClose }}">
+      <div style="width: 480px; display: flex; flex-direction: column; border-radius: 8px; border: 1px solid rgba(163,177,247,0.25); background: #101115; box-shadow: 0 40px 90px -30px rgba(0,0,0,0.9); overflow: hidden; animation: msgIn 0.15s ease-out;" onClick="{{ onPalStop }}">
+        <div style="display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid rgba(158,164,178,0.08);">
+          <span style="font-size: 13px; font-weight: 700; color: #a3b1f7; line-height: 1;">&gt;</span>
+          <input ref="{{ palInputRef }}" value="{{ palQuery }}" onChange="{{ onPalQuery }}" placeholder="Jump to panel, ticker, or action…" autocomplete="off" spellcheck="false" style="flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: #e8eaef; font-family: inherit; font-size: 11px;">
+          <span style="font-size: 8px; letter-spacing: 0.1em; color: #565c68;">ESC</span>
+        </div>
+        <div style="max-height: 280px; overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 1px;">
+          <sc-for list="{{ palItems }}" as="p" hint-placeholder-count="6">
+            <div role="button" onClick="{{ p.onRun }}" onMouseEnter="{{ p.onHover }}" style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 4px; background: {{ p.bg }}; cursor: pointer;">
+              <span style="font-size: 8px; letter-spacing: 0.1em; color: {{ p.kindColor }}; width: 52px; flex-shrink: 0;">{{ p.kind }}</span>
+              <span style="font-size: 10.5px; color: {{ p.color }};">{{ p.label }}</span>
+              <span style="margin-left: auto; font-size: 8.5px; color: #565c68;">{{ p.hint }}</span>
+            </div>
+          </sc-for>
+          <sc-if value="{{ palEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding: 14px 10px; font-size: 10px; color: #565c68;">no matches</div>
+          </sc-if>
+        </div>
+        <div style="display: flex; gap: 12px; padding: 8px 14px; border-top: 1px solid rgba(158,164,178,0.08); font-size: 8px; letter-spacing: 0.08em; color: #565c68;">
+          <span>↑↓ navigate</span><span>↵ run</span><span>esc dismiss</span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Grain overlay — single static layer, P1a -->
+  <div aria-hidden="true" style="position: absolute; inset: 0; z-index: 6; pointer-events: none; opacity: 0.03; background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E&quot;); background-size: 160px 160px;"></div>
+
+  <!-- Nav rail -->
+  <nav data-screen-label="Nav rail" style="position: relative; z-index: 3; display: flex; width: 48px; flex-shrink: 0; flex-direction: column; align-items: center; gap: 8px; padding: 8px 0; border-right: 1px solid rgba(158,164,178,0.08); background: #0e0f12;">
+    <div aria-hidden="true" style="display: flex; width: 32px; height: 32px; margin-bottom: 8px; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid rgba(163,177,247,0.28); background: rgba(163,177,247,0.07);">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#a3b1f7" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"></path></svg>
+    </div>
+    <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="4">
+      <div style="position: relative; display: flex; justify-content: center;">
+        <button type="button" title="{{ n.label }}" style="display: flex; width: 32px; height: 32px; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid {{ n.border }}; background: {{ n.bg }}; cursor: pointer; padding: 0;" style-hover="background: rgba(158,164,178,0.06);">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{ n.color }}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="{{ n.icon }}"></path></svg>
+        </button>
+        <sc-if value="{{ n.active }}" hint-placeholder-val="{{ false }}">
+          <span style="position: absolute; left: -8px; top: 8px; width: 2px; height: 16px; border-radius: 1px; background: #a3b1f7;"></span>
+        </sc-if>
+      </div>
+    </sc-for>
+  </nav>
+
+  <!-- Main column -->
+  <div style="position: relative; z-index: 1; display: flex; flex: 1; min-width: 0; flex-direction: column;">
+
+    <!-- Top bar -->
+    <header style="display: flex; height: 40px; flex-shrink: 0; align-items: center; justify-content: space-between; padding: 0 16px; border-bottom: 1px solid rgba(158,164,178,0.08); background: #0e0f12;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: #e8eaef;">MY AGENT FACTORY</span>
+        <span style="width: 1px; height: 12px; background: rgba(158,164,178,0.14);"></span>
+        <span style="font-size: 10px; letter-spacing: 0.14em; color: #5b6170;">TRADING ROOM</span>
+        <sc-if value="{{ isSim }}" hint-placeholder-val="{{ false }}">
+          <span style="padding: 1px 8px; border-radius: 3px; border: 1px solid rgba(251,191,36,0.45); background: rgba(251,191,36,0.08); color: #fbbf24; font-size: 8.5px; font-weight: 700; letter-spacing: 0.14em;">SIMULATION</span>
+        </sc-if>
+      </div>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <span title="Nova voice — armed" style="display: flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 4px; border: 1px solid rgba(251,191,36,0.45); background: rgba(251,191,36,0.08); color: #fbbf24; font-size: 9px; font-weight: 700; letter-spacing: 0.12em;">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"></rect><path d="M5 10a7 7 0 0 0 14 0M12 17v4"></path></svg>
+          NOVA
+        </span>
+        <button type="button" onClick="{{ onEstop }}" style="display: flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 4px; border: 1px solid {{ estopBorder }}; background: {{ estopBg }}; color: #ef4444; font-family: inherit; font-size: 9px; font-weight: 700; letter-spacing: 0.12em; cursor: pointer; font-variation-settings: 'wght' 700; transition: font-variation-settings 0.15s;" style-hover="background: rgba(239,68,68,0.18); border-color: rgba(239,68,68,0.55); font-variation-settings: 'wght' 800;">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86L7.86 2z"></path><path d="M12 8v4M12 16h.01"></path></svg>
+          {{ estopLabel }}
+        </button>
+        <span style="display: flex; align-items: center; gap: 7px; font-size: 9.5px; letter-spacing: 0.12em; color: {{ feedColor }};"><span style="width: 6px; height: 6px; border-radius: 50%; background: {{ feedColor }}; animation: {{ feedAnim }};"></span>{{ feedLabel }}</span>
+        <span style="font-size: 11px; color: #5b6170; font-variant-numeric: tabular-nums;">{{ clock }} UTC</span>
+      </div>
+    </header>
+
+    <!-- Execution safety strip -->
+    <div data-screen-label="Execution safety" style="display: flex; height: 48px; flex-shrink: 0; align-items: center; gap: 24px; padding: 0 16px; border-bottom: 1px solid rgba(158,164,178,0.08); background: #101115;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 9px; letter-spacing: 0.14em; color: #565c68;">EXECUTION SAFETY</span>
+        <span style="display: flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 4px; border: 1px solid {{ armBorder }}; background: {{ armBg }};">
+          <span style="width: 6px; height: 6px; border-radius: 50%; background: {{ armColor }}; animation: dotBlink 2.4s ease-in-out infinite;"></span>
+          <span style="font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; color: {{ armColor }};">{{ armLabel }}</span>
+        </span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 1px;">
+        <span style="font-size: 8px; letter-spacing: 0.12em; color: #565c68;">REALIZED P&amp;L</span>
+        <span style="font-size: 15px; font-weight: 700; color: #34d399; font-variant-numeric: tabular-nums;">+$142.10</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 1px;">
+        <span style="font-size: 8px; letter-spacing: 0.12em; color: #565c68;">UNREALIZED</span>
+        <span style="font-size: 15px; font-weight: 700; color: #f87171; font-variant-numeric: tabular-nums;">−$12.40</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 1px;">
+        <span style="font-size: 8px; letter-spacing: 0.12em; color: #565c68;">NET EXPOSURE</span>
+        <span style="font-size: 15px; font-weight: 600; color: #e8eaef; font-variant-numeric: tabular-nums;">$34.7k <span style="font-size: 9px; color: #565c68;">/ 50k</span></span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px; min-width: 160px; margin-left: auto;">
+        <span style="font-size: 8px; letter-spacing: 0.12em; color: #565c68;">DRAWDOWN −0.4% · AUTO-HALT −4.0%</span>
+        <div style="position: relative; height: 4px; border-radius: 2px; background: rgba(158,164,178,0.1);">
+          <div style="position: absolute; inset: 0 auto 0 0; width: 10%; border-radius: 2px; background: linear-gradient(90deg, rgba(163,177,247,0.5), #a3b1f7);"></div>
+          <div style="position: absolute; top: -2px; bottom: -2px; left: 100%; width: 1px; background: rgba(239,68,68,0.8);"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel grid -->
+    <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(12, 1fr); grid-template-rows: 1.15fr 0.85fr; gap: 8px; padding: 8px;">
+
+      <!-- AGENT FACTORY — 3D orbit (logic untouched) -->
+      <section data-screen-label="Agent Factory orbit" style="position: relative; grid-column: 1 / 6; grid-row: 1 / 3; display: flex; flex-direction: column; min-height: 0; border-radius: 6px; border: 1px solid rgba(158,164,178,0.08); background: linear-gradient(180deg, #131418, #0e0f12); overflow: hidden;">
+        <span style="position: absolute; top: 4px; left: 4px; width: 12px; height: 12px; border-top: 1px solid rgba(163,177,247,0.35); border-left: 1px solid rgba(163,177,247,0.35); z-index: 2; pointer-events: none;"></span>
+        <span style="position: absolute; top: 4px; right: 4px; width: 12px; height: 12px; border-top: 1px solid rgba(163,177,247,0.35); border-right: 1px solid rgba(163,177,247,0.35); z-index: 2; pointer-events: none;"></span>
+        <div style="display: flex; flex-shrink: 0; height: 32px; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid rgba(158,164,178,0.06); position: relative; z-index: 2; background: rgba(14,15,18,0.6);">
+          <span style="font-size: 9px; letter-spacing: 0.14em; color: #7a8290;">AGENT FACTORY · SPATIAL</span>
+          <span style="margin-left: auto; font-size: 8.5px; color: #565c68;">4 BRAINS · <span style="color: #34d399;">3 ACTIVE</span></span>
+        </div>
+        <div style="position: relative; flex: 1; min-height: 0;">
+          <div ref="{{ canvasRef }}" style="position: absolute; inset: 0; cursor: grab;"></div>
+          <sc-if value="{{ focusChip }}" hint-placeholder-val="{{ null }}">
+            <div style="position: absolute; top: 10px; left: 10px; z-index: 2; display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 5px; border: 1px solid rgba(163,177,247,0.25); background: rgba(14,15,18,0.85); backdrop-filter: blur(8px); animation: msgIn 0.18s ease-out;">
+              <span style="width: 7px; height: 7px; border-radius: 50%; background: {{ focusChip.color }};"></span>
+              <span style="font-size: 10px; font-weight: 700; color: #e8eaef; letter-spacing: 0.06em;">{{ focusChip.name }}</span>
+              <span style="font-size: 8.5px; color: {{ focusChip.color }}; letter-spacing: 0.1em;">{{ focusChip.status }}</span>
+              <button type="button" onClick="{{ onOrbitReturn }}" style="margin-left: 4px; padding: 2px 8px; border-radius: 3px; border: 1px solid rgba(158,164,178,0.2); background: transparent; color: #a2a8b4; font-family: inherit; font-size: 8px; font-weight: 700; letter-spacing: 0.08em; cursor: pointer; font-variation-settings: 'wght' 700; transition: font-variation-settings 0.15s;" style-hover="border-color: rgba(163,177,247,0.5); color: #a3b1f7; font-variation-settings: 'wght' 800;">◄ PULL OUT</button>
+            </div>
+          </sc-if>
+          <div style="position: absolute; bottom: 10px; left: 10px; z-index: 2; display: flex; gap: 12px; padding: 5px 10px; border-radius: 5px; border: 1px solid rgba(158,164,178,0.08); background: rgba(14,15,18,0.7); font-size: 8px; letter-spacing: 0.06em; color: #565c68; pointer-events: none;">
+            <span><span style="color: #a3b1f7;">DRAG</span> orbit</span>
+            <span><span style="color: #a3b1f7;">SCROLL</span> zoom</span>
+            <span><span style="color: #a3b1f7;">CLICK</span> inspect</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- STAGED INTENTS -->
+      <section data-screen-label="Staged intents" style="position: relative; grid-column: 6 / 9; grid-row: 1; display: flex; flex-direction: column; min-height: 0; border-radius: 6px; border: 1px solid rgba(158,164,178,0.08); background: linear-gradient(180deg, #131418, #0e0f12);">
+        <span style="position: absolute; top: 4px; left: 4px; width: 12px; height: 12px; border-top: 1px solid rgba(163,177,247,0.35); border-left: 1px solid rgba(163,177,247,0.35); pointer-events: none;"></span>
+        <span style="position: absolute; top: 4px; right: 4px; width: 12px; height: 12px; border-top: 1px solid rgba(163,177,247,0.35); border-right: 1px solid rgba(163,177,247,0.35); pointer-events: none;"></span>
+        <div style="display: flex; flex-shrink: 0; height: 32px; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: 1px solid rgba(158,164,178,0.06);">
+          <span style="font-size: 9px; letter-spacing: 0.14em; color: #7a8290;">STAGED INTENTS</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 3px; border: 1px solid rgba(163,177,247,0.35); background: rgba(163,177,247,0.08); font-size: 8.5px; font-weight: 700; letter-spacing: 0.1em; color: #a3b1f7;"><span style="width: 5px; height: 5px; border-radius: 50%; background: #a3b1f7; animation: dotBlink 1.4s ease-in-out infinite;"></span>{{ stagedCount }} PENDING</span>
+        </div>
+        <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px;">
+          <sc-for list="{{ orders }}" as="o" hint-placeholder-count="2">
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 8px 12px 12px; border-radius: 6px; border: 1px solid {{ o.cardBorder }}; border-left: 2px solid {{ o.accent }}; background: {{ o.cardBg }}; transition: background 0.15s;" style-hover="background: rgba(255,255,255,0.025);">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="padding: 2px 8px; border-radius: 3px; border: 1px solid {{ o.sideBorder }}; background: {{ o.sideBg }}; color: {{ o.sideColor }}; font-size: 9px; font-weight: 700; letter-spacing: 0.1em;">{{ o.side }}</span>
+                <span style="font-size: 13px; font-weight: 700; color: #e8eaef;">{{ o.qty }} {{ o.sym }}</span>
+                <span style="font-size: 10px; color: #6a7180;">@ {{ o.px }}</span>
+                <span style="margin-left: auto; font-size: 10px; color: #a2a8b4; font-variant-numeric: tabular-nums;">est {{ o.est }}</span>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 4px; font-size: 8.5px;">
+                <span style="padding: 2px 8px; border-radius: 3px; border: 1px solid rgba(158,164,178,0.14); color: #a2a8b4;">{{ o.kelly }}</span>
+                <span style="padding: 2px 8px; border-radius: 3px; border: 1px solid rgba(158,164,178,0.14); color: #a2a8b4;">{{ o.signal }}</span>
+              </div>
+              <span style="font-size: 8.5px; color: #565c68;">staged by <span style="color: {{ o.agentColor }};">{{ o.agent }}</span> · {{ o.reason }}</span>
+              <sc-if value="{{ o.pending }}" hint-placeholder-val="{{ true }}">
+                <div style="display: flex; gap: 8px;">
+                  <button type="button" onClick="{{ o.onApprove }}" style="flex: 1.5; padding: 8px 0; border-radius: 4px; border: 1px solid rgba(163,177,247,0.5); background: rgba(163,177,247,0.12); color: #c3cdfa; font-family: inherit; font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; cursor: pointer; font-variation-settings: 'wght' 700; transition: font-variation-settings 0.15s;" style-hover="background: rgba(163,177,247,0.22); font-variation-settings: 'wght' 800;">✓ APPROVE</button>
+                  <button type="button" onClick="{{ o.onReject }}" style="flex: 1; padding: 8px 0; border-radius: 4px; border: 1px solid rgba(158,164,178,0.22); background: transparent; color: #a2a8b4; font-family: inherit; font-size: 9px; font-weight: 700; letter-spacing: 0.1em; cursor: pointer; font-variation-settings: 'wght' 700; transition: font-variation-settings 0.15s;" style-hover="border-color: rgba(248,113,113,0.55); color: #f87171; font-variation-settings: 'wght' 800;">✕ REJECT</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ o.resolved }}" hint-placeholder-val="{{ false }}">
+                <span style="align-self: flex-start; padding: 3px 9px; border-radius: 3px; border: 1px solid {{ o.resBorder }}; background: {{ o.resBg }}; color: {{ o.resColor }}; font-size: 9px; font-weight: 700; letter-spacing: 0.1em;">{{ o.resolution }}</span>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <!-- WATCHLIST -->
+      <section data-screen-label="Watchlist" style="position: relative; grid-column: 6 / 9; grid-row: 2; display: flex; flex-direction: column; min-height: 0; border-radius: 6px; border: 1px solid rgba(158,164,178,0.08); background: linear-gradient(180deg, #131418, #0e0f12);">
+        <span style="position: absolute; top: 4px; left: 4px; width: 12px; height: 12px; border-top: 1px solid rgba(163,177,247,0.35); border-left: 1px solid rgba(163,177,247,0.35); pointer-events: none;"></span>
+        <span style="position: absolute; top: 4px; right: 4px; width: 12px; height: 12px; border-top: 1px solid rgba(163,177,247,0.35); border-right: 1px solid rgba(163,177,247,0.35); pointer-events: none;"></span>
+        <div style="display: flex; flex-shrink: 0; height: 32px; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid rgba(158,164,178,0.06);">
+          <span style="font-size: 9px; letter-spacing: 0.14em; color: #7a8290;">WATCHLIST</span>
+          <sc-if value="{{ isSim }}" hint-placeholder-val="{{ false }}">
+            <span style="padding: 0 5px; border-radius: 2px; border: 1px solid rgba(251,191,36,0.4); color: #fbbf24; font-size: 7.5px; font-weight: 700;">SIM</span>
+          </sc-if>
+          <span style="margin-left: auto; font-size: 8.5px; color: #565c68;">{{ quoteCount }} symbols</span>
+        </div>
+        <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px;">
+          <sc-for list="{{ quotes }}" as="q" hint-placeholder-count="6">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 5px; border: 1px solid rgba(158,164,178,0.05); background: rgba(255,255,255,0.012); transition: background 0.15s;" style-hover="background: rgba(255,255,255,0.035);">
+              <span style="width: 64px; font-size: 10.5px; font-weight: 700; color: #d3d7de; font-variation-settings: 'wght' 700; transition: font-variation-settings 0.15s;" style-hover="font-variation-settings: 'wght' 800;">{{ q.sym }}</span>
+              <span style="font-size: 11px; color: #a2a8b4; font-variant-numeric: tabular-nums; display: inline-flex;">{{ q.pxEl }}</span>
+              <span style="margin-left: auto; font-size: 9.5px; font-weight: 600; color: {{ q.deltaColor }}; font-variant-numeric: tabular-nums;">{{ q.delta }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <!-- LEDGER -->
+      <section data-screen-label="Ledger" style="position: relative; grid-column: 9 / 13; grid-row: 2; display: flex; flex-direction: column; min-height: 0; border-radius: 6px; border: 1px solid rgba(158,164,178,0.08); background: #0d0e11;">
+        <span style="position: absolute; top: 4px; left: 4px; width: 12px; height: 12px; border-top: 1px solid rgba(163,177,247,0.35); border-left: 1px solid rgba(163,177,247,0.35); pointer-events: none;"></span>
+        <span style="position: absolute; top: 4px; right: 4px; width: 12px; height: 12px; border-top: 1px solid rgba(163,177,247,0.35); border-right: 1px solid rgba(163,177,247,0.35); pointer-events: none;"></span>
+        <div style="display: flex; flex-shrink: 0; height: 32px; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid rgba(158,164,178,0.06);">
+          <span style="font-size: 9px; letter-spacing: 0.14em; color: #7a8290;">LEDGER</span>
+          <span style="margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 8.5px; color: #565c68;"><span style="width: 5px; height: 5px; border-radius: 50%; background: #34d399;"></span>stream live</span>
+        </div>
+        <div ref="{{ ledgerRef }}" style="flex: 1; min-height: 0; overflow-y: auto; padding: 8px 12px; display: flex; flex-direction: column; gap: 2px;">
+          <sc-for list="{{ ledger }}" as="t" hint-placeholder-count="8">
+            <div style="display: flex; gap: 8px; padding: 2px 4px; border-radius: 3px; font-size: 10.5px; line-height: 1.55; animation: {{ t.anim }};">
+              <span style="flex-shrink: 0; color: #4f5563; font-variant-numeric: tabular-nums;">{{ t.ts }}</span>
+              <span style="flex-shrink: 0; width: 26px; font-weight: 700; color: {{ t.lvlColor }};">{{ t.lvl }}</span>
+              <span style="color: {{ t.color }};">{{ t.msg }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <!-- GLOBAL CHAT -->
+      <section data-screen-label="Global chat" style="position: relative; grid-column: 9 / 13; grid-row: 1; display: flex; flex-direction: column; min-height: 0; border-radius: 6px; border: 1px solid rgba(158,164,178,0.08); background: linear-gradient(180deg, #131418, #0e0f12);">
+        <span style="position: absolute; top: 4px; left: 4px; width: 12px; height: 12px; border-top: 1px solid rgba(163,177,247,0.35); border-left: 1px solid rgba(163,177,247,0.35); pointer-events: none;"></span>
+        <span style="position: absolute; top: 4px; right: 4px; width: 12px; height: 12px; border-top: 1px solid rgba(163,177,247,0.35); border-right: 1px solid rgba(163,177,247,0.35); pointer-events: none;"></span>
+        <div style="display: flex; flex-shrink: 0; height: 32px; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid rgba(158,164,178,0.06);">
+          <span style="font-size: 9px; letter-spacing: 0.14em; color: #7a8290;">GLOBAL CHAT · CEO ↔ AGENTS</span>
+          <span style="margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 8.5px; letter-spacing: 0.08em; color: #34d399;"><span style="width: 5px; height: 5px; border-radius: 50%; background: #34d399; animation: dotBlink 2s ease-in-out infinite;"></span>HERMES ROUTING</span>
+        </div>
+        <div ref="{{ threadRef }}" style="flex: 1; min-height: 0; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+          <sc-for list="{{ messages }}" as="m" hint-placeholder-count="4">
+            <div style="display: flex; flex-direction: column; gap: 5px; align-items: {{ m.align }}; animation: {{ m.anim }};">
+              <div style="display: flex; align-items: center; gap: 7px;">
+                <span style="font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: {{ m.nameColor }};">{{ m.name }}</span>
+                <sc-if value="{{ m.role2 }}" hint-placeholder-val="{{ false }}"><span style="font-size: 8px; color: #565c68;">{{ m.role2 }}</span></sc-if>
+              </div>
+              <div style="max-width: 78%; padding: 10px 14px; border-radius: 9px; border: 1px solid {{ m.bubbleBorder }}; background: {{ m.bubbleBg }}; color: {{ m.textColor }}; font-family: 'Space Grotesk', ui-sans-serif, sans-serif; font-size: 13px; line-height: 1.6;">{{ m.text }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="flex-shrink: 0; padding: 8px 12px 12px; border-top: 1px solid rgba(158,164,178,0.06); display: flex; align-items: flex-end; gap: 8px;">
+          <div style="flex: 1; display: flex; align-items: flex-end; gap: 8px; padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(163,177,247,0.2); border-left: 2px solid #a3b1f7; background: rgba(11,12,14,0.7);">
+            <span style="font-size: 13px; font-weight: 700; color: #a3b1f7; line-height: 1.4;">&gt;</span>
+            <textarea value="{{ draft }}" onChange="{{ onDraft }}" onKeyDown="{{ onKey }}" placeholder="Message the fleet — HERMES routes it…" rows="1" style="flex: 1; min-width: 0; resize: none; max-height: 72px; background: transparent; border: none; outline: none; color: #e8eaef; font-family: 'Space Grotesk', ui-sans-serif, sans-serif; font-size: 13px; line-height: 1.5;"></textarea>
+            <button type="button" onClick="{{ onSend }}" title="Send" style="display: flex; width: 28px; height: 28px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 5px; border: 1px solid {{ sendBorder }}; background: {{ sendBg }}; color: {{ sendColor }}; cursor: pointer;" style-hover="filter: brightness(1.15);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"></path><path d="M22 2 11 13"></path></svg>
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1620, &quot;height&quot;: 1020 },
+  &quot;mode&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;simulation&quot;, &quot;live&quot;], &quot;default&quot;: &quot;simulation&quot;, &quot;tsType&quot;: &quot;'simulation' | 'live'&quot;, &quot;section&quot;: &quot;State&quot; },
+  &quot;motion&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Micro-interactions&quot; }
+}">
+class Component extends DCLogic {
+  state = {
+    clock: '', estop: false, draft: '',
+    palOpen: false, palQuery: '', palSel: 0, modeOverride: null, motionOverride: null,
+    quotes: [
+      { sym: 'SPY', px: 612.44, d: 0.32 }, { sym: 'NVDA', px: 182.11, d: 1.84 },
+      { sym: 'AAPL', px: 228.36, d: -0.41 }, { sym: 'TSLA', px: 341.02, d: -1.12 },
+      { sym: 'BTC-USD', px: 118240, d: 0.77 }, { sym: 'ETH-USD', px: 4182.5, d: 1.21 },
+    ],
+    orders: [
+      { side: 'BUY', qty: 40, sym: 'NVDA', px: 'MKT', est: '$7,284', agent: 'CODEX', reason: 'quant-momentum v3 · gap+volume 0.82', kelly: '½ Kelly · 2.1% of book', signal: 'GROK conf 0.82', status: 'STAGED' },
+      { side: 'SELL', qty: 120, sym: 'AAPL', px: 'LMT 228.40', est: '$27,408', agent: 'HERMES', reason: 'scout rebalance · overweight tech 4.2%', kelly: '½ Kelly · 1.4% of book', signal: 'GROK conf 0.66', status: 'STAGED' },
+    ],
+    ledger: [],
+    messages: [
+      { role: 'ceo', text: "How's the NVDA momentum signal looking?" },
+      { role: 'agent', name: 'GROK', color: '#8ec5ff', role2: 'grok-3', text: 'Momentum confidence 0.82 on gap+volume. Staged a ½-Kelly BUY 40 NVDA (2.1% of book, est $7,284) — needs your approval before it reaches the paper broker.' },
+      { role: 'agent', name: 'HERMES', color: '#a3b1f7', role2: 'orchestrator', text: 'AEGIS confirms the intent sits inside the risk envelope (2.1% ≤ 2.5% cap). Approval gate is armed in Staged Intents.' },
+    ],
+    focus: null,
+  };
+
+  ICONS = {
+    hub: 'M3 9h18M3 15h18M9 3v18M15 3v18',
+    trading: 'M3 3v16a2 2 0 0 0 2 2h16M7 14l4-5 3 3 5-7',
+    coding: 'm18 16 4-4-4-4M6 8l-4 4 4 4m14.5-12-5 16',
+    personal: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0',
+  };
+
+  BRAINS = [
+    { key: 'hermes', name: 'HERMES', model: 'opus-4', status: 'active', hex: 0xa3b1f7, angle: Math.PI * 0.5 },
+    { key: 'codex', name: 'CODEX', model: 'fable-5', status: 'active', hex: 0xb7a8f7, angle: Math.PI * 1.0 },
+    { key: 'grok', name: 'GROK', model: 'grok-3', status: 'active', hex: 0x8ec5ff, angle: Math.PI * 1.5 },
+    { key: 'gemini', name: 'GEMINI', model: 'gemini-2', status: 'idle', hex: 0x64748b, angle: Math.PI * 2.0 },
+  ];
+
+  LEDGER_POOL = [
+    ['INF', 'hermes[scout]: momentum scan — 8 candidates, 2 staged', '#a2a8b4'],
+    [' OK', 'codex[quant]: backtest v3 complete — sharpe 1.42', '#34d399'],
+    ['INF', 'aegis: BUY 40 NVDA within risk envelope (2.1% ≤ 2.5%)', '#a2a8b4'],
+    ['WRN', 'quote NVDA: synthetic spread widened 2.1bp (sim jitter)', '#fbbf24'],
+    ['INF', 'grok: momentum signal NVDA conf 0.82 → staged sizing', '#a2a8b4'],
+    ['DBG', 'heartbeat: risk monitor — drawdown −0.4%', '#565c68'],
+    [' OK', 'ledger(sim): position snapshot written', '#34d399'],
+    ['DBG', 'heartbeat: sim feed tick ok (12ms)', '#565c68'],
+    ['INF', 'cronos: 22:00 reconcile scheduled', '#a2a8b4'],
+    [' OK', 'aegis: guardrail sweep clean — 0 violations', '#34d399'],
+  ];
+
+  componentDidMount() {
+    const pad = (n) => String(n).padStart(2, '0');
+    const tick = () => { const d = new Date(); this.setState({ clock: pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds()) }); };
+    tick(); this._clockId = setInterval(tick, 1000);
+    this._quoteId = setInterval(() => {
+      this.setState((s) => ({ quotes: s.quotes.map((q) => { const j = (Math.random() - 0.5) * 0.0016; return { ...q, px: q.px * (1 + j), d: q.d + j * 100 }; }) }));
+    }, 2000);
+    const now = Date.now();
+    this.setState({ ledger: this.LEDGER_POOL.slice(0, 6).map((l, i) => this._mkEntry(l, now - (6 - i) * 9000, false)) });
+    this._ledIdx = 6;
+    this._ledId = setInterval(() => {
+      const e = this.LEDGER_POOL[this._ledIdx % this.LEDGER_POOL.length]; this._ledIdx++;
+      this.setState((s) => ({ ledger: [...s.ledger.slice(-30), this._mkEntry(e, Date.now(), true)] }));
+    }, 4200);
+    this._waitThree(0);
+    this._palKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        const opening = !this.state.palOpen;
+        this.setState({ palOpen: opening, palQuery: '', palSel: 0 });
+        if (opening) setTimeout(() => { if (this._palInput) this._palInput.focus(); }, 50);
+        return;
+      }
+      if (!this.state.palOpen) return;
+      if (e.key === 'Escape') { e.preventDefault(); this.setState({ palOpen: false }); return; }
+      const list = this._palFiltered();
+      if (e.key === 'ArrowDown') { e.preventDefault(); this.setState({ palSel: Math.min(this.state.palSel + 1, list.length - 1) }); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); this.setState({ palSel: Math.max(this.state.palSel - 1, 0) }); }
+      else if (e.key === 'Enter') { e.preventDefault(); const a = list[this.state.palSel]; if (a) a.run(); }
+    };
+    window.addEventListener('keydown', this._palKey);
+  }
+
+  componentWillUnmount() {
+    clearInterval(this._clockId); clearInterval(this._quoteId); clearInterval(this._ledId);
+    clearTimeout(this._reply);
+    if (this._palKey) window.removeEventListener('keydown', this._palKey);
+    this._running = false;
+    if (this._raf) cancelAnimationFrame(this._raf);
+    if (this._ro) this._ro.disconnect();
+    if (this._renderer) { this._renderer.dispose(); const c = this._renderer.domElement; if (c && c.parentNode) c.parentNode.removeChild(c); }
+  }
+
+  componentDidUpdate() {
+    if (this._ledgerEl) this._ledgerEl.scrollTop = this._ledgerEl.scrollHeight;
+    if (this._thread) this._thread.scrollTop = this._thread.scrollHeight;
+  }
+
+  _motion() { return this.state.motionOverride ?? this.props.motion ?? true; }
+
+  _isSim() { return (this.state.modeOverride ?? this.props.mode ?? 'simulation') === 'simulation'; }
+
+  _flashPanel(lbl) {
+    const el = document.querySelector('[data-screen-label="' + lbl + '"]');
+    if (el) { el.style.outline = '2px solid #a3b1f7'; el.style.outlineOffset = '-2px'; setTimeout(() => { el.style.outline = ''; }, 900); }
+  }
+
+  _palActions() {
+    const close = () => this.setState({ palOpen: false });
+    const panels = ['Agent Factory orbit', 'Staged intents', 'Watchlist', 'Ledger', 'Global chat'].map((lbl) => ({
+      kind: 'PANEL', label: lbl.replace(' orbit', ''), hint: 'jump', run: () => { this._flashPanel(lbl); close(); },
+    }));
+    const tickers = this.state.quotes.map((q) => ({
+      kind: 'TICKER', label: q.sym, hint: 'watchlist', run: () => { this._flashPanel('Watchlist'); close(); },
+    }));
+    const sim = this._isSim();
+    const actions = [
+      { kind: 'ACTION', label: this.state.estop ? 'Reset E-STOP' : 'Trigger E-STOP', hint: 'safety', run: () => { if (!this.state.estop) this._tone(220); this.setState({ estop: !this.state.estop, palOpen: false }); } },
+      { kind: 'ACTION', label: 'Switch to ' + (sim ? 'LIVE' : 'SIMULATION'), hint: 'feed', run: () => this.setState({ modeOverride: sim ? 'live' : 'simulation', palOpen: false }) },
+      { kind: 'ACTION', label: (this._motion() ? 'Disable' : 'Enable') + ' motion', hint: 'demo', run: () => this.setState({ motionOverride: !this._motion(), palOpen: false }) },
+    ];
+    return [...actions, ...panels, ...tickers];
+  }
+
+  _palFiltered() {
+    const q = this.state.palQuery.trim().toLowerCase();
+    const all = this._palActions();
+    if (!q) return all;
+    return all.filter((a) => {
+      const l = a.label.toLowerCase(); let i = 0;
+      for (const ch of q) { i = l.indexOf(ch, i); if (i < 0) return false; i++; }
+      return true;
+    });
+  }
+
+  // Quiet confirmation tone — E-STOP + staged-intent approve only. Near-silent, gated by still/demo flag.
+  _tone(freq) {
+    if (!this._motion()) return;
+    try {
+      this._ac = this._ac || new (window.AudioContext || window.webkitAudioContext)();
+      const ac = this._ac;
+      if (ac.state === 'suspended') ac.resume();
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sine'; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.03, ac.currentTime + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.14);
+      o.connect(g); g.connect(ac.destination);
+      o.start(); o.stop(ac.currentTime + 0.16);
+    } catch (e) { /* audio unavailable — stay silent */ }
+  }
+
+  _mkEntry(l, ts, fresh) {
+    const d = new Date(ts); const pad = (n) => String(n).padStart(2, '0');
+    return {
+      ts: pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds()),
+      lvl: l[0], msg: l[1], color: l[2],
+      lvlColor: l[0] === ' OK' ? '#34d399' : l[0] === 'WRN' ? '#fbbf24' : l[0] === 'INF' ? '#a3b1f7' : '#4f5563',
+      anim: fresh && this._motion() ? 'ledgerNew 1.4s ease-out' : 'none',
+    };
+  }
+
+  _pxEl(q) {
+    const str = q.px >= 1000 ? q.px.toLocaleString('en-US', { maximumFractionDigits: 0 }) : q.px.toFixed(2);
+    const motion = this._motion();
+    return React.createElement('span', { style: { display: 'inline-flex' } },
+      str.split('').map((ch, i) => React.createElement('span', {
+        key: i + '-' + ch,
+        style: { display: 'inline-block', animation: motion ? 'digitIn 0.15s ease-out' : 'none' },
+      }, ch)));
+  }
+
+  // ── 3D orbit — Agent Factory (carried over verbatim from Brain Hub; scene colors re-tokened only) ──
+  _waitThree(n) {
+    if (window.THREE) { this._initScene(); return; }
+    if (n > 120) return;
+    setTimeout(() => this._waitThree(n + 1), 60);
+  }
+
+  _initScene() {
+    const THREE = window.THREE;
+    const host = this._host;
+    if (!host) return;
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    host.appendChild(renderer.domElement);
+    this._renderer = renderer;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0d0e11);
+    scene.fog = new THREE.FogExp2(0x0d0e11, 0.052);
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+
+    scene.add(new THREE.AmbientLight(0x3a3f55, 0.9));
+    const key = new THREE.PointLight(0xa3b1f7, 0.9, 60); key.position.set(6, 9, 6); scene.add(key);
+    const fill = new THREE.PointLight(0x8494f0, 0.5, 60); fill.position.set(-8, 4, -6); scene.add(fill);
+    const roseLight = new THREE.PointLight(0xfbbf24, 0.0, 30); roseLight.position.set(0, 3, 0); scene.add(roseLight);
+
+    const grid = new THREE.GridHelper(48, 48, 0x24262e, 0x16181d);
+    grid.material.transparent = true; grid.material.opacity = 0.5; grid.position.y = -3.2;
+    scene.add(grid);
+
+    const clickable = [];
+    const R = 6;
+    const nodes = {};
+    const makeLabel = (text, sub) => {
+      const c = document.createElement('canvas'); c.width = 256; c.height = 72;
+      const g = c.getContext('2d');
+      g.font = '700 34px "JetBrains Mono", monospace'; g.fillStyle = '#e8eaef'; g.textAlign = 'center'; g.fillText(text, 128, 34);
+      g.font = '400 20px "JetBrains Mono", monospace'; g.fillStyle = '#6a7180'; g.fillText(sub, 128, 60);
+      const tex = new THREE.CanvasTexture(c); tex.anisotropy = 2;
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+      sp.scale.set(3.0, 0.85, 1);
+      return sp;
+    };
+
+    const core = new THREE.Group();
+    const coreShell = new THREE.Mesh(new THREE.IcosahedronGeometry(1.0, 1), new THREE.MeshBasicMaterial({ color: 0x3a4060, wireframe: true, transparent: true, opacity: 0.35 }));
+    core.add(coreShell); scene.add(core);
+
+    this.BRAINS.forEach((b) => {
+      const grp = new THREE.Group();
+      const px = Math.cos(b.angle) * R, pz = Math.sin(b.angle) * R;
+      grp.position.set(px, 0, pz);
+      const inner = new THREE.Mesh(new THREE.IcosahedronGeometry(0.92, 1), new THREE.MeshStandardMaterial({ color: b.hex, emissive: b.hex, emissiveIntensity: b.status === 'idle' ? 0.15 : 0.4, metalness: 0.3, roughness: 0.5, transparent: true, opacity: 0.55 }));
+      const outer = new THREE.Mesh(new THREE.IcosahedronGeometry(1.18, 1), new THREE.MeshBasicMaterial({ color: b.hex, wireframe: true, transparent: true, opacity: b.status === 'idle' ? 0.3 : 0.6 }));
+      inner.userData.key = b.key; outer.userData.key = b.key;
+      grp.add(inner); grp.add(outer);
+      const label = makeLabel(b.name, b.model); label.position.set(0, 1.95, 0); grp.add(label);
+      scene.add(grp);
+      clickable.push(inner, outer);
+      nodes[b.key] = { grp, inner, pos: new THREE.Vector3(px, 0, pz), angle: b.angle, status: b.status };
+      const lg = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(px, 0, pz)]);
+      scene.add(new THREE.Line(lg, new THREE.LineBasicMaterial({ color: b.hex, transparent: true, opacity: b.status === 'idle' ? 0.1 : 0.22 })));
+    });
+
+    const order = ['hermes', 'codex', 'grok', 'gemini'];
+    for (let i = 0; i < order.length; i++) {
+      const a = nodes[order[i]].pos, c = nodes[order[(i + 1) % order.length]].pos;
+      const lg = new THREE.BufferGeometry().setFromPoints([a, c]);
+      scene.add(new THREE.Line(lg, new THREE.LineBasicMaterial({ color: 0xa3b1f7, transparent: true, opacity: 0.08 })));
+    }
+
+    const pulseGeo = new THREE.SphereGeometry(0.09, 8, 8);
+    const pulses = [];
+    this.BRAINS.forEach((b, i) => {
+      if (b.status === 'idle') return;
+      const n = nodes[b.key];
+      for (let k = 0; k < 2; k++) {
+        const m = new THREE.Mesh(pulseGeo, new THREE.MeshBasicMaterial({ color: b.hex }));
+        scene.add(m);
+        pulses.push({ mesh: m, from: new THREE.Vector3(0, 0, 0), to: n.pos, t: (i * 0.3 + k * 0.5) % 1, speed: 0.006 + Math.random() * 0.004 });
+      }
+    });
+
+    const cam = { r: 13, theta: 0.62, phi: 1.12, tx: 0, ty: 0, tz: 0 };
+    const dst = { r: 13, theta: 0.62, phi: 1.12, tx: 0, ty: 0, tz: 0 };
+    this._focusing = false;
+
+    const applyCam = () => {
+      const t = new THREE.Vector3(cam.tx, cam.ty, cam.tz);
+      camera.position.set(
+        cam.tx + cam.r * Math.sin(cam.phi) * Math.cos(cam.theta),
+        cam.ty + cam.r * Math.cos(cam.phi),
+        cam.tz + cam.r * Math.sin(cam.phi) * Math.sin(cam.theta)
+      );
+      camera.lookAt(t);
+    };
+
+    const el = renderer.domElement;
+    let dragging = false, moved = 0, lx = 0, ly = 0;
+    const onDown = (e) => { dragging = true; moved = 0; lx = e.clientX; ly = e.clientY; el.style.cursor = 'grabbing'; };
+    const onMove = (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - lx, dy = e.clientY - ly; lx = e.clientX; ly = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
+      if (this._focusing) return;
+      dst.theta -= dx * 0.006;
+      dst.phi = Math.max(0.35, Math.min(1.45, dst.phi - dy * 0.006));
+    };
+    const raycaster = new THREE.Raycaster();
+    const onUp = (e) => {
+      el.style.cursor = 'grab';
+      if (!dragging) return; dragging = false;
+      if (moved > 5) return;
+      const r = el.getBoundingClientRect();
+      const ndc = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      raycaster.setFromCamera(ndc, camera);
+      const hits = raycaster.intersectObjects(clickable, false);
+      if (hits.length) { let o = hits[0].object; while (o && !o.userData.key) o = o.parent; if (o && o.userData.key) this._focusKey(o.userData.key); }
+    };
+    const onWheel = (e) => { e.preventDefault(); dst.r = Math.max(4.2, Math.min(17, dst.r + e.deltaY * 0.012)); };
+    el.addEventListener('pointerdown', onDown);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    el.addEventListener('wheel', onWheel, { passive: false });
+
+    this._focusKey = (key) => {
+      this.setState({ focus: key });
+      this._focusing = true;
+      const n = nodes[key];
+      dst.tx = n.pos.x; dst.ty = 0; dst.tz = n.pos.z;
+      dst.theta = n.angle; dst.phi = 1.05; dst.r = 4.4;
+    };
+    this._resetCam = () => {
+      this.setState({ focus: null });
+      this._focusing = false;
+      dst.tx = 0; dst.ty = 0; dst.tz = 0; dst.r = 13; dst.phi = 1.12;
+    };
+
+    const resize = () => {
+      const rect = host.getBoundingClientRect();
+      const w = Math.max(1, rect.width), h = Math.max(1, rect.height);
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h; camera.updateProjectionMatrix();
+    };
+    this._ro = new ResizeObserver(resize);
+    this._ro.observe(host);
+    resize();
+
+    this._running = true;
+    const t0 = performance.now();
+    const loop = () => {
+      if (!this._running) return;
+      this._raf = requestAnimationFrame(loop);
+      const time = (performance.now() - t0) / 1000;
+      if (!this._focusing && !dragging) dst.theta += 0.0009;
+      const k = 0.09;
+      cam.r += (dst.r - cam.r) * k;
+      cam.theta += (dst.theta - cam.theta) * k;
+      cam.phi += (dst.phi - cam.phi) * k;
+      cam.tx += (dst.tx - cam.tx) * k;
+      cam.ty += (dst.ty - cam.ty) * k;
+      cam.tz += (dst.tz - cam.tz) * k;
+      applyCam();
+      Object.values(nodes).forEach((n) => { n.grp.rotation.y += 0.003; n.grp.rotation.x = Math.sin(time * 0.4 + n.angle) * 0.05; });
+      core.rotation.y -= 0.004; core.rotation.x += 0.002;
+      pulses.forEach((p) => {
+        p.t += p.speed; if (p.t > 1) p.t -= 1;
+        p.mesh.position.lerpVectors(p.from, p.to, p.t);
+        p.mesh.material.opacity = Math.sin(p.t * Math.PI);
+        p.mesh.material.transparent = true;
+      });
+      renderer.render(scene, camera);
+    };
+    this._raf = requestAnimationFrame(loop);
+    this.forceUpdate();
+  }
+
+  _send() {
+    const v = this.state.draft.trim();
+    if (!v) return;
+    this.setState((s) => ({ draft: '', messages: [...s.messages, { role: 'ceo', text: v }] }));
+    clearTimeout(this._reply);
+    this._reply = setTimeout(() => {
+      this.setState((s) => ({ messages: [...s.messages, { role: 'agent', name: 'HERMES', color: '#a3b1f7', role2: 'orchestrator', text: 'Received. Classifying domain and routing to the best-fit agent — a run will open in the relevant room.' }] }));
+    }, 900);
+  }
+
+  renderVals() {
+    const s = this.state;
+    const motion = this._motion();
+    const t = (hex, a) => { const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16); return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')'; };
+    const isSim = this._isSim();
+
+    const navItems = [
+      { key: 'hub', label: 'BRAIN HUB', icon: this.ICONS.hub, active: false },
+      { key: 'trading', label: 'TRADING ROOM', icon: this.ICONS.trading, active: true },
+      { key: 'coding', label: 'CODING ROOM', icon: this.ICONS.coding, active: false },
+      { key: 'personal', label: 'PERSONAL ROOM', icon: this.ICONS.personal, active: false },
+    ].map((n) => ({ ...n, color: n.active ? '#a3b1f7' : '#565c68', border: n.active ? 'rgba(163,177,247,0.3)' : 'transparent', bg: n.active ? 'rgba(163,177,247,0.07)' : 'transparent' }));
+
+    const orders = s.orders.map((o, i) => {
+      const buy = o.side === 'BUY'; const sideC = buy ? '#34d399' : '#f87171';
+      const pending = o.status === 'STAGED'; const approved = o.status === 'APPROVED';
+      return { ...o,
+        sideColor: sideC, sideBorder: t(sideC, 0.45), sideBg: t(sideC, 0.1),
+        agentColor: o.agent === 'CODEX' ? '#b7a8f7' : '#a3b1f7',
+        cardBorder: pending ? 'rgba(163,177,247,0.3)' : 'rgba(158,164,178,0.08)',
+        cardBg: pending ? 'rgba(163,177,247,0.04)' : 'rgba(255,255,255,0.012)',
+        accent: pending ? '#a3b1f7' : 'transparent',
+        pending, resolved: !pending,
+        resolution: approved ? '✓ FILLED (SIM) — paper broker' : '✕ REJECTED — returned to agent',
+        resColor: approved ? '#34d399' : '#f87171',
+        resBorder: t(approved ? '#34d399' : '#f87171', 0.4), resBg: t(approved ? '#34d399' : '#f87171', 0.08),
+        onApprove: () => { this._tone(660); this.setState((st) => ({ orders: st.orders.map((x, j) => j === i ? { ...x, status: 'APPROVED' } : x) })); },
+        onReject: () => this.setState((st) => ({ orders: st.orders.map((x, j) => j === i ? { ...x, status: 'REJECTED' } : x) })),
+      };
+    });
+
+    const quotes = s.quotes.map((q) => ({
+      sym: q.sym,
+      pxEl: this._pxEl(q),
+      delta: (q.d >= 0 ? '+' : '') + q.d.toFixed(2) + '%',
+      deltaColor: q.d >= 0 ? '#34d399' : '#f87171',
+    }));
+
+    const messages = s.messages.map((m) => {
+      const isCeo = m.role === 'ceo';
+      return {
+        align: isCeo ? 'flex-end' : 'flex-start',
+        name: isCeo ? 'CEO' : m.name,
+        nameColor: isCeo ? '#a2a8b4' : m.color,
+        role2: isCeo ? '' : (m.role2 || ''),
+        text: m.text,
+        textColor: isCeo ? '#e8eaef' : '#d3d7de',
+        bubbleBorder: isCeo ? 'rgba(163,177,247,0.25)' : 'rgba(158,164,178,0.1)',
+        bubbleBg: isCeo ? 'rgba(163,177,247,0.08)' : 'rgba(255,255,255,0.02)',
+        anim: motion ? 'msgIn 0.18s ease-out' : 'none',
+      };
+    });
+
+    const focusBrain = s.focus ? this.BRAINS.find((b) => b.key === s.focus) : null;
+    const focusChip = focusBrain ? {
+      name: focusBrain.name,
+      status: focusBrain.status === 'idle' ? 'IDLE' : 'ACTIVE',
+      color: '#' + focusBrain.hex.toString(16).padStart(6, '0'),
+    } : null;
+
+    const palList = this._palFiltered();
+    return {
+      palOpen: s.palOpen,
+      palQuery: s.palQuery,
+      onPalQuery: (e) => this.setState({ palQuery: e.target.value, palSel: 0 }),
+      palInputRef: (el) => { this._palInput = el; },
+      onPalClose: () => this.setState({ palOpen: false }),
+      onPalStop: (e) => e.stopPropagation(),
+      palItems: palList.map((a, i) => ({
+        kind: a.kind,
+        kindColor: a.kind === 'ACTION' ? '#fbbf24' : '#7a8290',
+        label: a.label, hint: a.hint || '',
+        color: i === s.palSel ? '#e8eaef' : '#a2a8b4',
+        bg: i === s.palSel ? 'rgba(163,177,247,0.1)' : 'transparent',
+        onRun: () => a.run(),
+        onHover: () => this.setState({ palSel: i }),
+      })),
+      palEmpty: palList.length === 0,
+      navItems, clock: s.clock, isSim,
+      feedLabel: isSim ? 'SIM FEED' : 'LIVE FEED',
+      feedColor: isSim ? '#fbbf24' : '#34d399',
+      feedAnim: 'dotBlink 1.6s ease-in-out infinite',
+      onEstop: () => { if (!s.estop) this._tone(220); this.setState({ estop: !s.estop }); },
+      estopLabel: s.estop ? 'STOPPED — RESET' : 'E-STOP',
+      estopBorder: s.estop ? 'rgba(239,68,68,0.7)' : 'rgba(239,68,68,0.35)',
+      estopBg: s.estop ? 'rgba(239,68,68,0.22)' : 'rgba(239,68,68,0.08)',
+      armLabel: s.estop ? 'HALTED' : 'ARMED',
+      armColor: s.estop ? '#ef4444' : '#34d399',
+      armBorder: s.estop ? 'rgba(239,68,68,0.45)' : 'rgba(52,211,153,0.4)',
+      armBg: s.estop ? 'rgba(239,68,68,0.08)' : 'rgba(52,211,153,0.07)',
+      canvasRef: (el) => { this._host = el; },
+      ledgerRef: (el) => { this._ledgerEl = el; },
+      threadRef: (el) => { this._thread = el; },
+      focusChip,
+      onOrbitReturn: () => { if (this._resetCam) this._resetCam(); },
+      orders, stagedCount: s.orders.filter((o) => o.status === 'STAGED').length,
+      quotes, quoteCount: quotes.length,
+      ledger: s.ledger,
+      messages,
+      draft: s.draft,
+      onDraft: (e) => this.setState({ draft: e.target.value }),
+      onKey: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this._send(); } },
+      onSend: () => this._send(),
+      sendBorder: s.draft.trim() ? 'rgba(163,177,247,0.5)' : 'rgba(158,164,178,0.16)',
+      sendBg: s.draft.trim() ? 'rgba(163,177,247,0.14)' : 'transparent',
+      sendColor: s.draft.trim() ? '#c3cdfa' : '#565c68',
+    };
+  }
+}
+</script>
+</body>
+</html>
