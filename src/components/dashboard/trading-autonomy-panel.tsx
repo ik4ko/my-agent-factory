@@ -127,7 +127,7 @@ export function TradingAutonomyPanel() {
     try {
       const res = await fetch('/api/trading/autonomy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
         body: JSON.stringify({ action: 'pulse', reason: 'manual Trading Room autonomy pulse' }),
       });
       const data = (await res.json().catch(() => ({}))) as { reply?: string; error?: string };

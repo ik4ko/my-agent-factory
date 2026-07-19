@@ -1,6 +1,23 @@
 import { getAdminClient } from '@/lib/supabase/admin';
 
-export type ChatHistoryScope = 'hub' | 'trading' | 'coding' | 'personal' | 'ceo' | 'matrix';
+// Single source of truth for chat-history scopes — API routes build their
+// zod enums from this array so it cannot drift from the type again.
+export const CHAT_HISTORY_SCOPES = [
+  'hub',
+  'trading',
+  'coding',
+  'personal',
+  'ceo',
+  'matrix',
+  // Per-mentor scopes: each mentor lane persists to its own KV row
+  // (chat:{scope}:history) so mentors never see each other's conversation.
+  'mentor_business',
+  'mentor_money',
+  'mentor_life',
+  'mentor_health',
+] as const;
+
+export type ChatHistoryScope = (typeof CHAT_HISTORY_SCOPES)[number];
 
 export interface ChatHistoryMaterializedArtifact {
   type: 'task' | 'staged_order';

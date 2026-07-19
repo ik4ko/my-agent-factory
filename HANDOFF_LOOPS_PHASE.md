@@ -1,5 +1,7 @@
 # My Agent Factory — Handoff Prompt: Autonomous Loops + Phone + Robinhood
 
+> **SUPERSEDED 2026-07-19:** Historical brief only. Live-broker and phone/SMS/voice integrations were removed. Current operation is paper simulation plus Telegram; follow `RUNBOOK.md`.
+
 > Paste this whole file into a new chat as the opening message. It is written as instructions **to you, the next agent**. Build it as an elite senior engineer. Target: a working long-running autonomous system, ready to smoke-test by tomorrow.
 
 ---

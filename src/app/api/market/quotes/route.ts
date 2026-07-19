@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import YahooFinance from 'yahoo-finance2';
 import { getAdminClient } from '@/lib/supabase/admin';
+import { withToolTimeout } from '@/lib/tools/live-tools';
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
@@ -20,11 +21,14 @@ export async function GET(request: Request) {
       if (candles) {
         const range = url.searchParams.get('range') ?? '5d';
         const interval = url.searchParams.get('interval') ?? '5m';
-        const chart = await yahooFinance.chart(symbol.toUpperCase(), {
-          period1: new Date(Date.now() - rangeToMs(range)),
-          interval: interval as '1m' | '2m' | '5m' | '15m' | '30m' | '60m' | '90m' | '1h' | '1d',
-          includePrePost: false,
-        });
+        const chart = await withToolTimeout(
+          yahooFinance.chart(symbol.toUpperCase(), {
+            period1: new Date(Date.now() - rangeToMs(range)),
+            interval: interval as '1m' | '2m' | '5m' | '15m' | '30m' | '60m' | '90m' | '1h' | '1d',
+            includePrePost: false,
+          }),
+          'Yahoo chart',
+        );
         const rows = chart.quotes
           .filter(
             (q) =>
@@ -52,7 +56,7 @@ export async function GET(request: Request) {
         });
       }
 
-      const quote = await yahooFinance.quote(symbol.toUpperCase());
+      const quote = await withToolTimeout(yahooFinance.quote(symbol.toUpperCase()), 'Yahoo quote');
       if (typeof quote.regularMarketPrice !== 'number') {
         return NextResponse.json({ error: `No live price for ${symbol}` }, { status: 502 });
       }

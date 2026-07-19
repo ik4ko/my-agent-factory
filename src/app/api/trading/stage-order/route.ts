@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   const equityUsd = await getActivePortfolioBalance();
   const result = buildStagedOrder(params, {
     pipelineId: pipeline_id ?? null,
-    source: source ?? 'LIVE',
+    source: source ?? 'RESEARCH',
     equityUsd,
   });
 

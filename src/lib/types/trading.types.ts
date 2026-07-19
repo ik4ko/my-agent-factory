@@ -20,10 +20,10 @@ export const DEFAULT_PAPER_EQUITY_USD = 100_000;
 
 export type OptionType = 'CALL' | 'PUT';
 export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'DENIED';
-export type OrderSource = 'SANDBOX' | 'LIVE';
+export type OrderSource = 'SANDBOX' | 'RESEARCH';
 
-/** A staged (NOT executed) Robinhood-format order awaiting human review. */
-export interface RobinhoodStagedOrder {
+/** A staged paper-analysis proposal awaiting human review. */
+export interface StagedOrder {
   /** UUID. */
   id: string;
   underlying: string;
@@ -77,7 +77,7 @@ export type TradeParams = z.infer<typeof TradeParamsSchema>;
  *  PENDING status and RECOMPUTES sizing — client-provided sizes are ignored. */
 export const StageOrderInputSchema = TradeParamsSchema.extend({
   pipeline_id: z.string().uuid().nullable().optional(),
-  source: z.enum(['SANDBOX', 'LIVE']).optional(),
+  source: z.enum(['SANDBOX', 'RESEARCH']).optional(),
 });
 export type StageOrderInput = z.infer<typeof StageOrderInputSchema>;
 
@@ -86,16 +86,13 @@ export type StageOrderInput = z.infer<typeof StageOrderInputSchema>;
  * it yet; it is the canonical validated shape for a single-leg, defined-risk
  * option order so future work has a safe target.
  *
- * LIVE OPTION EXECUTION IS BLOCKED at four layers — all must be closed, in
- * code, before this is ever wired to a broker:
- *  1. Adapter: `ExecutionAdapter.placeOrder(intent: OrderIntent)` accepts an
- *     EQUITY intent only — no adapter exposes an option-order method
- *     (capability NOT proven from code).
- *  2. Risk gate: `checkRisk()` is equity-shaped — no per-contract / defined-risk
+ * OPTION EXECUTION IS SIMULATION-ONLY by construction:
+ *  1. The sole adapter accepts equity-shaped paper intents only.
+ *  2. The risk gate has no per-contract / defined-risk
  *     / max-loss path exists.
- *  3. Dispatch: staged orders are decision-only ("no broker dispatch exists"
+ *  3. Dispatch is decision-only ("no broker dispatch exists"
  *     in /api/trading/action-order).
- *  4. Live flag: no explicit env flag enabling live option orders.
+ *  4. No broker adapter or live-enable flag exists.
  *
  * Guardrails encoded here (safety by construction): single-leg only (`.strict()`
  * rejects a legs[] array), LIMIT only (market option orders disallowed),
@@ -104,7 +101,7 @@ export type StageOrderInput = z.infer<typeof StageOrderInputSchema>;
  */
 export const OptionOrderIntentSchema = z
   .object({
-    /** Buy/sell + open/close in one Robinhood-style field. */
+    /** Buy/sell + open/close action. */
     action: z.enum(['buy_to_open', 'sell_to_close', 'sell_to_open', 'buy_to_close']),
     underlying: z
       .string()
@@ -130,7 +127,7 @@ export const OptionOrderIntentSchema = z
     strategy_label: z.string().trim().min(1).max(120),
     /** UUID of the options-flow / price event that sourced this intent (audit link). */
     source_signal_id: z.string().uuid().nullable().optional(),
-    source: z.enum(['SANDBOX', 'LIVE']).default('SANDBOX'),
+    source: z.enum(['SANDBOX', 'RESEARCH']).default('SANDBOX'),
   })
   .strict();
 export type OptionOrderIntent = z.infer<typeof OptionOrderIntentSchema>;

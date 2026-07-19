@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
  *
  * DESIGN DECISION — intentional asymmetry, NOT an inconsistency to "fix":
  * E-STOP is gated by a confirm MODAL only, deliberately NOT by the OPERATOR_PIN.
- * Arming live execution (the arm flow via pin-action-modal) IS PIN-gated. The
+ * Arming paper simulation (the arm flow via pin-action-modal) IS PIN-gated. The
  * asymmetry is by design and correct: enabling risk should carry friction (a
  * PIN), while the safety egress that HALTS everything must be as fast as
  * possible — a PIN prompt on the kill switch would be a safety regression under

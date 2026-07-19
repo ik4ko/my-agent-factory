@@ -1,5 +1,7 @@
 # My Agent Factory — Handoff: Phase 2+ (Execution, Autonomy, Phone)
 
+> **SUPERSEDED 2026-07-19:** Historical brief only. Live-broker and phone/SMS/voice integrations were removed. Current operation is paper simulation plus Telegram; follow `RUNBOOK.md`.
+
 > Paste this into the chat that just finished Phase 0/1 (or a new one). Written **to you, the next agent**. Continue as an elite senior engineer. Phase 0/1 are already built and proven against the real `grtnjhwekvkyawacunde` Supabase project — do not rebuild them.
 
 ---

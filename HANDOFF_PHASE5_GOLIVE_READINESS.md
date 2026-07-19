@@ -1,5 +1,7 @@
 # My Agent Factory — Handoff: Phase 5 (Go-Live Readiness) → 6 → 7
 
+> **SUPERSEDED 2026-07-19:** Historical brief only. No broker go-live or phone/SMS/voice cutover exists. Trading is paper simulation and remote messaging is Telegram-only; follow `RUNBOOK.md`.
+
 > Paste into the chat that finished Phase 4B (or a new one). Written **to you, the next agent**. Continue as an elite senior engineer. Phases 0–4B are built and proven against `grtnjhwekvkyawacunde` — do not rebuild them.
 >
 > **Operator directive: build Phase 5 completely NOW with no third-party credentials.** Phase 7 (live trading cutover) is the final key-gated switch.

@@ -55,7 +55,15 @@ describe('confinePath — realpath boundary', () => {
 
   it('rejects a symlink that escapes the root', () => {
     const link = path.join(root, 'escape');
-    fs.symlinkSync(os.tmpdir(), link);
+    try {
+      fs.symlinkSync(os.tmpdir(), link);
+    } catch (err) {
+      // Windows requires elevation/Developer Mode to create symlinks (EPERM).
+      // The boundary check itself is platform-independent and covered by the
+      // traversal cases above, so skip rather than fail on such hosts.
+      if ((err as NodeJS.ErrnoException).code === 'EPERM') return;
+      throw err;
+    }
     expect(confinePath('escape/x', false).ok).toBe(false);
   });
 });

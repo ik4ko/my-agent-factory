@@ -101,7 +101,7 @@ export function extractOptionOrderIntent(
 export function describeOptionIntent(intent: OptionOrderIntent): string {
   const premiumUsd = intent.contracts * intent.limit_price * 100;
   return [
-    'OPTIONS INTENT — NOT LIVE EXECUTABLE (staged for decision only)',
+    'OPTIONS INTENT — SIMULATION/RESEARCH ONLY (staged for decision only)',
     `${intent.action} ${intent.contracts}x ${intent.underlying} ${intent.expiration} ${intent.strike} ${intent.option_type} @ ${intent.limit_price} ${intent.price_effect} (LIMIT)`,
     `est premium ~$${Math.round(premiumUsd).toLocaleString()} · max premium $${Math.round(intent.max_premium_usd).toLocaleString()} · max loss $${Math.round(intent.max_loss_usd).toLocaleString()}`,
     `strategy: ${intent.strategy_label}${intent.source_signal_id ? ` · signal ${intent.source_signal_id}` : ''}`,

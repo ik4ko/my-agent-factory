@@ -2,6 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import { z } from 'zod';
 import { startPipeline, executeStep } from '@/lib/pipeline/engine';
 import type { PipelineRunResponse } from '@/lib/pipeline/types';
+import { claimAction, finishAction } from '@/lib/idempotency/claims';
 
 /**
  * POST /api/pipeline/run — launch a sequential multi-agent pipeline.
@@ -39,6 +40,13 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
+  const requestId = req.headers.get('idempotency-key')?.trim();
+  if (!requestId) return NextResponse.json({ error: 'Idempotency-Key header is required' }, { status: 400 });
+  const claim = await claimAction('pipeline:run', requestId, parsed.data);
+  if (!claim.claimed) {
+    if (claim.status === 'completed') return NextResponse.json(claim.response);
+    return NextResponse.json({ error: 'Pipeline start is already in progress', replayed: true }, { status: 409 });
+  }
 
   let dispatch;
   try {
@@ -68,5 +76,6 @@ export async function POST(req: NextRequest) {
       agent: dispatch.agentName,
     },
   };
+  await finishAction('pipeline:run', requestId, payload);
   return NextResponse.json(payload);
 }

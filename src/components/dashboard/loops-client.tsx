@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { Play, Pause, Square, Trash2, Plus, Repeat } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { AlertTriangle, ChevronDown, ChevronRight, Loader2, Pause, Play, Plus, Repeat, Square, Trash2, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useLoopsQuery } from '@/hooks/use-loops-query';
 import { useLoopRunsQuery } from '@/hooks/use-loop-runs-query';
-import type { LoopKind, LoopRow, LoopStatus } from '@/lib/types/database.types';
+import { useConnectionStore, type ChannelStatus } from '@/lib/realtime/connection-store';
+import type { LoopKind, LoopRow, LoopRunRow, LoopStatus } from '@/lib/types/database.types';
 
 const KIND_OPTIONS: LoopKind[] = ['monitor', 'research', 'build', 'trade', 'personal'];
 const BRAIN_OPTIONS = ['claude', 'codex', 'hermes'] as const;
@@ -18,17 +19,59 @@ const STATUS_BADGE: Record<LoopStatus, 'success' | 'muted' | 'error'> = {
   stopped: 'error',
 };
 
-async function patchLoop(id: string, body: Record<string, unknown>) {
-  await fetch(`/api/loops/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+/** Awaited mutation with a real error result — no fire-and-forget. */
+async function loopRequest(path: string, init: RequestInit): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(path, init);
+    if (res.ok) return { ok: true };
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return { ok: false, error: data.error ?? `request failed (${res.status})` };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'network error' };
+  }
 }
 
-function relativeTime(iso: string | null): string {
+function patchLoop(id: string, body: Record<string, unknown>) {
+  return loopRequest(`/api/loops/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+/** Re-render on an interval so relative times stay truthful (no frozen
+ *  "5s ago" that is actually minutes old). */
+function useNowTick(intervalMs = 10_000): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(t);
+  }, [intervalMs]);
+  return now;
+}
+
+function relativeTime(iso: string | null, now: number): string {
   if (!iso) return 'never';
-  const seconds = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
+  const seconds = Math.round((now - new Date(iso).getTime()) / 1000);
   if (seconds < 5) return 'just now';
   if (seconds < 60) return `${seconds}s ago`;
   if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`;
   return `${Math.round(seconds / 3600)}h ago`;
+}
+
+function durationLabel(run: LoopRunRow): string | null {
+  if (!run.finished_at) return null;
+  const ms = new Date(run.finished_at).getTime() - new Date(run.started_at).getTime();
+  if (ms < 0) return null;
+  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+}
+
+/** Collapse the two loops-room channels into one truthful liveness chip. */
+function liveness(channels: Record<string, ChannelStatus>): { label: string; tone: 'live' | 'warn' | 'down' } {
+  const statuses = ['loops-changes', 'loop-runs-changes'].map((c) => channels[c]);
+  if (statuses.every((s) => s === 'connected')) return { label: 'LIVE', tone: 'live' };
+  if (statuses.some((s) => s === 'reconnecting' || s === 'closed')) return { label: 'RECONNECTING — data may be stale', tone: 'down' };
+  return { label: 'CONNECTING', tone: 'warn' };
 }
 
 function CreateLoopForm({ onCreated }: { onCreated: () => void }) {
@@ -39,23 +82,28 @@ function CreateLoopForm({ onCreated }: { onCreated: () => void }) {
   const [brain, setBrain] = useState<(typeof BRAIN_OPTIONS)[number]>('claude');
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function submit() {
     if (!name.trim() || !objective.trim()) return;
     setBusy(true);
-    try {
-      await fetch('/api/loops', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, kind, objective, cadence_seconds: cadence, brain }),
-      });
-      setName('');
-      setObjective('');
-      setOpen(false);
-      onCreated();
-    } finally {
-      setBusy(false);
+    setError(null);
+    const result = await loopRequest('/api/loops', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, kind, objective, cadence_seconds: cadence, brain }),
+    });
+    setBusy(false);
+    if (!result.ok) {
+      // Keep everything the operator typed — they fix and resubmit.
+      setError(result.error ?? 'create failed');
+      return;
     }
+    setName('');
+    setObjective('');
+    setError(null);
+    setOpen(false);
+    onCreated();
   }
 
   if (!open) {
@@ -97,6 +145,11 @@ function CreateLoopForm({ onCreated }: { onCreated: () => void }) {
         rows={2}
         className="rounded border border-border bg-background px-2 py-1.5 text-sm"
       />
+      {error && (
+        <p className="flex items-center gap-1.5 rounded border border-destructive/40 bg-destructive/10 px-2 py-1 text-xs text-destructive">
+          <AlertTriangle className="size-3 shrink-0" /> {error}
+        </p>
+      )}
       <div className="flex items-center gap-2">
         <label className="text-xs text-muted-foreground">Cadence (s)</label>
         <input
@@ -111,7 +164,7 @@ function CreateLoopForm({ onCreated }: { onCreated: () => void }) {
             Cancel
           </Button>
           <Button size="sm" disabled={busy} onClick={submit}>
-            Create (paused)
+            {busy ? <Loader2 className="animate-spin" /> : null} Create (paused)
           </Button>
         </div>
       </div>
@@ -119,63 +172,197 @@ function CreateLoopForm({ onCreated }: { onCreated: () => void }) {
   );
 }
 
-function LoopRow_({ loop }: { loop: LoopRow }) {
+function LoopRowItem({ loop, now, onChanged }: { loop: LoopRow; now: number; onChanged: () => void }) {
+  const [pending, setPending] = useState<string | null>(null);
+  const [rowError, setRowError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  const act = async (label: string, body: Record<string, unknown>) => {
+    setPending(label);
+    setRowError(null);
+    const result = await patchLoop(loop.id, body);
+    setPending(null);
+    if (!result.ok) setRowError(`${label} failed: ${result.error}`);
+    else onChanged();
+  };
+
+  const remove = async () => {
+    setPending('delete');
+    setRowError(null);
+    const result = await loopRequest(`/api/loops/${loop.id}`, { method: 'DELETE' });
+    setPending(null);
+    setConfirmingDelete(false);
+    if (!result.ok) setRowError(`delete failed: ${result.error}`);
+    else onChanged();
+  };
+
   return (
-    <div className="flex items-center gap-3 rounded-md border border-border p-3">
-      <Repeat className="size-4 shrink-0 text-muted-foreground" />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-medium text-foreground">{loop.name}</span>
-          <Badge variant="outline">{loop.kind}</Badge>
-          <Badge variant={STATUS_BADGE[loop.status]}>{loop.status}</Badge>
+    <div className="rounded-md border border-border p-3">
+      <div className="flex items-center gap-3">
+        <Repeat className="size-4 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="truncate text-sm font-medium text-foreground">{loop.name}</span>
+            <Badge variant="outline">{loop.kind}</Badge>
+            <Badge variant={STATUS_BADGE[loop.status]}>{loop.status}</Badge>
+          </div>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">{loop.objective}</p>
+          <p className="mt-0.5 font-terminal text-[10px] text-muted-foreground/60">
+            cadence {loop.cadence_seconds ? `${loop.cadence_seconds}s` : 'event-only'} · last tick {relativeTime(loop.last_tick_at, now)} · brain {loop.brain}
+          </p>
         </div>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">{loop.objective}</p>
-        <p className="mt-0.5 font-terminal text-[10px] text-muted-foreground/60">
-          cadence {loop.cadence_seconds ? `${loop.cadence_seconds}s` : 'event-only'} · last tick {relativeTime(loop.last_tick_at)} · brain {loop.brain}
+        <div className="flex shrink-0 items-center gap-1">
+          {pending && <Loader2 className="size-3.5 animate-spin text-muted-foreground" aria-label={`${pending} in progress`} />}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title={loop.status === 'armed' ? 'Run now (schedules an immediate tick)' : 'Arm the loop first — Run now only works on armed loops'}
+            disabled={loop.status !== 'armed' || pending !== null}
+            onClick={() => act('run now', { run_now: true })}
+          >
+            <Zap className="text-neon-green" />
+          </Button>
+          <Button variant="ghost" size="icon-sm" title="Arm" disabled={loop.status === 'armed' || pending !== null} onClick={() => act('arm', { status: 'armed' })}>
+            <Play className="text-neon-green" />
+          </Button>
+          <Button variant="ghost" size="icon-sm" title="Pause" disabled={loop.status === 'paused' || pending !== null} onClick={() => act('pause', { status: 'paused' })}>
+            <Pause />
+          </Button>
+          <Button variant="ghost" size="icon-sm" title="Stop" disabled={loop.status === 'stopped' || pending !== null} onClick={() => act('stop', { status: 'stopped' })}>
+            <Square className="text-destructive" />
+          </Button>
+          {confirmingDelete ? (
+            <span className="flex items-center gap-1 rounded border border-destructive/40 bg-destructive/10 px-1.5 py-0.5">
+              <span className="text-[10px] text-destructive">delete + run history?</span>
+              <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px] text-destructive" disabled={pending !== null} onClick={remove}>
+                yes
+              </Button>
+              <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px]" disabled={pending !== null} onClick={() => setConfirmingDelete(false)}>
+                no
+              </Button>
+            </span>
+          ) : (
+            <Button variant="ghost" size="icon-sm" title="Delete" disabled={pending !== null} onClick={() => setConfirmingDelete(true)}>
+              <Trash2 className="text-destructive/70" />
+            </Button>
+          )}
+        </div>
+      </div>
+      {rowError && (
+        <p className="mt-2 flex items-center gap-1.5 rounded border border-destructive/40 bg-destructive/10 px-2 py-1 text-xs text-destructive">
+          <AlertTriangle className="size-3 shrink-0" /> {rowError}
         </p>
-      </div>
-      <div className="flex shrink-0 gap-1">
-        <Button variant="ghost" size="icon-sm" title="Arm" disabled={loop.status === 'armed'} onClick={() => patchLoop(loop.id, { status: 'armed' })}>
-          <Play className="text-neon-green" />
-        </Button>
-        <Button variant="ghost" size="icon-sm" title="Pause" disabled={loop.status === 'paused'} onClick={() => patchLoop(loop.id, { status: 'paused' })}>
-          <Pause />
-        </Button>
-        <Button variant="ghost" size="icon-sm" title="Stop" disabled={loop.status === 'stopped'} onClick={() => patchLoop(loop.id, { status: 'stopped' })}>
-          <Square className="text-destructive" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          title="Delete"
-          onClick={() => {
-            if (confirm(`Delete loop "${loop.name}"? This removes its run history too.`)) {
-              void fetch(`/api/loops/${loop.id}`, { method: 'DELETE' });
-            }
-          }}
+      )}
+    </div>
+  );
+}
+
+function RunItem({ run, loopName, now }: { run: LoopRunRow; loopName: string; now: number }) {
+  const [expanded, setExpanded] = useState(false);
+  const duration = durationLabel(run);
+
+  return (
+    <div className="rounded-md border border-border p-2 text-xs">
+      <button type="button" className="flex w-full items-center justify-between gap-2 text-left" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}>
+        <span className="flex min-w-0 items-center gap-1.5">
+          {expanded ? <ChevronDown className="size-3 shrink-0 text-muted-foreground" /> : <ChevronRight className="size-3 shrink-0 text-muted-foreground" />}
+          <span className="truncate font-medium text-foreground">{loopName}</span>
+        </span>
+        <Badge
+          variant={run.status === 'completed' ? 'success' : run.status === 'failed' ? 'error' : 'muted'}
+          className={cn(run.status === 'running' && 'animate-pulse')}
         >
-          <Trash2 className="text-destructive/70" />
-        </Button>
-      </div>
+          {run.status}
+        </Badge>
+      </button>
+      <p className="mt-1 text-muted-foreground/80">
+        {relativeTime(run.started_at, now)}
+        {duration ? ` · took ${duration}` : run.status === 'running' ? ' · in progress' : ''}
+      </p>
+      {!expanded && run.decision && (
+        <p className="mt-1 truncate font-terminal text-[10px] text-muted-foreground">{JSON.stringify(run.decision).slice(0, 140)}</p>
+      )}
+      {!expanded && run.error && <p className="mt-1 truncate text-[10px] text-destructive">{run.error}</p>}
+      {expanded && (
+        <div className="mt-2 flex flex-col gap-1.5 border-t border-border pt-2">
+          <p className="font-terminal text-[10px] text-muted-foreground/60">
+            started {new Date(run.started_at).toLocaleString()}
+            {run.finished_at ? ` · finished ${new Date(run.finished_at).toLocaleString()}` : ''}
+          </p>
+          {run.error && <pre className="overflow-x-auto rounded bg-destructive/10 p-1.5 text-[10px] text-destructive">{run.error}</pre>}
+          {(['trigger', 'decision', 'actions', 'result'] as const).map((field) =>
+            run[field] ? (
+              <div key={field}>
+                <p className="font-terminal text-[9px] uppercase tracking-wider text-muted-foreground/50">{field}</p>
+                <pre className="max-h-48 overflow-auto rounded bg-surface-2 p-1.5 font-terminal text-[10px] text-muted-foreground">
+                  {JSON.stringify(run[field], null, 2)}
+                </pre>
+              </div>
+            ) : null,
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function QuerySkeleton({ rows }: { rows: number }) {
+  return (
+    <div className="flex flex-col gap-2" aria-label="loading">
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="h-16 animate-pulse rounded-md border border-border bg-surface-2/60" />
+      ))}
+    </div>
+  );
+}
+
+function QueryError({ label, onRetry }: { label: string; onRetry: () => void }) {
+  return (
+    <div className="flex items-center justify-between rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+      <span className="flex items-center gap-1.5">
+        <AlertTriangle className="size-3.5" /> {label}
+      </span>
+      <Button variant="outline" size="sm" onClick={onRetry}>
+        Retry
+      </Button>
     </div>
   );
 }
 
 export function LoopsClient() {
-  const { data: loops = [], refetch } = useLoopsQuery();
-  const { data: runs = [] } = useLoopRunsQuery();
+  const loopsQuery = useLoopsQuery();
+  const runsQuery = useLoopRunsQuery();
+  const loops = loopsQuery.data ?? [];
+  const runs = runsQuery.data ?? [];
   const loopNameById = new Map(loops.map((l) => [l.id, l.name]));
+  const now = useNowTick(10_000);
+  const channels = useConnectionStore((s) => s.channels);
+  const live = liveness(channels);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
       <section className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <h2 className="font-terminal text-xs uppercase tracking-widest text-muted-foreground">
+          <h2 className="flex items-center gap-2 font-terminal text-xs uppercase tracking-widest text-muted-foreground">
             Standing loops ({loops.length})
+            <span
+              className={cn(
+                'flex items-center gap-1 rounded-full border px-1.5 py-px font-terminal text-[9px] normal-case tracking-normal',
+                live.tone === 'live' && 'border-neon-green/40 text-neon-green/90',
+                live.tone === 'warn' && 'border-border text-muted-foreground',
+                live.tone === 'down' && 'border-destructive/40 text-destructive',
+              )}
+              title="Realtime channel status for loops + runs"
+            >
+              <span className={cn('size-1.5 rounded-full', live.tone === 'live' ? 'bg-neon-green' : live.tone === 'down' ? 'bg-destructive' : 'animate-pulse bg-muted-foreground')} aria-hidden />
+              {live.label}
+            </span>
           </h2>
-          <CreateLoopForm onCreated={() => void refetch()} />
+          <CreateLoopForm onCreated={() => void loopsQuery.refetch()} />
         </div>
-        {loops.length === 0 && (
+        {loopsQuery.isLoading && <QuerySkeleton rows={3} />}
+        {loopsQuery.isError && <QueryError label="Failed to load loops." onRetry={() => void loopsQuery.refetch()} />}
+        {!loopsQuery.isLoading && !loopsQuery.isError && loops.length === 0 && (
           <p className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
             No loops yet. Create a `monitor` loop first to prove the tick/lock/reschedule cycle before wiring anything
             that touches money.
@@ -183,34 +370,19 @@ export function LoopsClient() {
         )}
         <div className="flex flex-col gap-2">
           {loops.map((loop) => (
-            <LoopRow_ key={loop.id} loop={loop} />
+            <LoopRowItem key={loop.id} loop={loop} now={now} onChanged={() => void loopsQuery.refetch()} />
           ))}
         </div>
       </section>
 
       <section className="flex flex-col gap-2">
         <h2 className="font-terminal text-xs uppercase tracking-widest text-muted-foreground">Recent runs</h2>
+        {runsQuery.isLoading && <QuerySkeleton rows={4} />}
+        {runsQuery.isError && <QueryError label="Failed to load runs." onRetry={() => void runsQuery.refetch()} />}
+        {!runsQuery.isLoading && !runsQuery.isError && runs.length === 0 && <p className="text-sm text-muted-foreground">No runs yet.</p>}
         <div className="flex flex-col gap-1.5">
-          {runs.length === 0 && <p className="text-sm text-muted-foreground">No runs yet.</p>}
           {runs.map((run) => (
-            <div key={run.id} className="rounded-md border border-border p-2 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-foreground">{loopNameById.get(run.loop_id ?? '') ?? 'unknown loop'}</span>
-                <Badge
-                  variant={run.status === 'completed' ? 'success' : run.status === 'failed' ? 'error' : 'muted'}
-                  className={cn(run.status === 'running' && 'animate-pulse')}
-                >
-                  {run.status}
-                </Badge>
-              </div>
-              <p className="mt-1 text-muted-foreground/80">{relativeTime(run.started_at)}</p>
-              {run.decision && (
-                <p className="mt-1 truncate font-terminal text-[10px] text-muted-foreground">
-                  {JSON.stringify(run.decision).slice(0, 140)}
-                </p>
-              )}
-              {run.error && <p className="mt-1 truncate text-[10px] text-destructive">{run.error}</p>}
-            </div>
+            <RunItem key={run.id} run={run} loopName={loopNameById.get(run.loop_id ?? '') ?? 'unknown loop'} now={now} />
           ))}
         </div>
       </section>

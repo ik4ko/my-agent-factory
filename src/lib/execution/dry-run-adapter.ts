@@ -1,7 +1,5 @@
 // DryRunAdapter — the always-available, never-fails backend. Used whenever
-// trading is not armed (risk_state.trading_enabled=false / TRADING_ENABLED
-// unset) and as the final fallback when neither Direct nor Bridge are ready.
-// Never touches a brokerage; getQuote is real market data (Yahoo, with the
+// simulation execution. Never touches a brokerage; getQuote is market data (Yahoo, with the
 // project's existing simulated fallback) so sizing/risk math still works
 // against realistic numbers even while nothing is armed.
 import { getMarketContext } from '@/lib/market/fetcher';
@@ -34,7 +32,4 @@ export class DryRunAdapter implements ExecutionAdapter {
     return { status: 'dry_run', fillPrice: quote.price, reason: `dry-run — ${intent.reason}` };
   }
 
-  async cancelOrder(): Promise<void> {
-    /* nothing was ever placed */
-  }
 }

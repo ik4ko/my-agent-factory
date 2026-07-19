@@ -65,14 +65,17 @@ export async function sendEmail(input: EmailInput): Promise<EmailResult> {
   // Audit row first, so even a crash mid-send leaves a trace.
   let auditId: string | null = null;
   try {
-    const { data } = await db()
+    const { data, error } = await db()
       .from('outbound_messages')
       .insert({ channel: 'email', recipient: to, subject, body, agent, status: 'sending' })
       .select('id')
       .single();
-    auditId = data?.id ?? null;
+    if (error || !data?.id) {
+      return { ok: false, error: `email audit claim failed: ${error?.message ?? 'no audit row returned'}` };
+    }
+    auditId = data.id;
   } catch {
-    /* audit is best-effort — never blocks a send */
+    return { ok: false, error: 'email audit claim failed' };
   }
 
   // Optional human-approval gate.

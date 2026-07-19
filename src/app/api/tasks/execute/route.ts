@@ -6,9 +6,11 @@ import { parseToolCalls } from '@/lib/sandbox/parser';
 import { executeToolCalls, formatToolResults } from '@/lib/sandbox/runner';
 import { resolveTaskRoomScope } from '@/lib/rooms/scope';
 import type { Task } from '@/lib/types/database.types';
+import { claimAction, finishAction } from '@/lib/idempotency/claims';
 
 const Schema = z.object({
   taskId: z.string().uuid(),
+  executionId: z.string().uuid(),
   // Full agent transcript to scan (tasks.result stores only a rolling
   // preview); callers pass the complete text they want parsed for tool calls.
   text: z.string().max(500_000).optional(),
@@ -28,7 +30,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
   }
-  const { taskId, text } = parsed.data;
+  const { taskId, executionId, text } = parsed.data;
 
   try {
     const db = getAdminClient();
@@ -52,6 +54,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ executed: 0, results: [], parseErrors: errors, feedback: '' });
     }
 
+    const scope = `task-tools:${taskId}`;
+    const claim = await claimAction(scope, executionId, { taskId, source });
+    if (!claim.claimed) {
+      if (claim.status === 'completed') return NextResponse.json(claim.response);
+      return NextResponse.json(
+        { error: 'Execution was already claimed; refusing to replay an ambiguous tool batch', replayed: true },
+        { status: 409 },
+      );
+    }
+
     // Scope web_fetch's rate limit per agent (not global, so one busy agent
     // can't starve another's) and its domain allowlist per room — reuses
     // the same room-inference this app already uses elsewhere, not a
@@ -60,12 +72,14 @@ export async function POST(req: NextRequest) {
     const results = await executeToolCalls(taskId, calls, task.agent_id ?? task.assigned_lane ?? 'unscoped', roomScope);
     const feedback = formatToolResults(results);
 
-    return NextResponse.json({
+    const response = {
       executed: results.length,
       results,
       parseErrors: errors,
       feedback, // append to agent context for the next reasoning turn
-    });
+    };
+    await finishAction(scope, executionId, response);
+    return NextResponse.json(response);
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Execution failed' },

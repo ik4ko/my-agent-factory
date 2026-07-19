@@ -11,6 +11,8 @@ const PatchSchema = z.object({
   status: z.enum(['armed', 'paused', 'stopped']).optional(),
   cadence_seconds: z.number().int().min(5).max(86_400).nullable().optional(),
   objective: z.string().trim().min(1).max(4000).optional(),
+  /** Schedule an immediate tick (armed loops only — the sweep ignores others). */
+  run_now: z.boolean().optional(),
 });
 
 /** PATCH /api/loops/[id] — arm/pause/stop a loop (and light field edits). */
@@ -20,12 +22,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid payload' }, { status: 400 });
   }
-  const patch = parsed.data;
+  const { run_now, ...patch } = parsed.data;
 
   const update: Record<string, unknown> = { ...patch, updated_at: new Date().toISOString() };
   // Arming schedules an immediate first tick; pausing/stopping clears it and
   // drops any lock so a currently-ticking run finishes but no new one starts.
   if (patch.status === 'armed') update.next_tick_at = new Date().toISOString();
+  // Manual "Run now": pull the next tick to the present. Only meaningful on
+  // an armed loop — the sweep filters status='armed', so this is a no-op on
+  // paused/stopped loops rather than a resurrection.
+  if (run_now) update.next_tick_at = new Date().toISOString();
   if (patch.status === 'paused' || patch.status === 'stopped') {
     update.next_tick_at = null;
     update.lock_owner = null;

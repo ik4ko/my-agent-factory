@@ -3,7 +3,7 @@
 // is armed. When it blocks, the order never reaches an adapter at all: the
 // engine records status='risk_blocked' and stops. When it passes, the
 // engine proceeds to selectAdapter().placeOrder() — which itself still
-// yields status='dry_run' while risk_state.trading_enabled is false.
+// always yields simulation execution after these gates pass.
 //
 // Caps are read from env AND the loop's own config; the STRICTER of the two
 // always wins (a loop can only narrow its own limits, never widen the

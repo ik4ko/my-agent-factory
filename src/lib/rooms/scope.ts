@@ -85,7 +85,7 @@ export function logInScope(log: Log, scope: RoomScope, scopeAgentIds?: ReadonlyS
 }
 
 /** Agents that have earned trading-room membership through trading-domain
- *  task history (or a live trading task in flight). */
+ *  task history (or a trading-analysis task in flight). */
 export function tradingAgentIdsFromTasks(tasks: Task[]): Set<string> {
   const ids = new Set<string>();
   for (const t of tasks) {

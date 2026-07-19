@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getMarketContext } from '@/lib/market/fetcher';
 import { getAdminClient } from '@/lib/supabase/admin';
-import { DirectAdapter } from '@/lib/execution/direct-adapter';
 import type { Position } from '@/lib/execution/types';
 
 export const dynamic = 'force-dynamic';
@@ -93,39 +92,13 @@ async function readPositionsFromLedger(): Promise<Position[]> {
 /**
  * GET /api/trading/positions
  *
- * Read-only dashboard helper for watchlist ordering. It asks the local
- * Robinhood sidecar for current holdings first; if that sidecar is offline, it
- * falls back to the existing order ledger so the watchlist can still sort
- * owned symbols without collapsing the room into an offline warning.
+ * Read-only simulation positions derived solely from the paper order ledger.
  */
 export async function GET() {
-  const adapter = new DirectAdapter();
-
   try {
-    const ready = await adapter.isReady();
-    if (ready) {
-      const positions = await adapter.getPositions();
-      return NextResponse.json({ positions, source: 'sidecar', ready: true });
-    }
-
     const positions = await readPositionsFromLedger();
     return NextResponse.json({ positions, source: 'orders-ledger', ready: true });
   } catch (err) {
-    try {
-      const positions = await readPositionsFromLedger();
-      return NextResponse.json({ positions, source: 'orders-ledger', ready: true });
-    } catch (ledgerErr) {
-      return NextResponse.json({
-        positions: [],
-        source: 'sidecar',
-        ready: false,
-        error:
-          ledgerErr instanceof Error
-            ? ledgerErr.message
-            : err instanceof Error
-              ? err.message
-              : 'positions unavailable',
-      });
-    }
+    return NextResponse.json({ positions: [], source: 'orders-ledger', ready: false, error: err instanceof Error ? err.message : 'positions unavailable' });
   }
 }

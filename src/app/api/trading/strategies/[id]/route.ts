@@ -54,7 +54,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!data) return NextResponse.json({ error: 'strategy not found' }, { status: 404 });
 
   const strategy = data as LoopRow;
-  if (patch.status) await hermesLog('info', `[TRADING] strategy "${strategy.name}" â†’ ${patch.status}`);
+  if (patch.status) await hermesLog('info', `[TRADING] strategy "${strategy.name}" → ${patch.status}`);
   return NextResponse.json({ strategy });
 }
 

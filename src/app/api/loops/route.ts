@@ -15,7 +15,7 @@ export async function GET() {
 }
 
 const TriggerSchema = z.object({
-  type: z.enum(['news', 'price', 'earnings', 'manual', 'phone']),
+  type: z.enum(['news', 'price', 'earnings', 'manual']),
   symbol: z.string().max(10).optional(),
   minSeverity: z.enum(['low', 'med', 'high', 'critical']).optional(),
 });

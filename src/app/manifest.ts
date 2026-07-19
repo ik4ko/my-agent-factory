@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'My Agent Factory',
     short_name: 'Agent Factory',
-    description: 'Control room for the federated AI brains — loops, trading, and the kill switch, from your phone.',
+    description: 'Control room for federated AI brains, autonomous loops, and paper-trading simulation.',
     start_url: '/dashboard',
     display: 'standalone',
     background_color: '#09090c',

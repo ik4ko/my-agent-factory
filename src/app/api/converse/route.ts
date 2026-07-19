@@ -5,6 +5,7 @@ import { hermesLog } from '@/lib/hermes/hermes-logger';
 import { publishBusEvent } from '@/lib/bus/system-bus';
 import { sendEmail } from '@/lib/comms/email';
 import { readChatHistory, writeChatHistory, type ChatHistoryScope, type ChatHistoryTurn } from '@/lib/chat/history';
+import { CeoReplyStreamer } from '@/lib/chat/reply-stream';
 import { getSpendSnapshotSince, recordModelEvent } from '@/lib/telemetry/token-ledger';
 import { estimateModelCostUsd } from '@/lib/telemetry/pricing';
 import {
@@ -311,47 +312,177 @@ export async function POST(req: NextRequest) {
   const ceoPrompt = `${historyText ? historyText + '\n' : ''}Operator: ${message}`;
 
   try {
-    await publishBusEvent({ topic: 'agent.thought', agent: 'Claude', payload: { role: 'CEO', heard: message.slice(0, 200) } });
+    // Bus event is observability, not a precondition — never serialize on it.
+    void publishBusEvent({ topic: 'agent.thought', agent: 'Claude', payload: { role: 'CEO', heard: message.slice(0, 200) } }).catch(() => undefined);
 
     const ceoBudgetBlock = await guardConverseBudget({ stage: 'ceo', scope, message, history });
     if (ceoBudgetBlock) return ceoBudgetBlock;
 
-    const ceo = await AgentRegistry.CLAUDE.think({
-      system: `${CEO_SYSTEM}\n\n${PERSONA_APPENDIX[persona]}`,
-      prompt: ceoPrompt,
-      maxTokens: 700,
-      ledger: { mode: 'external' },
-    });
-    await recordConverseUsage('ceo', scope, ceo);
-    const { reply, delegate, email } = parseCeo(ceo.text);
-    await hermesLog('info', `[CONVERSE] Claude(CEO ${ceo.provider}:${ceo.model}) → ${delegate.length} delegation(s)${email ? ' + email' : ''}`);
+    // Overlap the history read (only needed for post-reply persistence) with
+    // the CEO model call instead of paying for it afterwards.
+    const historyPromise: Promise<Array<{ role: 'user' | 'assistant'; content: string }> | undefined> = history
+      ? Promise.resolve(history)
+      : readChatHistory(scope).catch(() => undefined);
 
-    // If Claude decided to send an email, do it now (autonomous send + audit).
-    let emailNote = '';
-    if (email) {
-      const r = await sendEmail({ to: email.to, subject: email.subject, body: email.body, agent: 'Claude' });
-      emailNote = r.ok
-        ? r.staged
-          ? ` (email to ${email.to} staged for approval)`
-          : ` (email sent to ${email.to})`
-        : ` (email to ${email.to} failed: ${r.error})`;
-    }
+    const ceoSystem = `${CEO_SYSTEM}\n\n${PERSONA_APPENDIX[persona]}`;
 
-    if (delegate.length === 0) {
-      const finalReply = reply + emailNote;
-      const savedHistory = await persistCeoHistory(history, message, finalReply, scope, ceo.model);
-      await publishBusEvent({ topic: 'agent.thought', agent: 'Claude', payload: { role: 'CEO', reply: finalReply.slice(0, 300) } });
-      return NextResponse.json({
-        reply: finalReply,
-        delegations: [],
-        emailed: email ? email.to : null,
-        brain: { name: 'Claude', provider: ceo.provider, model: ceo.model },
-        history: savedHistory,
+    // ?stream=1 → SSE deltas of the CEO's visible reply text, then a `done`
+    // event carrying the exact payload the JSON mode returns. Early exits
+    // above (trading gate, budget block, bad payload) always answer as JSON —
+    // the client branches on content-type. Non-streaming stays the default.
+    if (req.nextUrl.searchParams.get('stream') === '1') {
+      const encoder = new TextEncoder();
+      const body = new ReadableStream<Uint8Array>({
+        async start(controller) {
+          const send = (event: Record<string, unknown>) =>
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+          try {
+            const streamer = new CeoReplyStreamer();
+            const ceo = await AgentRegistry.CLAUDE.think({
+              system: ceoSystem,
+              prompt: ceoPrompt,
+              maxTokens: 700,
+              ledger: { mode: 'external' },
+              liveTools: true,
+              onDelta: (delta) => {
+                const visible = streamer.push(delta);
+                if (visible) send({ type: 'delta', text: visible });
+              },
+            });
+            const tail = streamer.flush();
+            if (tail) send({ type: 'delta', text: tail });
+            // The done payload is AUTHORITATIVE (parseCeo over the full text);
+            // the streamed preview above is presentation-only and the client
+            // reconciles to this on receipt.
+            const payload = await completeCeoTurn({ ceo, message, scope, historyPromise });
+            send({ type: 'done', ...payload });
+          } catch (err) {
+            send({ type: 'error', error: err instanceof Error ? err.message : 'converse failed' });
+          } finally {
+            controller.close();
+          }
+        },
+      });
+      return new Response(body, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache, no-transform',
+          Connection: 'keep-alive',
+        },
       });
     }
 
-    const delegateBudgetBlock = await guardConverseBudget({ stage: 'codex', scope, message, history });
-    if (delegateBudgetBlock) return delegateBudgetBlock;
+    const ceo = await AgentRegistry.CLAUDE.think({
+      system: ceoSystem,
+      prompt: ceoPrompt,
+      maxTokens: 700,
+      ledger: { mode: 'external' },
+      liveTools: true,
+    });
+    const payload = await completeCeoTurn({ ceo, message, scope, historyPromise });
+    return NextResponse.json(payload);
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'converse failed' }, { status: 500 });
+  }
+}
+
+/** Schedule background work: after() inside a live request scope, otherwise
+ *  (e.g. an SSE stream body that outlives the request store) plain
+ *  fire-and-forget — this host runs a long-lived node process, so the task
+ *  still completes; only serverless teardown could drop it. */
+function defer(task: () => Promise<unknown>): void {
+  const run = () => task().catch(() => undefined);
+  try {
+    after(run);
+  } catch {
+    void run();
+  }
+}
+
+/** Everything that happens after the CEO model call, shared verbatim by the
+ *  JSON and SSE modes: parse, optional email, persist the immediate reply,
+ *  schedule background delegation, and shape the response payload. */
+async function completeCeoTurn({
+  ceo,
+  message,
+  scope,
+  historyPromise,
+}: {
+  ceo: ThinkResult;
+  message: string;
+  scope: ChatHistoryScope;
+  historyPromise: Promise<Array<{ role: 'user' | 'assistant'; content: string }> | undefined>;
+}) {
+  defer(() => recordConverseUsage('ceo', scope, ceo));
+  const { reply, delegate, email } = parseCeo(ceo.text);
+  void hermesLog('info', `[CONVERSE] Claude(CEO ${ceo.provider}:${ceo.model}) → ${delegate.length} delegation(s)${email ? ' + email' : ''}`).catch(() => undefined);
+
+  // If Claude decided to send an email, do it now (autonomous send + audit).
+  let emailNote = '';
+  if (email) {
+    const r = await sendEmail({ to: email.to, subject: email.subject, body: email.body, agent: 'Claude' });
+    emailNote = r.ok
+      ? r.staged
+        ? ` (email to ${email.to} staged for approval)`
+        : ` (email sent to ${email.to})`
+      : ` (email to ${email.to} failed: ${r.error})`;
+  }
+
+  // Speak the CEO's direct reply NOW — with delegations, the operator no
+  // longer waits for helper + synthesis round-trips (they run in the
+  // background below and land in this scope's history when done).
+  const finalReply = reply + emailNote;
+  const savedHistory = await persistCeoHistory(await historyPromise, message, finalReply, scope, ceo.model);
+  void publishBusEvent({ topic: 'agent.thought', agent: 'Claude', payload: { role: 'CEO', reply: finalReply.slice(0, 300) } }).catch(() => undefined);
+
+  if (delegate.length > 0) {
+    defer(() => runDelegationsInBackground({ delegate, message, ceoReply: reply, scope }));
+  }
+
+  return {
+    reply: finalReply,
+    delegations: delegate.map((d) => ({ agent: 'Codex', task: d.task, status: 'running' })),
+    emailed: email ? email.to : null,
+    brain: { name: 'Claude', provider: ceo.provider, model: ceo.model },
+    history: savedHistory,
+  };
+}
+
+/**
+ * Background half of a delegated converse turn (scheduled via after(), so it
+ * survives the response on both node and Vercel runtimes). Runs the helper
+ * calls + synthesis that used to block the reply, then APPENDS the synthesis
+ * as a fresh assistant turn — re-reading the scope history at write time so a
+ * message the operator sent meanwhile isn't clobbered. Budget gates still
+ * apply; a block becomes an error turn in history instead of a 402.
+ */
+async function runDelegationsInBackground({
+  delegate,
+  message,
+  ceoReply,
+  scope,
+}: {
+  delegate: Array<{ to: string; task: string }>;
+  message: string;
+  ceoReply: string;
+  scope: ChatHistoryScope;
+}): Promise<void> {
+  const appendTurn = async (content: string, model: string, error = false) => {
+    const current = await readChatHistory(scope);
+    await writeChatHistory(scope, [
+      ...current,
+      { role: 'assistant', content, agentId: 'CEO', model, ...(error ? { error: true } : {}) },
+    ]);
+  };
+
+  try {
+    const gate = await readConverseBudgetState();
+    if (gate.spentUsd >= gate.budgetUsd) {
+      const reason = `Delegation skipped — converse monthly budget exceeded: ${usd(gate.spentUsd)} ≥ ${usd(gate.budgetUsd)} cap`;
+      await hermesLog('warn', `[CONVERSE] background codex blocked — ${reason}`);
+      await appendTurn(reason, 'budget-gate', true);
+      return;
+    }
 
     const results = await Promise.all(
       delegate.map(async (d) => {
@@ -363,22 +494,28 @@ export async function POST(req: NextRequest) {
             prompt: d.task,
             maxTokens: 900,
             ledger: { mode: 'external' },
+            // Delegated tasks can look up real data before the CEO synthesis.
+            liveTools: true,
           });
           await recordConverseUsage('codex', scope, r);
-          await hermesLog('success', `[CONVERSE] ${label}(${r.provider}:${r.model}) reported back`);
-          await publishBusEvent({ topic: 'agent.thought', agent: label, payload: { task: d.task.slice(0, 160), output: r.text.slice(0, 300) } });
-          return { agent: label, task: d.task, output: r.text, provider: r.provider, model: r.model };
+          void hermesLog('success', `[CONVERSE] ${label}(${r.provider}:${r.model}) reported back`).catch(() => undefined);
+          void publishBusEvent({ topic: 'agent.thought', agent: label, payload: { task: d.task.slice(0, 160), output: r.text.slice(0, 300) } }).catch(() => undefined);
+          return { agent: label, task: d.task, output: r.text };
         } catch (e) {
           const msg = String(e).replace(/\s+/g, ' ').slice(0, 120);
           await hermesLog('error', `[CONVERSE] ${label} failed — ${msg}`);
-          return { agent: label, task: d.task, output: `(failed: ${msg})`, provider: '', model: '' };
+          return { agent: label, task: d.task, output: `(failed: ${msg})` };
         }
       }),
     );
 
     const brief = results.map((r) => `${r.agent} was asked: "${r.task}"\n${r.agent} reported: ${r.output}`).join('\n\n');
-    const synthBudgetBlock = await guardConverseBudget({ stage: 'synth', scope, message, history });
-    if (synthBudgetBlock) return synthBudgetBlock;
+    const synthGate = await readConverseBudgetState();
+    if (synthGate.spentUsd >= synthGate.budgetUsd) {
+      // Helpers already ran — surface their raw reports rather than losing them.
+      await appendTurn(`Helper reports (summary skipped, budget cap reached):\n\n${brief}`, 'budget-gate', true);
+      return;
+    }
 
     const synth = await AgentRegistry.CLAUDE.think({
       system: SYNTH_SYSTEM,
@@ -387,19 +524,16 @@ export async function POST(req: NextRequest) {
       ledger: { mode: 'external' },
     });
     await recordConverseUsage('synth', scope, synth);
-    const finalReply = (synth.text.trim() || reply) + emailNote;
-    const savedHistory = await persistCeoHistory(history, message, finalReply, scope, synth.model);
-    await publishBusEvent({ topic: 'agent.thought', agent: 'Claude', payload: { role: 'CEO', reply: finalReply.slice(0, 300) } });
-
-    return NextResponse.json({
-      reply: finalReply,
-      preamble: reply,
-      delegations: results.map((r) => ({ agent: r.agent, task: r.task, provider: r.provider, model: r.model })),
-      emailed: email ? email.to : null,
-      brain: { name: 'Claude', provider: ceo.provider, model: ceo.model },
-      history: savedHistory,
-    });
+    const summary = synth.text.trim() || ceoReply;
+    await appendTurn(summary, synth.model);
+    void publishBusEvent({ topic: 'agent.thought', agent: 'Claude', payload: { role: 'CEO', reply: summary.slice(0, 300) } }).catch(() => undefined);
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : 'converse failed' }, { status: 500 });
+    const msg = err instanceof Error ? err.message : 'background delegation failed';
+    await hermesLog('error', `[CONVERSE] background delegation failed — ${msg}`);
+    try {
+      await appendTurn(`(delegation failed: ${msg.slice(0, 160)})`, 'background-error', true);
+    } catch {
+      // History append is best-effort; the hermes log above is the audit trail.
+    }
   }
 }

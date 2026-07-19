@@ -4,6 +4,7 @@ import { getAdminClient } from '@/lib/supabase/admin';
 import { hermesLog } from '@/lib/hermes/hermes-logger';
 import type { Task } from '@/lib/types/database.types';
 import { runOrchestratorTick } from '@/lib/agents/orchestrator';
+import { claimAction, finishAction } from '@/lib/idempotency/claims';
 
 // tasks has RLS enabled with no policies, so browser anon inserts are blocked
 // by design. The command bar posts here; this route inserts via the service-
@@ -20,8 +21,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid payload' }, { status: 400 });
   }
   const { prompt, priority } = parsed.data;
+  const requestId = req.headers.get('idempotency-key')?.trim();
+  if (!requestId) return NextResponse.json({ error: 'Idempotency-Key header is required' }, { status: 400 });
 
   try {
+    const claim = await claimAction('tasks:create', requestId, parsed.data);
+    if (!claim.claimed) {
+      if (claim.status === 'completed') return NextResponse.json(claim.response);
+      return NextResponse.json({ error: 'Task creation is already in progress', replayed: true }, { status: 409 });
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const db = getAdminClient() as any;
     const { data, error } = await db
@@ -38,6 +46,8 @@ export async function POST(req: NextRequest) {
 
     const task = data as Task;
     await hermesLog('info', `[TASK] queued ${task.id.slice(0, 8)} — "${prompt.slice(0, 60)}${prompt.length > 60 ? '…' : ''}"`);
+    const response = { id: task.id, status: task.status };
+    await finishAction('tasks:create', requestId, response);
     after(async () => {
       try {
         await runOrchestratorTick();
@@ -50,7 +60,7 @@ export async function POST(req: NextRequest) {
         );
       }
     });
-    return NextResponse.json({ id: task.id, status: task.status });
+    return NextResponse.json(response);
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Task create failed' },

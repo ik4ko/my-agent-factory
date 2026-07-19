@@ -1,6 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { readChatHistory, type ChatHistoryScope } from '@/lib/chat/history';
+import { CHAT_HISTORY_SCOPES, readChatHistory, type ChatHistoryScope } from '@/lib/chat/history';
 import { getAdminClient } from '@/lib/supabase/admin';
 import { estimateMetricCostUsd } from '@/lib/telemetry/pricing';
 import type { ChatHistoryMaterializedArtifact } from '@/lib/chat/history';
@@ -10,7 +10,7 @@ import type { Agent, Metric, StagedOrderRow, SystemBusRow, Task } from '@/lib/ty
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const ScopeSchema = z.enum(['hub', 'trading', 'coding', 'personal', 'ceo', 'matrix']);
+const ScopeSchema = z.enum(CHAT_HISTORY_SCOPES);
 const DEFAULT_SCOPES: ChatHistoryScope[] = ['hub', 'trading', 'coding', 'personal'];
 
 type ActivityItem =

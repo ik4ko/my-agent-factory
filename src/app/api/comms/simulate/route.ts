@@ -3,10 +3,8 @@ import { z } from 'zod';
 import { parseCommand, runCommand } from '@/lib/comms/command';
 import { rateLimited } from '@/lib/control/rate-limit';
 
-// Session-authed (middleware) dashboard SMS simulator. Treats the logged-in
-// operator as the allowlisted sender — it drives the EXACT SAME command core
-// Twilio will call in /api/phone/sms once configured; nothing here is a
-// separate mock implementation.
+// Session-authenticated dashboard command simulator. It drives the same
+// deterministic command core without exposing a phone webhook.
 const Schema = z.object({ text: z.string().trim().min(1).max(500) });
 
 export async function POST(req: NextRequest) {

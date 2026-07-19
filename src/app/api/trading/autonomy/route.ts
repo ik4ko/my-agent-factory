@@ -5,6 +5,7 @@ import {
   prepareAutonomousTradePulse,
   runAutonomousTradePulse,
 } from '@/lib/trading/autonomy';
+import { claimAction, finishAction } from '@/lib/idempotency/claims';
 
 const PulseSchema = z.object({
   action: z.literal('pulse'),
@@ -27,15 +28,24 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'expected { action: "pulse", reason? }' }, { status: 400 });
   }
+  const requestId = req.headers.get('idempotency-key')?.trim();
+  if (!requestId) return NextResponse.json({ error: 'Idempotency-Key header is required' }, { status: 400 });
 
   try {
+    const claim = await claimAction('trading:autonomy-pulse', requestId, parsed.data);
+    if (!claim.claimed) {
+      if (claim.status === 'completed') return NextResponse.json(claim.response);
+      return NextResponse.json({ error: 'Trading pulse is already in progress', replayed: true }, { status: 409 });
+    }
     const pulse = await prepareAutonomousTradePulse(parsed.data.reason);
     if (pulse.accepted) {
       after(async () => {
         await runAutonomousTradePulse(pulse.loops, parsed.data.reason);
       });
     }
-    return NextResponse.json({ accepted: pulse.accepted, reply: pulse.reply, loops: pulse.loops });
+    const response = { accepted: pulse.accepted, reply: pulse.reply, loops: pulse.loops };
+    await finishAction('trading:autonomy-pulse', requestId, response);
+    return NextResponse.json(response);
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'trading autonomy pulse failed' },

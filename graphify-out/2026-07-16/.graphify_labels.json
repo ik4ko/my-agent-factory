@@ -158,10 +158,19 @@
   "156": "coding-room-client.tsx",
   "157": "pricing.ts",
   "158": "hermes.ts",
+  "159": "layout.tsx",
   "160": "Claude ↔ Codex Local Handoff Spec",
   "161": "golive-client.tsx",
   "162": "route.ts",
+  "163": "trading-room-client.tsx",
+  "164": "trading-autonomy-panel.tsx",
   "165": "core-store.ts",
   "166": "CODING AGENTS: READ THIS FIRST",
-  "167": "client-audio-briefing.tsx"
+  "167": "client-audio-briefing.tsx",
+  "168": "workspace-scaffold.tsx",
+  "169": "matrix-memory.ts",
+  "170": "create_desktop_folder",
+  "171": "reaper.test.ts",
+  "172": "safe-fetch.ts",
+  "173": "route.ts"
 }

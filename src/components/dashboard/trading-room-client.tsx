@@ -10,32 +10,73 @@ import { DEFAULT_SYMBOL, TradingChart } from './trading-chart';
 import { TradingAutonomyPanel } from './trading-autonomy-panel';
 import { WatchlistPanel } from './quotes-panel';
 import { PanelChrome } from '@/components/deck';
+import { WorkspaceGrid, type WorkspacePanelDef } from '@/components/deck/workspace-grid';
 import { WidgetErrorBoundary } from './widget-error-boundary';
+
+// Default arrangement mirrors the previous fixed grid: chart + watchlist on
+// top, chat wide below, utility stack on the right. h is in 40px grid rows.
+const DEFAULT_LAYOUTS = {
+  lg: [
+    { i: 'chart', x: 0, y: 0, w: 8, h: 9, minW: 4, minH: 6 },
+    { i: 'watchlist', x: 8, y: 0, w: 4, h: 9, minW: 2, minH: 4 },
+    { i: 'chat', x: 0, y: 9, w: 8, h: 10, minW: 4, minH: 6 },
+    { i: 'options', x: 8, y: 9, w: 4, h: 4, minW: 2, minH: 3 },
+    { i: 'staged', x: 8, y: 13, w: 4, h: 3, minW: 2, minH: 2 },
+    { i: 'autonomy', x: 8, y: 16, w: 4, h: 5, minW: 2, minH: 3 },
+    { i: 'history', x: 8, y: 21, w: 4, h: 4, minW: 2, minH: 3 },
+  ],
+  md: [
+    { i: 'chart', x: 0, y: 0, w: 8, h: 8 },
+    { i: 'watchlist', x: 0, y: 8, w: 4, h: 6 },
+    { i: 'options', x: 4, y: 8, w: 4, h: 6 },
+    { i: 'chat', x: 0, y: 14, w: 8, h: 9 },
+    { i: 'staged', x: 0, y: 23, w: 4, h: 4 },
+    { i: 'autonomy', x: 4, y: 23, w: 4, h: 4 },
+    { i: 'history', x: 0, y: 27, w: 8, h: 4 },
+  ],
+  sm: [
+    { i: 'chart', x: 0, y: 0, w: 1, h: 8 },
+    { i: 'watchlist', x: 0, y: 8, w: 1, h: 6 },
+    { i: 'chat', x: 0, y: 14, w: 1, h: 9 },
+    { i: 'options', x: 0, y: 23, w: 1, h: 5 },
+    { i: 'staged', x: 0, y: 28, w: 1, h: 4 },
+    { i: 'autonomy', x: 0, y: 32, w: 1, h: 5 },
+    { i: 'history', x: 0, y: 37, w: 1, h: 4 },
+  ],
+};
 
 export function TradingRoomClient() {
   useAgentSocket();
   const [selectedSymbol, setSelectedSymbol] = useState(DEFAULT_SYMBOL);
   const handleSelectSymbol = (symbol: string) => setSelectedSymbol(symbol.trim().toUpperCase());
 
-  return (
-    <div className="grid h-[calc(100vh-8.5rem)] min-h-[47rem] grid-cols-1 gap-2 p-2 xl:grid-cols-12 xl:grid-rows-[minmax(24rem,1.22fr)_minmax(19rem,0.78fr)]">
-      <div className="min-h-0 xl:col-span-8">
+  const panels: WorkspacePanelDef[] = [
+    {
+      id: 'chart',
+      label: 'chart',
+      node: (
         <PanelChrome title="CHART" bodyClassName="p-0" className="h-full">
           <WidgetErrorBoundary name="Trading Chart">
             <TradingChart selectedSymbol={selectedSymbol} onSelectSymbol={handleSelectSymbol} />
           </WidgetErrorBoundary>
         </PanelChrome>
-      </div>
-
-      <div className="min-h-0 xl:col-span-4">
+      ),
+    },
+    {
+      id: 'watchlist',
+      label: 'watchlist',
+      node: (
         <PanelChrome title="WATCHLIST" bodyClassName="p-0" className="h-full">
           <WidgetErrorBoundary name="Watchlist">
             <WatchlistPanel selectedSymbol={selectedSymbol} onSelectSymbol={handleSelectSymbol} />
           </WidgetErrorBoundary>
         </PanelChrome>
-      </div>
-
-      <div className="min-h-0 xl:col-span-8">
+      ),
+    },
+    {
+      id: 'chat',
+      label: 'trading chat',
+      node: (
         <PanelChrome title="TRADING CHAT" bodyClassName="p-0" className="h-full">
           <WidgetErrorBoundary name="Trading Chat">
             <AgentChat
@@ -48,35 +89,57 @@ export function TradingRoomClient() {
             />
           </WidgetErrorBoundary>
         </PanelChrome>
-      </div>
+      ),
+    },
+    {
+      id: 'options',
+      label: 'options flow',
+      node: (
+        <PanelChrome title="OPTIONS FLOW" bodyClassName="p-0" className="h-full">
+          <WidgetErrorBoundary name="Options Flow">
+            <OptionsFlowPanel selectedSymbol={selectedSymbol} onSelectSymbol={handleSelectSymbol} />
+          </WidgetErrorBoundary>
+        </PanelChrome>
+      ),
+    },
+    {
+      id: 'staged',
+      label: 'staged intents',
+      node: (
+        <PanelChrome title="STAGED INTENTS" bodyClassName="p-0" className="h-full">
+          <WidgetErrorBoundary name="Staged Intents">
+            <StagedIntentsPanel />
+          </WidgetErrorBoundary>
+        </PanelChrome>
+      ),
+    },
+    {
+      id: 'autonomy',
+      label: 'autonomy',
+      node: (
+        <PanelChrome title="AUTONOMY" bodyClassName="p-0" className="h-full">
+          <WidgetErrorBoundary name="Trading Autonomy">
+            <TradingAutonomyPanel />
+          </WidgetErrorBoundary>
+        </PanelChrome>
+      ),
+    },
+    {
+      id: 'history',
+      label: 'trading history',
+      node: (
+        <PanelChrome title="TRADING HISTORY" bodyClassName="p-0" className="h-full">
+          <WidgetErrorBoundary name="Trading History">
+            <ChatHistoryPanel scopes={[{ scope: 'trading', label: 'Trading' }]} maxItems={30} />
+          </WidgetErrorBoundary>
+        </PanelChrome>
+      ),
+    },
+  ];
 
-      <div className="min-h-0 xl:col-span-4">
-        <div className="grid h-full min-h-0 grid-rows-[minmax(10rem,0.7fr)_minmax(6.5rem,0.45fr)_minmax(13rem,0.95fr)_minmax(10rem,0.7fr)] gap-2">
-          <PanelChrome title="OPTIONS FLOW" bodyClassName="p-0" className="min-h-0">
-            <WidgetErrorBoundary name="Options Flow">
-              <OptionsFlowPanel selectedSymbol={selectedSymbol} onSelectSymbol={handleSelectSymbol} />
-            </WidgetErrorBoundary>
-          </PanelChrome>
-
-          <PanelChrome title="STAGED INTENTS" bodyClassName="p-0" className="min-h-0">
-            <WidgetErrorBoundary name="Staged Intents">
-              <StagedIntentsPanel />
-            </WidgetErrorBoundary>
-          </PanelChrome>
-
-          <PanelChrome title="AUTONOMY" bodyClassName="p-0" className="min-h-0">
-            <WidgetErrorBoundary name="Trading Autonomy">
-              <TradingAutonomyPanel />
-            </WidgetErrorBoundary>
-          </PanelChrome>
-
-          <PanelChrome title="TRADING HISTORY" bodyClassName="p-0" className="min-h-0">
-            <WidgetErrorBoundary name="Trading History">
-              <ChatHistoryPanel scopes={[{ scope: 'trading', label: 'Trading' }]} maxItems={30} />
-            </WidgetErrorBoundary>
-          </PanelChrome>
-        </div>
-      </div>
+  return (
+    <div className="h-[calc(100vh-8.5rem)] overflow-y-auto p-2">
+      <WorkspaceGrid room="trading" panels={panels} defaultLayouts={DEFAULT_LAYOUTS} />
     </div>
   );
 }

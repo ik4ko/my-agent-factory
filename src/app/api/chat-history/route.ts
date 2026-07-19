@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { readChatHistory, writeChatHistory, type ChatHistoryScope } from '@/lib/chat/history';
+import { CHAT_HISTORY_SCOPES, readChatHistory, writeChatHistory, type ChatHistoryScope } from '@/lib/chat/history';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const ScopeSchema = z.enum(['hub', 'trading', 'coding', 'personal', 'ceo', 'matrix']);
+const ScopeSchema = z.enum(CHAT_HISTORY_SCOPES);
 const TurnSchema = z.object({
   role: z.enum(['user', 'assistant']),
   content: z.string().min(1).max(16_000),

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Cpu, Minus, Square, Copy, X } from 'lucide-react';
+import { Copy, Cpu, Minus, Square, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /** True only inside the Tauri webview — the same page served to browsers

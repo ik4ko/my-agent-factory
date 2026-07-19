@@ -7,7 +7,7 @@ export default function LoopsWorkspace() {
       title="Loops"
       icon="repeat"
       accent="text-neon-cyan"
-      blurb="Standing objectives the system re-evaluates on a cadence and reacts to events with. Trade-kind loops record a decision only — no execution adapter is wired yet, so nothing here places a real order until Phase 2 lands."
+      blurb="Standing objectives the system re-evaluates on a cadence and reacts to events with. Trade-kind loops record paper decisions through the simulation adapter; no live broker path exists."
     >
       <LoopsClient />
     </WorkspaceScaffold>

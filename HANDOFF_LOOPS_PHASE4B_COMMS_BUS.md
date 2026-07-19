@@ -1,5 +1,7 @@
 # My Agent Factory — Handoff: Phase 4B (Comms Bus — workable now, APIs later)
 
+> **SUPERSEDED 2026-07-19:** Historical brief only. Twilio/Vapi/Retell and every phone route were removed. Telegram is the sole remote messaging channel; follow `RUNBOOK.md`.
+
 > Paste into the chat that finished Phase 4A (or a new one). Written **to you, the next agent**. Continue as an elite senior engineer. Phases 0–4A are built and proven against `grtnjhwekvkyawacunde` — do not rebuild them.
 >
 > **Operator directive: build something fully workable NOW with no third-party credentials.** Twilio/Vapi keys come later. So build the command + notification layer **provider-agnostic**, ship a **built-in local transport + an in-dashboard SMS simulator** that exercises the *exact* code path the real SMS webhook will use, and prove the whole thing end-to-end today. Adding Twilio later must be a transport swap, **zero changes at the call sites.**

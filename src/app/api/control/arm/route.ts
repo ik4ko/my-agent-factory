@@ -4,9 +4,8 @@ import { hermesLog } from '@/lib/hermes/hermes-logger';
 import { setArmed, verifyOperatorPin } from '@/lib/control/risk-actions';
 import { rateLimited } from '@/lib/control/rate-limit';
 
-// Master arm/disarm — flips risk_state.trading_enabled. Session-authed by
-// middleware; the PIN below is defense-in-depth on top of that (a phone can
-// be unlocked while still holding a valid session cookie).
+// Simulation arm/disarm — flips the legacy-named risk_state.trading_enabled
+// field. The PIN is defense-in-depth on top of the authenticated session.
 const Schema = z.object({ pin: z.string(), enabled: z.boolean(), actor: z.string().max(40).optional() });
 
 export async function POST(req: NextRequest) {

@@ -1,4 +1,4 @@
-// Go-Live preflight — a machine-checked red/green checklist. Nothing here
+// Simulation preflight — a machine-checked red/green checklist. Nothing here
 // mutates state except the one deliberate test notification (item 6), which
 // is itself a real, auditable send through whatever transport is active.
 import { readdirSync, readFileSync, statSync } from 'fs';
@@ -86,15 +86,11 @@ async function checkAdapter(): Promise<PreflightCheck> {
   try {
     const adapter = await selectAdapter();
     const ready = await adapter.isReady();
-    const armed = process.env.TRADING_ENABLED === 'true';
-    if (!armed) {
-      return { id: 'adapter', label: 'Execution adapter', status: 'pass', detail: `dryrun (trading not armed) — ready=${ready}` };
-    }
     return {
       id: 'adapter',
-      label: 'Execution adapter',
-      status: adapter.name === 'dryrun' ? 'warn' : ready ? 'pass' : 'fail',
-      detail: `armed → selectAdapter() picked "${adapter.name}", ready=${ready}`,
+      label: 'Simulation adapter',
+      status: adapter.name === 'dryrun' && ready ? 'pass' : 'fail',
+      detail: `simulation-only "${adapter.name}", ready=${ready}; no live broker adapter exists`,
     };
   } catch (err) {
     return { id: 'adapter', label: 'Execution adapter', status: 'fail', detail: String(err).slice(0, 200) };
@@ -139,7 +135,7 @@ function checkCaps(): PreflightCheck[] {
     id: 'cap_allowlist',
     label: 'SYMBOL_ALLOWLIST non-empty',
     status: allowlist ? 'pass' : 'fail',
-    detail: allowlist ? allowlist : 'unset — every symbol would be tradeable, unacceptable for live trading',
+    detail: allowlist ? allowlist : 'unset — every symbol is available to paper simulation',
   });
   return out;
 }
@@ -164,7 +160,7 @@ async function checkNotificationTransport(): Promise<PreflightCheck> {
   try {
     const transport = activeTransport();
     const marker = `[PREFLIGHT] test notification ${Date.now()}`;
-    await transport.send(process.env.OPERATOR_PHONE?.trim() || 'operator', marker, 'summary');
+    await transport.send('operator', marker, 'summary');
     const { data } = await db().from('outbound_messages').select('id').eq('body', marker).limit(1).maybeSingle();
     return data
       ? { id: 'notify', label: 'Notification transport', status: 'pass', detail: `${transport.name} — test message landed in outbound_messages` }

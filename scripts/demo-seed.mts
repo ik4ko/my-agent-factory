@@ -2,7 +2,7 @@
 // symbols with news triggers so that with loop-worker.mts running, the whole
 // chain is watchable end to end: news ingest -> regime flags -> loop re-run
 // -> dry_run orders at real quotes -> notifications in /dashboard/comms.
-// No external APIs beyond Finnhub, no money, TRADING_ENABLED stays false.
+// No external APIs beyond Finnhub and no path to real-money execution.
 //
 // Run with: npx tsx scripts/demo-seed.mts
 import { config } from 'dotenv';
@@ -71,7 +71,7 @@ async function main() {
   3. open /dashboard/comms      (notification feed — every dry_run order and regime shift lands here)
   4. open /dashboard/loops      (pause/stop these demo loops any time)
 
-Everything stays dry_run — TRADING_ENABLED is untouched by this script.
+Everything stays paper-only; the application has no live broker adapter.
 `);
 }
 

@@ -10,47 +10,28 @@ const Schema = z.object({
 
 export async function POST(req: NextRequest) {
   const parsed = Schema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid intervention payload' }, { status: 400 });
-  }
+  if (!parsed.success) return NextResponse.json({ error: 'Invalid intervention payload' }, { status: 400 });
   const { taskId, decision, feedback } = parsed.data;
 
   try {
     const db = getAdminClient();
-    const approved = decision === 'approve';
-
-    // Staged tasks (e.g. UP-lane awaiting approval) were never running —
-    // releasing them to 'pending' lets the next triage sweep dispatch them.
-    // Mid-run interventions keep the original resume semantics.
-    const { data: current, error: readErr } = await db
-      .from('tasks')
-      .select('status')
-      .eq('id', taskId)
-      .maybeSingle();
-    if (readErr) throw readErr;
-    const wasRunning = current?.status === 'running';
-
-    const { error } = await db
-      .from('tasks')
-      .update({
-        intervention_state: approved ? 'approved' : 'denied',
-        intervention_feedback: feedback ?? null,
-        status: approved ? (wasRunning ? 'running' : 'pending') : 'cancelled',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', taskId);
-    if (error) throw error;
-
-    await db.from('logs').insert({
-      level: approved ? 'success' : 'warn',
-      message: `[INTERVENTION] Task ${taskId.slice(0, 8)} ${approved ? 'APPROVED' : 'DENIED'}${feedback ? ` — "${feedback}"` : ''}`,
+    // Pending-only transition and immutable event insert share one DB
+    // transaction. Replays and attempted approve-after-deny reversals fail.
+    const { data: accepted, error } = await db.rpc('decide_task_intervention', {
+      p_task_id: taskId,
+      p_decision: decision,
+      p_feedback: feedback ?? null,
     });
-
+    if (error) throw error;
+    if (!accepted) {
+      return NextResponse.json({ error: 'Task intervention is not pending or was already decided' }, { status: 409 });
+    }
+    await db.from('logs').insert({
+      level: decision === 'approve' ? 'success' : 'warn',
+      message: `[INTERVENTION] Task ${taskId.slice(0, 8)} ${decision === 'approve' ? 'APPROVED' : 'DENIED'}${feedback ? ` — "${feedback}"` : ''}`,
+    });
     return NextResponse.json({ ok: true });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Intervention failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Intervention failed' }, { status: 500 });
   }
 }

@@ -350,8 +350,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/dashboard-client.tsx": {
-    "mtime": 1784154411.5701826,
-    "ast_hash": "89b9e01ce2e424824a6d454d28004b81",
+    "mtime": 1784250316.404235,
+    "ast_hash": "f1f488b95dd2230489e2e2008afa1383",
     "semantic_hash": ""
   },
   "src/components/dashboard/emergency-stop.tsx": {
@@ -1250,7 +1250,7 @@
     "semantic_hash": ""
   },
   "src-tauri/capabilities/default.json": {
-    "mtime": 1783448543.563266,
+    "mtime": 1784256675.096704,
     "ast_hash": "8c9ba404916130b4a9071b339fed6647",
     "semantic_hash": ""
   },
@@ -1260,8 +1260,8 @@
     "semantic_hash": ""
   },
   "src/components/desktop/TitleBar.tsx": {
-    "mtime": 1783446651.90787,
-    "ast_hash": "649ccccaa55e2fa19001ed514e6a52bf",
+    "mtime": 1784256654.0126255,
+    "ast_hash": "a717aba464f5d49fb7d6f4697a7eeccd",
     "semantic_hash": ""
   },
   "src-tauri/build.rs": {
@@ -1270,8 +1270,8 @@
     "semantic_hash": ""
   },
   "src-tauri/src/lib.rs": {
-    "mtime": 1783448551.1097975,
-    "ast_hash": "8d9ea5e205e84b4504dc7362494300a2",
+    "mtime": 1784256811.2185194,
+    "ast_hash": "8b6482f01fa0cbfd087a67f4bedd75ea",
     "semantic_hash": ""
   },
   "src-tauri/src/main.rs": {
@@ -1380,8 +1380,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/SpatialWorkspace.tsx": {
-    "mtime": 1784178338.379182,
-    "ast_hash": "4b166a42d9ea5577413d7fef8c89b821",
+    "mtime": 1784250223.6887648,
+    "ast_hash": "622ffda29c979a51dcaa0c7d58ea66d2",
     "semantic_hash": ""
   },
   "src/lib/fx/spatial-pulse.ts": {
@@ -1680,8 +1680,8 @@
     "semantic_hash": ""
   },
   "src/components/dashboard/global-voice-control.tsx": {
-    "mtime": 1784179189.390872,
-    "ast_hash": "194b1d5ebb0c8bd9b029d6b4888d8119",
+    "mtime": 1784250493.1458373,
+    "ast_hash": "fd462f2c8a44d84877d2ffc110267c59",
     "semantic_hash": ""
   },
   "src/hooks/use-browser-speech.ts": {
@@ -1812,6 +1812,16 @@
   "supabase/migrations/20260716_ticker_watchlist_restore.sql": {
     "mtime": 1784218418.5446,
     "ast_hash": "c92e9ab5a17851a31157a5f5c1316271",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/desktop_actions.rs": {
+    "mtime": 1784256675.097692,
+    "ast_hash": "1db9ab503d35d5754808969233938c7c",
+    "semantic_hash": ""
+  },
+  "src/lib/desktop/native.ts": {
+    "mtime": 1784256654.0168927,
+    "ast_hash": "0fe86f0ca2eedfb70bc00c0f3b9d5f2b",
     "semantic_hash": ""
   }
 }

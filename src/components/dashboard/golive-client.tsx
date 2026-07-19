@@ -10,7 +10,7 @@ import type { PreflightResult } from '@/lib/golive/preflight';
 import type { SelftestResult } from '@/lib/golive/selftest';
 
 /**
- * Go-Live cockpit — the minimal pre-arm surface, restored after ea91b56's
+ * Simulation cockpit — the paper-trading control surface.
  * purge and now living under the four-rooms dashboard layout (nav rail,
  * E-Stop, global chat all inherited).
  *
@@ -82,9 +82,9 @@ export function GoLiveClient() {
   };
 
   const MODAL_COPY: Record<NonNullable<PendingAction>['kind'], { title: string; description: string; confirmLabel: string; danger: boolean }> = {
-    arm: { title: 'Arm trading', description: 'Flips risk_state.trading_enabled ON. Loops may place real orders within caps until disarmed or killed. Preflight must be green; the server enforces the default-PIN lockout.', confirmLabel: 'ARM', danger: true },
-    disarm: { title: 'Disarm trading', description: 'All execution returns to dry-run. Always safe.', confirmLabel: 'DISARM', danger: false },
-    'kill-engage': { title: 'Engage kill switch', description: 'Blocks all new orders and cancels every open order at the broker. Always safe. Cannot be auto-released.', confirmLabel: 'ENGAGE KILL', danger: true },
+    arm: { title: 'Arm simulation', description: 'Enables paper-order recording within configured caps. No broker connection exists.', confirmLabel: 'ARM SIMULATION', danger: false },
+    disarm: { title: 'Disarm simulation', description: 'Pauses paper-order execution.', confirmLabel: 'DISARM', danger: false },
+    'kill-engage': { title: 'Engage simulation stop', description: 'Blocks new paper orders and closes legacy submitted rows locally.', confirmLabel: 'ENGAGE STOP', danger: true },
     'kill-release': { title: 'Release kill switch', description: 'New orders become possible again (still gated by arm state and risk caps).', confirmLabel: 'RELEASE', danger: true },
   };
 
@@ -92,13 +92,13 @@ export function GoLiveClient() {
     <div className="flex flex-col gap-2 p-2">
       {/* ── Arm / kill control strip — real risk_state + PIN-gated actions ── */}
       <PanelChrome
-        title="GO-LIVE CONTROL"
+        title="SIMULATION CONTROL"
         accent={risk?.tradingEnabled ? 'gate' : 'default'}
         headerRight={
           risk ? (
             <span className="flex items-center gap-2">
               <StatusBadge status={risk.killSwitch ? 'error' : risk.tradingEnabled ? 'armed' : 'idle'}>
-                {risk.killSwitch ? 'KILLED' : risk.tradingEnabled ? 'ARMED' : 'DISARMED · DRY-RUN'}
+                {risk.killSwitch ? 'STOPPED' : risk.tradingEnabled ? 'SIM ARMED' : 'SIM DISARMED'}
               </StatusBadge>
               {risk.halted && <StatusBadge status="error">HALTED</StatusBadge>}
             </span>
@@ -113,7 +113,7 @@ export function GoLiveClient() {
           disabled={!risk || (preflight.data ? !preflight.data.canArm && !risk.tradingEnabled : true)}
           onClick={() => setPending({ kind: risk?.tradingEnabled ? 'disarm' : 'arm' })}
         >
-          {risk?.tradingEnabled ? 'DISARM' : 'ARM TRADING'}
+          {risk?.tradingEnabled ? 'DISARM' : 'ARM SIMULATION'}
         </DeckButton>
         <DeckButton
           variant={risk?.killSwitch ? 'primary' : 'danger'}
@@ -190,7 +190,7 @@ export function GoLiveClient() {
           {selftest.error && <p className="font-mono text-[10px] text-destructive">selftest failed: {selftest.error}</p>}
           {!selftest.data && !selftest.error && (
             <p className="font-mono text-[10px] leading-relaxed text-ink-low">
-              Exercises the live safety interlocks (kill switch, caps, halt paths) end-to-end. Manual trigger only — it
+              Exercises the simulation safety interlocks (kill switch, caps, halt paths) end-to-end. Manual trigger only — it
               writes to the control tables while it runs.
             </p>
           )}

@@ -91,10 +91,26 @@ export async function getSpendSnapshot(windowHours = 24): Promise<SpendSnapshot>
   return getSpendSnapshotFrom(since, windowHours);
 }
 
+// 60s memo for the budget gates (registry, dispatcher, converse) — each
+// dispatch was re-scanning up to 10k metric rows for the same month-start
+// window. Caps are conservative and 60s of staleness cannot flip a gate by
+// more than one minute of spend. Query FAILURES are never cached, so gates
+// still fail closed on a live ledger error.
+const SPEND_SNAPSHOT_TTL_MS = 60_000;
+const spendSnapshotCache = new Map<string, { at: number; snapshot: SpendSnapshot }>();
+
 /** Aggregate model spend since an explicit ISO timestamp, e.g. month start. */
 export async function getSpendSnapshotSince(sinceIso: string): Promise<SpendSnapshot> {
+  const cached = spendSnapshotCache.get(sinceIso);
+  if (cached && Date.now() - cached.at < SPEND_SNAPSHOT_TTL_MS) return cached.snapshot;
   const windowHours = Math.max(0, (Date.now() - new Date(sinceIso).getTime()) / 3_600_000);
-  return getSpendSnapshotFrom(sinceIso, windowHours);
+  const snapshot = await getSpendSnapshotFrom(sinceIso, windowHours);
+  spendSnapshotCache.set(sinceIso, { at: Date.now(), snapshot });
+  // A new month brings a new key; drop stale entries so the map stays tiny.
+  for (const [key, entry] of spendSnapshotCache) {
+    if (Date.now() - entry.at >= SPEND_SNAPSHOT_TTL_MS && key !== sinceIso) spendSnapshotCache.delete(key);
+  }
+  return snapshot;
 }
 
 /** Share (0–1) of total spend attributed to `model` in the snapshot. */

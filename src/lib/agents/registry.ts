@@ -1,37 +1,33 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { resolveChatBackend } from './backend-config';
+import { toOpenAITools } from '@/lib/tools/live-tools';
+import { runToolCallRounds } from './tool-loop';
+import { runAnthropicToolStream } from './anthropic-tool-stream';
 import type { AgentProvider, FederatedAgent, ThinkInput, ThinkResult } from './types';
 import type { AgentType } from '@/lib/types/database.types';
 import { hermesLog } from '@/lib/hermes/hermes-logger';
 import { getSpendSnapshotSince, recordModelEvent } from '@/lib/telemetry/token-ledger';
 import { estimateModelCostUsd } from '@/lib/telemetry/pricing';
+import { consumeOpenAICompatibleStream } from './openai-compatible-stream';
 
 /**
  * AgentRegistry — the Federated Brain Network.
  *
- * Three GENUINELY DISTINCT brains, each a different upstream model, routed
- * through OpenRouter's OpenAI-compatible API with a single OPENROUTER_API_KEY:
+ * Two ACTIVE brains:
  *
- *   CLAUDE  (CEO)     → anthropic/claude-3.5-sonnet   — the boss; triages
- *                       intent and delegates to the helpers.
- *   CODEX   (helper)  → openai/gpt-4o-mini            — code / quant analysis.
- *   HERMES  (helper)  → nousresearch/hermes-3-llama-3.1-70b — research / recon.
+ *   CLAUDE  (CEO)     → claude-sonnet-5 DIRECT via the Anthropic SDK — the
+ *                       boss; triages intent and delegates to the helper.
+ *   CODEX   (helper)  → openai/gpt-4o-mini via OpenRouter — code / quant.
  *
- * Degradation contract: if OPENROUTER_API_KEY is absent or a call fails, the
- * brain FALLS BACK to the direct Anthropic SDK adapter and reports that in the
- * ThinkResult (provider/model say what actually ran). Note: with no OpenRouter
- * key, all three collapse to the Anthropic fallback and behave IDENTICALLY —
- * set OPENROUTER_API_KEY to make them truly independent.
+ * Degradation contract: if an OpenRouter call fails (or the key is absent),
+ * the brain falls back to the direct Anthropic adapter ONLY when
+ * AGENT_REGISTRY_ALLOW_ANTHROPIC_FALLBACK=true; otherwise it fails loud. The
+ * ThinkResult's provider/model always say what actually ran.
  *
  * Lane-router overrides (Anthropic model IDs like 'claude-haiku-4-5') bind
  * directly to the Anthropic adapter — those IDs are not OpenRouter slugs.
  */
 
-const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
-const OPENROUTER_HEADERS: Record<string, string> = {
-  'HTTP-Referer': 'http://localhost:9002',
-  'X-Title': 'My Agent Factory',
-  'X-OpenRouter-Title': 'My Agent Factory',
-};
 const REGISTRY_MONTHLY_BUDGET_DEFAULT_USD = 3.0;
 
 let _anthropic: Anthropic | null = null;
@@ -46,70 +42,66 @@ async function anthropicThink(model: string, input: ThinkInput): Promise<ThinkRe
   let inputTokens = 0;
   let outputTokens = 0;
 
-  const stream = await getAnthropic().messages.create({
+  const outcome = await runAnthropicToolStream({
+    client: getAnthropic(),
     model,
-    max_tokens: input.maxTokens ?? 2048,
     system: input.system,
     messages: [{ role: 'user', content: input.prompt }],
-    stream: true,
+    maxTokens: input.maxTokens ?? 2048,
+    liveTools: input.liveTools,
+    onDelta: input.onDelta,
   });
-
-  for await (const event of stream) {
-    if (event.type === 'message_start') {
-      inputTokens = event.message.usage?.input_tokens ?? 0;
-    } else if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-      text += event.delta.text;
-      input.onDelta?.(event.delta.text);
-    } else if (event.type === 'message_delta') {
-      outputTokens = event.usage?.output_tokens ?? outputTokens;
-    }
-  }
+  inputTokens = outcome.inputTokens;
+  outputTokens = outcome.outputTokens;
+  text = outcome.text;
 
   return { text: text.trim(), model, provider: 'anthropic', inputTokens, outputTokens, latencyMs: Date.now() - started };
 }
 
-interface OpenAICompatibleConfig {
-  provider: Exclude<AgentProvider, 'anthropic'>;
-  baseUrl: string;
-  keyEnv: string;
-  model: string;
-  headers?: Record<string, string>;
-}
-
-async function openAICompatibleThink(cfg: OpenAICompatibleConfig, input: ThinkInput): Promise<ThinkResult> {
+async function openAICompatibleThink(configuredModel: string, input: ThinkInput): Promise<ThinkResult> {
   const started = Date.now();
-  const key = process.env[cfg.keyEnv]?.trim();
-  if (!key) throw new Error(`${cfg.keyEnv} not configured`);
+  const backend = resolveChatBackend();
+  if (backend.provider === 'openrouter' && !backend.apiKey) {
+    throw new Error('OPENROUTER_API_KEY not configured');
+  }
+  const model = backend.resolveModel(configuredModel);
 
-  const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}`, ...(cfg.headers ?? {}) },
-    signal: AbortSignal.timeout(120_000),
-    body: JSON.stringify({
-      model: cfg.model,
-      max_tokens: input.maxTokens ?? 2048,
-      messages: [
-        { role: 'system', content: input.system },
-        { role: 'user', content: input.prompt },
-      ],
-    }),
-  });
-  if (!res.ok) throw new Error(`${cfg.provider} responded ${res.status}: ${(await res.text()).slice(0, 120)}`);
-
-  const json: unknown = await res.json();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const j = json as any;
-  const text: string = typeof j?.choices?.[0]?.message?.content === 'string' ? j.choices[0].message.content.trim() : '';
-  if (!text) throw new Error(`${cfg.provider} returned an empty completion`);
+  const callModel = async (messages: any[]) => {
+    const res = await fetch(`${backend.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${backend.apiKey}`, ...backend.headers },
+      signal: AbortSignal.timeout(120_000),
+      body: JSON.stringify({
+        model,
+        stream: true,
+        stream_options: { include_usage: true },
+        max_tokens: input.maxTokens ?? 2048,
+        ...(input.liveTools ? { tools: toOpenAITools() } : {}),
+        messages,
+      }),
+    });
+    if (!res.ok) throw new Error(`${backend.provider} responded ${res.status}: ${(await res.text()).slice(0, 120)}`);
+    if (!res.body) throw new Error(`${backend.provider} returned no response stream`);
+    return consumeOpenAICompatibleStream(res.body, input.onDelta);
+  };
 
-  input.onDelta?.(text);
+  const outcome = await runToolCallRounds({
+    messages: [
+      { role: 'system', content: input.system },
+      { role: 'user', content: input.prompt },
+    ],
+    callModel,
+  });
+  const text = outcome.text.trim();
+  if (!text) throw new Error(`${backend.provider} returned an empty completion`);
 
   return {
     text,
-    model: cfg.model,
-    provider: cfg.provider,
-    inputTokens: Number(j?.usage?.prompt_tokens ?? 0),
-    outputTokens: Number(j?.usage?.completion_tokens ?? 0),
+    model,
+    provider: backend.provider,
+    inputTokens: outcome.inputTokens,
+    outputTokens: outcome.outputTokens,
     latencyMs: Date.now() - started,
   };
 }
@@ -186,7 +178,11 @@ async function withRegistryLedger(
   try {
     const result = await run();
     const costUsd = estimateModelCostUsd(result.model, result.inputTokens, result.outputTokens);
-    await recordModelEvent({
+    // Off the critical path: the caller gets the completion without waiting on
+    // the ledger write. Registry runs in plain node workers too, so this is a
+    // void-with-catch rather than next/server's after(); metrics are
+    // append-only — a lost write under-counts one row, never corrupts state.
+    void recordModelEvent({
       model: result.model,
       event: 'USAGE',
       taskId: input.ledger?.taskId ?? null,
@@ -200,7 +196,7 @@ async function withRegistryLedger(
         `latency=${result.latencyMs}ms`,
         `est_usd=${costUsd.toFixed(6)}`,
       ]),
-    });
+    }).catch((err) => console.warn(`[registry] ${name} usage write failed`, err));
     return result;
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
@@ -209,16 +205,16 @@ async function withRegistryLedger(
   }
 }
 
-function buildAgent(name: string, provider: AgentProvider, model: string, openAICfg?: OpenAICompatibleConfig): FederatedAgent {
+function buildAgent(name: string, provider: AgentProvider, model: string): FederatedAgent {
   return {
     name,
     provider,
     model,
     async think(input: ThinkInput): Promise<ThinkResult> {
       return withRegistryLedger(name, model, input, async () => {
-      if (provider === 'anthropic' || !openAICfg) return anthropicThink(model, input);
+      if (provider === 'anthropic') return anthropicThink(model, input);
       try {
-        return await openAICompatibleThink(openAICfg, input);
+        return await openAICompatibleThink(model, input);
       } catch (err) {
         const reason = String(err).replace(/\s+/g, ' ').slice(0, 160);
         if (process.env.AGENT_REGISTRY_ALLOW_ANTHROPIC_FALLBACK !== 'true') {
@@ -237,33 +233,29 @@ function buildAgent(name: string, provider: AgentProvider, model: string, openAI
   };
 }
 
-function openRouterConfig(model: string): OpenAICompatibleConfig {
-  return { provider: 'openrouter', baseUrl: OPENROUTER_BASE_URL, keyEnv: 'OPENROUTER_API_KEY', model, headers: OPENROUTER_HEADERS };
-}
-
 export const AgentRegistry = {
   // CEO — the boss. Runs DIRECT on the latest Anthropic model (no OpenRouter
   // slug to 404 on); always current, always available on the ANTHROPIC_API_KEY.
   CLAUDE: buildAgent('Claude', 'anthropic', 'claude-sonnet-5'),
-  // Helper — code + quantitative analysis (GPT via OpenRouter).
-  CODEX: buildAgent('Codex', 'openrouter', 'openai/gpt-4o-mini', openRouterConfig('openai/gpt-4o-mini')),
-  // Helper — research + reconnaissance (the literal "Hermes" model via OpenRouter).
+  // Helper — code + quantitative analysis. OpenRouter by default; routed to a
+  // local OpenAI-compatible server when AI_LOCAL_BASE_URL is set (see
+  // backend-config.ts).
+  CODEX: buildAgent('Codex', 'openrouter', 'openai/gpt-4o-mini'),
 } as const;
 
 /**
  * Route an agent type to its federated brain. A `modelOverride` (the lane
  * router's SEAT/UP/DOWN escalations pass Anthropic model IDs) binds an
- * anthropic brain to that exact model. Matrix lanes map across all three
- * distinct brains: generic→CLAUDE, coder→CODEX, researcher→HERMES.
+ * anthropic brain to that exact model. Otherwise: coder→CODEX, everything
+ * else→CLAUDE.
  */
 export function resolveAgent(agentType: AgentType, modelOverride?: string): FederatedAgent {
   if (modelOverride) return buildAgent(`ModelRouted(${modelOverride})`, 'anthropic', modelOverride);
   switch (agentType) {
     case 'coder':
       return AgentRegistry.CODEX;
-    // Active brains only — researcher/browser work routes to CLAUDE, never
-    // HERMES (a future/inactive brain that must not spend from autonomous
-    // task execution). HERMES stays exported/visible but code-unreachable.
+    // Active brains only — researcher/browser work routes to CLAUDE so no
+    // inactive lane can spend from autonomous task execution.
     case 'researcher':
     case 'browser':
       return AgentRegistry.CLAUDE;

@@ -1,0 +1,98 @@
+import type Anthropic from '@anthropic-ai/sdk';
+import { executeLiveTool, parseToolArgs, toAnthropicTools } from '@/lib/tools/live-tools';
+
+/**
+ * The ONE Anthropic streaming tool loop, shared by the registry's
+ * anthropicThink (CEO/converse lane) and the dispatcher's anthropic-direct
+ * streaming branch: stream each turn, assemble tool_use blocks from
+ * input_json_delta fragments, execute via the shared live-tools layer, feed
+ * tool_result back, repeat until the model answers in text (bounded rounds).
+ */
+
+export interface AnthropicStreamOutcome {
+  text: string;
+  /** API-reported model id from message_start (falls back to the request model). */
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  toolRounds: number;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyMessage = any;
+
+export async function runAnthropicToolStream(opts: {
+  client: Anthropic;
+  model: string;
+  system: string;
+  messages: AnyMessage[];
+  maxTokens: number;
+  liveTools?: boolean;
+  /** Dispatcher lanes disable extended thinking for parity + predictable cost. */
+  disableThinking?: boolean;
+  onDelta?: (text: string) => void;
+  maxRounds?: number;
+}): Promise<AnthropicStreamOutcome> {
+  const tools = opts.liveTools ? toAnthropicTools() : undefined;
+  const messages: AnyMessage[] = [...opts.messages];
+  let text = '';
+  let reportedModel = opts.model;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let toolRounds = 0;
+
+  for (let round = 0; round < (opts.maxRounds ?? 4); round++) {
+    const stream = await opts.client.messages.create({
+      model: opts.model,
+      max_tokens: opts.maxTokens,
+      system: opts.system,
+      messages,
+      ...(tools ? { tools } : {}),
+      ...(opts.disableThinking ? { thinking: { type: 'disabled' as const } } : {}),
+      stream: true,
+    });
+
+    const toolUses: Array<{ id: string; name: string; argsJson: string }> = [];
+    let stopReason: string | null = null;
+    let roundText = '';
+
+    for await (const event of stream) {
+      if (event.type === 'message_start') {
+        inputTokens += event.message.usage?.input_tokens ?? 0;
+        reportedModel = event.message.model ?? reportedModel;
+      } else if (event.type === 'content_block_start' && event.content_block.type === 'tool_use') {
+        toolUses.push({ id: event.content_block.id, name: event.content_block.name, argsJson: '' });
+      } else if (event.type === 'content_block_delta' && event.delta.type === 'input_json_delta') {
+        const current = toolUses[toolUses.length - 1];
+        if (current) current.argsJson += event.delta.partial_json;
+      } else if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+        roundText += event.delta.text;
+        text += event.delta.text;
+        opts.onDelta?.(event.delta.text);
+      } else if (event.type === 'message_delta') {
+        outputTokens += event.usage?.output_tokens ?? 0;
+        stopReason = event.delta.stop_reason ?? stopReason;
+      }
+    }
+
+    if (stopReason !== 'tool_use' || toolUses.length === 0) break;
+    toolRounds += 1;
+
+    const results = await Promise.all(
+      toolUses.map(async (t) => ({ id: t.id, output: await executeLiveTool(t.name, parseToolArgs(t.argsJson)) })),
+    );
+    messages.push({
+      role: 'assistant',
+      content: [
+        ...(roundText ? [{ type: 'text', text: roundText }] : []),
+        ...toolUses.map((t) => ({ type: 'tool_use', id: t.id, name: t.name, input: parseToolArgs(t.argsJson) })),
+      ],
+    });
+    messages.push({
+      role: 'user',
+      content: results.map((r) => ({ type: 'tool_result', tool_use_id: r.id, content: r.output })),
+    });
+  }
+
+  return { text, model: reportedModel, inputTokens, outputTokens, toolRounds };
+}

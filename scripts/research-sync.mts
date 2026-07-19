@@ -2,7 +2,7 @@
 // local engine state for a terminal Claude session: live socket indicators
 // (RSI/MACD computed in core/alpaca_feed.py), risk posture, caps, loops, and
 // recent order audit rows. Brokerage data (positions / buying power) is
-// deliberately NOT fetched here — the Robinhood MCP lives on the Claude side;
+// deliberately NOT fetched here — this report is public-market research only;
 // the /research-sync command merges it in after running this.
 //   npx tsx scripts/research-sync.mts
 import { config } from 'dotenv';
@@ -95,7 +95,7 @@ async function main() {
   lines.push('');
   lines.push('## Risk posture');
   lines.push(
-    `- trading_enabled: **${risk.trading_enabled}** (${risk.trading_enabled ? 'ARMED — real orders possible' : 'all execution dry-run'})` +
+    `- simulation_enabled: **${risk.trading_enabled}** (${risk.trading_enabled ? 'ARMED — paper orders enabled' : 'paper execution paused'})` +
       ` · kill_switch: ${risk.kill_switch} · halted: ${risk.halted}${risk.halt_reason ? ` — "${risk.halt_reason}"` : ''}`
   );
   lines.push(

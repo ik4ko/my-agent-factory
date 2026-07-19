@@ -6,7 +6,7 @@
  * provider SDKs directly.
  */
 
-export type AgentProvider = 'anthropic' | 'openai' | 'nous' | 'openrouter';
+export type AgentProvider = 'anthropic' | 'openai' | 'nous' | 'openrouter' | 'local';
 
 export interface ThinkInput {
   system: string;
@@ -23,6 +23,10 @@ export interface ThinkInput {
   /** Streaming hook — fires per text delta when the provider streams
    *  (Anthropic), or once with the full text when it doesn't. */
   onDelta?: (text: string) => void;
+  /** Enable the shared live-data tools (web search / weather / stock quote —
+   *  see src/lib/tools/live-tools.ts). The provider adapter runs the
+   *  tool-call loop; results exist only inside this request. */
+  liveTools?: boolean;
 }
 
 export interface ThinkResult {

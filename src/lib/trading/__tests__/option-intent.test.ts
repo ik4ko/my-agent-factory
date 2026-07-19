@@ -42,7 +42,7 @@ function optionText(overrides: Record<string, unknown> = {}): string {
     max_premium_usd: 900,
     max_loss_usd: 850,
     strategy_label: 'flow-follow long call',
-    source: 'LIVE', // must be force-downgraded to SANDBOX
+    source: 'RESEARCH', // must be force-downgraded to SANDBOX
     source_signal_id: SIGNAL,
   };
   return `pre-analysis text\nOPTION_INTENT: ${JSON.stringify({ ...base, ...overrides })}\ntrailing`;
@@ -85,7 +85,7 @@ describe('pure parser + validator', () => {
     const res = extractOptionOrderIntent(optionText(), { fromOptionsFlow: true });
     expect(res.intent).not.toBeNull();
     expect(res.liveExecutable).toBe(false);
-    expect(res.intent!.source).toBe('SANDBOX'); // forced even though input said LIVE
+    expect(res.intent!.source).toBe('SANDBOX'); // forced even though input said RESEARCH
     expect(res.intent!.strategy_label).toBe('flow-follow long call');
     expect(res.intent!.source_signal_id).toBe(SIGNAL);
   });
@@ -222,7 +222,7 @@ describe('real stage call site', () => {
     const parsed = extractOptionOrderIntent(optionText(), { fromOptionsFlow: true });
     const row = buildStagedOptionOrder(parsed.intent!, { pipelineId: context.id });
 
-    await expect(persistStagedOrder({ ...row, source: 'LIVE' } as unknown as typeof row)).rejects.toThrow(/SANDBOX/);
+    await expect(persistStagedOrder({ ...row, source: 'RESEARCH' } as unknown as typeof row)).rejects.toThrow(/SANDBOX/);
     expect(from).not.toHaveBeenCalled();
     expect(insert).not.toHaveBeenCalled();
   });
@@ -340,7 +340,7 @@ describe('persistence contract: DB constraint mirror (staged_orders_option_inten
 
   const violations: Array<[string, Record<string, unknown>]> = [
     ['null source_signal_id', { source_signal_id: null }],
-    ['non-SANDBOX source', { source: 'LIVE' }],
+    ['non-SANDBOX source', { source: 'RESEARCH' }],
     ['sell_to_open action', { action: 'sell_to_open' }],
     ['null action', { action: null }],
     ['null contracts', { contracts: null }],

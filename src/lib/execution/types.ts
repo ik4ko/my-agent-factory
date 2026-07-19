@@ -1,11 +1,9 @@
 // Execution domain — the contract every loop-engine trade decision routes
-// through, regardless of which backend actually holds the brokerage
-// connection. See select-adapter.ts for the direct → bridge → dry-run
-// fallback chain and risk.ts for the gate that runs before ANY of these are
-// ever called with trading_enabled=true.
+// through. The only implementation is the paper/simulation adapter.
 import { z } from 'zod';
 
 export const OrderIntentSchema = z.object({
+  clientOrderId: z.string().uuid(),
   loopId: z.string().uuid(),
   symbol: z
     .string()
@@ -25,7 +23,7 @@ export interface Quote {
   symbol: string;
   price: number;
   asOf: string;
-  source: 'YAHOO' | 'SIMULATED' | 'BROKER';
+  source: 'YAHOO' | 'SIMULATED';
 }
 
 export interface Position {
@@ -44,12 +42,11 @@ export interface Portfolio {
 
 export interface OrderResult {
   status: 'dry_run' | 'intent' | 'submitted' | 'filled' | 'rejected' | 'canceled';
-  brokerId?: string;
   fillPrice?: number;
   reason?: string;
 }
 
-export type ExecutionAdapterName = 'direct' | 'bridge' | 'dryrun';
+export type ExecutionAdapterName = 'dryrun';
 
 export interface ExecutionAdapter {
   name: ExecutionAdapterName;
@@ -59,5 +56,4 @@ export interface ExecutionAdapter {
   getQuote(symbol: string): Promise<Quote>;
   getPositions(): Promise<Position[]>;
   placeOrder(intent: OrderIntent): Promise<OrderResult>;
-  cancelOrder(brokerId: string): Promise<void>;
 }

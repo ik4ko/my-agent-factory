@@ -1,4 +1,4 @@
-// Safety-verification harness — automates the four go-live life-safety
+// Safety-verification harness — automates four simulation safety
 // checks in dry-run, each backed by a real DB read/write, not an assertion
 // against in-memory state. Non-destructive: everything it creates (a
 // throwaway loop) is deleted afterward, and risk_state is snapshotted
@@ -56,7 +56,7 @@ async function createThrowawayLoop(): Promise<string> {
     .insert({
       name: `__selftest__ ${Date.now()}`,
       kind: 'trade',
-      objective: 'Go-Live safety-verification harness scratch loop — never ticked, deleted at the end of the run.',
+      objective: 'Simulation safety-verification scratch loop — never ticked, deleted at the end of the run.',
       status: 'paused',
       config: { symbolAllowlist: ['NVDA'], maxTradeUsd: 500 },
       triggers: [],
@@ -73,10 +73,10 @@ async function deleteThrowawayLoop(loopId: string): Promise<void> {
 }
 
 /** Check 1 — fill path: a synthetic decision runs through the exact same
- *  risk-gate + adapter path a real trade loop uses, and must land as a
+ *  risk-gate + adapter path a paper trade loop uses, and must land as a
  *  dry_run order at a real market quote. */
 async function checkFillPath(loopId: string): Promise<SelftestCheck> {
-  const intent: OrderIntent = { loopId, symbol: 'NVDA', side: 'buy', qty: 1, type: 'market', reason: 'go-live selftest — fill path' };
+  const intent: OrderIntent = { clientOrderId: crypto.randomUUID(), loopId, symbol: 'NVDA', side: 'buy', qty: 1, type: 'market', reason: 'simulation selftest — fill path' };
   const adapter = await selectAdapter();
   const gate = await checkRisk(intent, { symbolAllowlist: ['NVDA'], maxTradeUsd: 500 }, adapter);
   if (!gate.allowed) {
@@ -132,7 +132,7 @@ async function checkNotification(): Promise<SelftestCheck> {
 /** Check 3 — kill switch: engaging it must block a fresh intent immediately,
  *  and releasing it must restore normal gating. */
 async function checkKillSwitch(loopId: string): Promise<SelftestCheck> {
-  const intent: OrderIntent = { loopId, symbol: 'NVDA', side: 'buy', qty: 1, type: 'market', reason: 'go-live selftest — kill switch' };
+  const intent: OrderIntent = { clientOrderId: crypto.randomUUID(), loopId, symbol: 'NVDA', side: 'buy', qty: 1, type: 'market', reason: 'simulation selftest — kill switch' };
   const adapter = await selectAdapter();
 
   const { canceled } = await setKillSwitch(true, 'selftest');
@@ -160,7 +160,7 @@ async function checkDailyLossHalt(loopId: string): Promise<SelftestCheck> {
   const breach = -(limit + 1);
   await db().from('risk_state').update({ realized_pnl: breach, halted: false, halt_reason: null, updated_at: new Date().toISOString() }).eq('id', 1);
 
-  const intent: OrderIntent = { loopId, symbol: 'NVDA', side: 'buy', qty: 1, type: 'market', reason: 'go-live selftest — daily loss' };
+  const intent: OrderIntent = { clientOrderId: crypto.randomUUID(), loopId, symbol: 'NVDA', side: 'buy', qty: 1, type: 'market', reason: 'simulation selftest — daily loss' };
   const adapter = await selectAdapter();
   const gate = await checkRisk(intent, { symbolAllowlist: ['NVDA'], maxTradeUsd: 500 }, adapter);
 

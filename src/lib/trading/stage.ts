@@ -9,7 +9,7 @@ import {
   kellyFraction,
   clampPositionFraction,
   type TradeParams,
-  type RobinhoodStagedOrder,
+  type StagedOrder,
   type OrderSource,
   type OptionOrderIntent,
 } from '@/lib/types/trading.types';
@@ -18,7 +18,7 @@ import { getActivePortfolioBalance } from '@/lib/market/portfolio';
 import type { PipelineContext } from '@/lib/pipeline/types';
 
 /**
- * Order staging â€” the Executor's deterministic scan of Codex's ANALYSIS text.
+ * Order staging — the Executor's deterministic scan of Codex's ANALYSIS text.
  *
  * No LLM in this module: extraction is regex + zod, sizing is pure math
  * routed through the frozen 2% cap, and the result is an immutable PENDING
@@ -33,7 +33,7 @@ const db = () => getAdminClient() as any;
  * Primary path: the mandated one-line machine block
  *   TRADE_PARAMS: { ...json... }
  * Fallback: conservative prose heuristics (ticker + strike + CALL/PUT +
- * YYYY-MM-DD + debit). Returns null when nothing trustworthy is found â€”
+ * YYYY-MM-DD + debit). Returns null when nothing trustworthy is found —
  * staging nothing is always preferable to staging garbage.
  */
 export function extractTradeParams(analysisText: string): TradeParams | null {
@@ -44,11 +44,11 @@ export function extractTradeParams(analysisText: string): TradeParams | null {
       const parsed = TradeParamsSchema.safeParse(JSON.parse(block[1]));
       if (parsed.success) return parsed.data;
     } catch {
-      /* malformed JSON â€” fall through to heuristics */
+      /* malformed JSON — fall through to heuristics */
     }
   }
 
-  // Fallback heuristics â€” every field must be found or we bail.
+  // Fallback heuristics — every field must be found or we bail.
   const underlying = analysisText.match(/\b(?:ticker|underlying|symbol)\b[:\s]+\$?([A-Z]{1,6})\b/i)?.[1]?.toUpperCase();
   const optionType = analysisText.match(/\b(CALL|PUT)S?\b/i)?.[1]?.toUpperCase() as 'CALL' | 'PUT' | undefined;
   const strike = analysisText.match(/\bstrike\b[:\s]*\$?(\d+(?:\.\d+)?)/i)?.[1];
@@ -73,12 +73,12 @@ export function extractTradeParams(analysisText: string): TradeParams | null {
 }
 
 export interface StageResult {
-  staged: RobinhoodStagedOrder | RobinhoodStagedOptionOrder | null;
+  staged: StagedOrder | StagedOptionOrder | null;
   /** Human-readable reason when nothing was staged. */
   reason?: string;
 }
 
-export interface RobinhoodStagedOptionOrder extends Omit<RobinhoodStagedOrder, 'kelly_fraction' | 'expectancy' | 'win_rate' | 'r_multiple' | 'source'> {
+export interface StagedOptionOrder extends Omit<StagedOrder, 'kelly_fraction' | 'expectancy' | 'win_rate' | 'r_multiple' | 'source'> {
   source: 'SANDBOX';
   intent_kind: 'option_intent';
   action: OptionIntentAction;
@@ -94,11 +94,11 @@ export interface RobinhoodStagedOptionOrder extends Omit<RobinhoodStagedOrder, '
   r_multiple: number | null;
 }
 
-function isOptionIntentStagedOrder(order: RobinhoodStagedOrder | RobinhoodStagedOptionOrder): order is RobinhoodStagedOptionOrder {
+function isOptionIntentStagedOrder(order: StagedOrder | StagedOptionOrder): order is StagedOptionOrder {
   return 'intent_kind' in order && order.intent_kind === 'option_intent';
 }
 
-function validatePersistableOptionIntentRow(order: RobinhoodStagedOptionOrder): string | null {
+function validatePersistableOptionIntentRow(order: StagedOptionOrder): string | null {
   const reconstructed = OptionOrderIntentSchema.safeParse({
     action: order.action,
     underlying: order.underlying,
@@ -132,7 +132,7 @@ function validatePersistableOptionIntentRow(order: RobinhoodStagedOptionOrder): 
   return null;
 }
 
-/** Pure assembly: params + live equity â†’ sized, PENDING order. Equity is an
+/** Pure assembly: params + live equity → sized, PENDING order. Equity is an
  *  explicit required input (no hidden static default in this module) so every
  *  caller consciously sources it from getActivePortfolioBalance. */
 export function buildStagedOrder(
@@ -140,20 +140,20 @@ export function buildStagedOrder(
   options: { pipelineId: string | null; source: OrderSource; equityUsd: number },
 ): StageResult {
   if (!Number.isFinite(options.equityUsd) || options.equityUsd <= 0) {
-    return { staged: null, reason: `invalid equity base ${options.equityUsd} â€” sizing refused` };
+    return { staged: null, reason: `invalid equity base ${options.equityUsd} — sizing refused` };
   }
   const expectancy = computeExpectancy(params.win_rate, params.r_multiple);
   if (expectancy <= 0) {
     return {
       staged: null,
-      reason: `expectancy E=${expectancy.toFixed(3)} â‰¤ 0 (W=${params.win_rate}, R=${params.r_multiple}) â€” constraint 1 rejects the setup`,
+      reason: `expectancy E=${expectancy.toFixed(3)} ≤ 0 (W=${params.win_rate}, R=${params.r_multiple}) — constraint 1 rejects the setup`,
     };
   }
 
   const rawKelly = kellyFraction(params.win_rate, params.r_multiple);
   const fraction = clampPositionFraction(rawKelly); // constraint 2: half-Kelly, 2% hard cap
   if (fraction <= 0) {
-    return { staged: null, reason: `Kelly fraction ${rawKelly.toFixed(3)} â‰¤ 0 â€” no positive edge to size` };
+    return { staged: null, reason: `Kelly fraction ${rawKelly.toFixed(3)} ≤ 0 — no positive edge to size` };
   }
 
   return {
@@ -182,7 +182,7 @@ export function buildStagedOrder(
 export function buildStagedOptionOrder(
   intent: OptionOrderIntent,
   options: { pipelineId: string | null },
-): RobinhoodStagedOptionOrder {
+): StagedOptionOrder {
   return {
     id: randomUUID(),
     underlying: intent.underlying,
@@ -211,8 +211,8 @@ export function buildStagedOptionOrder(
   };
 }
 
-/** Persist a staged order. Insert-only â€” approval flips happen elsewhere, by humans. */
-export async function persistStagedOrder(order: RobinhoodStagedOrder | RobinhoodStagedOptionOrder): Promise<void> {
+/** Persist a staged order. Insert-only — approval flips happen elsewhere, by humans. */
+export async function persistStagedOrder(order: StagedOrder | StagedOptionOrder): Promise<void> {
   if (isOptionIntentStagedOrder(order)) {
     const reason = validatePersistableOptionIntentRow(order);
     if (reason) {
@@ -225,7 +225,7 @@ export async function persistStagedOrder(order: RobinhoodStagedOrder | Robinhood
 
 /**
  * Pipeline entry point: the Executor scans the ANALYSIS output and stages
- * (or refuses to stage) an order. Never throws â€” a staging failure must not
+ * (or refuses to stage) an order. Never throws — a staging failure must not
  * kill the pipeline's EXECUTION narrative stage.
  */
 export async function stageOrderFromAnalysis(
@@ -272,7 +272,7 @@ export async function stageOrderFromAnalysis(
 
     const result = buildStagedOrder(params, {
       pipelineId: context.id,
-      source: context.simulate ? 'SANDBOX' : 'LIVE',
+      source: context.simulate ? 'SANDBOX' : 'RESEARCH',
       equityUsd,
     });
     if (!result.staged) {

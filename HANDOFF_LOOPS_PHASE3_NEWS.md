@@ -1,5 +1,7 @@
 # My Agent Factory — Handoff: Phase 3 (News & Event Switching)
 
+> **SUPERSEDED 2026-07-19:** Historical brief only. Any live-broker or phone references below are archival. Follow `RUNBOOK.md` for simulation-only trading and Telegram comms.
+
 > Paste into the chat that finished Phase 2 (or a new one). Written **to you, the next agent**. Continue as an elite senior engineer. Phases 0–2 are built and proven against `grtnjhwekvkyawacunde` — do not rebuild them.
 
 ---

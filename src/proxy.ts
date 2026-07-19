@@ -5,15 +5,11 @@ import { SESSION_COOKIE, verifySessionToken, timingSafeEqualStr } from '@/lib/au
 // Supabase writes (and model routes can spend paid tokens), so nothing is
 // reachable without a valid session cookie unless the route self-authorizes.
 // /api/orchestrator/cron and /api/loops/tick self-authorize via CRON_SECRET.
-// /api/phone/sms self-authorizes via Twilio signature + OPERATOR_PHONE.
-// /api/phone/voice is equivalent for whichever voice provider is configured.
 const PUBLIC_PATHS = new Set([
   '/login',
   '/api/auth/login',
   '/api/orchestrator/cron',
   '/api/loops/tick',
-  '/api/phone/sms',
-  '/api/phone/voice',
 ]);
 
 export async function proxy(req: NextRequest) {

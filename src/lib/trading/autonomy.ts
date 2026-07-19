@@ -257,7 +257,7 @@ export async function prepareAutonomousTradePulse(reason: string): Promise<Pulse
 export async function runAutonomousTradePulse(loops: LoopRow[], reason: string): Promise<void> {
   for (const loop of loops) {
     try {
-      await hermesLog('info', `[TRADING] manual autonomy pulse â†’ ${loop.name}: ${reason.slice(0, 120)}`);
+      await hermesLog('info', `[TRADING] manual autonomy pulse → ${loop.name}: ${reason.slice(0, 120)}`);
       await runLoop(loop, { type: 'manual' });
     } catch (err) {
       await hermesLog('error', `[TRADING] mandate pulse failed for ${loop.name}: ${String(err).replace(/\s+/g, ' ').slice(0, 160)}`);
@@ -268,6 +268,7 @@ export async function runAutonomousTradePulse(loops: LoopRow[], reason: string):
 export async function executeDirectOperatorOrder(order: ParsedDirectOrder): Promise<DirectOrderExecution> {
   const loop = await ensureDirectOrderLoop();
   const intent: OrderIntent = {
+    clientOrderId: crypto.randomUUID(),
     loopId: loop.id,
     symbol: order.symbol,
     side: order.side,
@@ -297,7 +298,7 @@ export async function executeDirectOperatorOrder(order: ParsedDirectOrder): Prom
       .select()
       .single();
     if (error) throw new Error(error.message);
-    await hermesLog('warn', `[TRADING] direct operator order blocked: ${intent.side} ${intent.symbol} â€” ${gate.reason}`);
+    await hermesLog('warn', `[TRADING] direct operator order blocked: ${intent.side} ${intent.symbol} — ${gate.reason}`);
     return {
       adapter: adapter.name,
       blocked: true,
@@ -309,7 +310,8 @@ export async function executeDirectOperatorOrder(order: ParsedDirectOrder): Prom
   const result = await adapter.placeOrder(intent);
   const { data, error } = await db()
     .from('orders')
-    .insert({
+    .upsert({
+      client_order_id: intent.clientOrderId,
       loop_id: loop.id,
       symbol: intent.symbol,
       side: intent.side,
@@ -318,20 +320,19 @@ export async function executeDirectOperatorOrder(order: ParsedDirectOrder): Prom
       type: intent.type,
       limit_price: intent.limitPrice ?? null,
       status: result.status,
-      broker_id: result.brokerId ?? null,
       fill_price: result.fillPrice ?? null,
       reason: result.reason ?? intent.reason,
-    })
+    }, { onConflict: 'client_order_id' })
     .select()
     .single();
   if (error) throw new Error(error.message);
 
   await hermesLog(
     result.status === 'dry_run' ? 'info' : 'success',
-    `[TRADING] direct operator order ${intent.side} ${intent.symbol} via ${adapter.name} â†’ ${result.status}`,
+    `[TRADING] direct operator order ${intent.side} ${intent.symbol} via ${adapter.name} → ${result.status}`,
   );
   if (result.status !== 'dry_run') {
-    await notify(`[DIRECT] ${intent.side.toUpperCase()} ${intent.symbol} â†’ ${result.status}. ${intent.reason}`);
+    await notify(`[DIRECT] ${intent.side.toUpperCase()} ${intent.symbol} → ${result.status}. ${intent.reason}`);
   }
 
   const size = intent.notional ? `$${intent.notional.toFixed(2)}` : `${intent.qty} share${intent.qty === 1 ? '' : 's'}`;
@@ -341,8 +342,8 @@ export async function executeDirectOperatorOrder(order: ParsedDirectOrder): Prom
     order: data as OrderRow,
     reply:
       result.status === 'dry_run'
-        ? `Direct order dry-run recorded: ${intent.side.toUpperCase()} ${size} ${intent.symbol}. Live trading is not armed.`
-        : `Direct order sent: ${intent.side.toUpperCase()} ${size} ${intent.symbol} via ${adapter.name}; status ${result.status}.`,
+        ? `Paper order recorded: ${intent.side.toUpperCase()} ${size} ${intent.symbol}. No live broker connection exists.`
+        : `Simulation result: ${intent.side.toUpperCase()} ${size} ${intent.symbol}; status ${result.status}.`,
   };
 }
 

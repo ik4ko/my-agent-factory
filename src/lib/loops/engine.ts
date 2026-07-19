@@ -9,9 +9,8 @@
 // Safety note: 'trade' kind loops route every decision through the risk gate
 // (src/lib/execution/risk.ts) and selectAdapter() (src/lib/execution/select-
 // adapter.ts) before anything is recorded as more than a decision. While
-// risk_state.trading_enabled is false (the default), selectAdapter() always
-// resolves to DryRunAdapter — no adapter here ever places a real order until
-// the operator's single, deliberate go-live flip.
+// selectAdapter() always resolves to DryRunAdapter. The durable arm state only
+// enables or pauses paper execution; it cannot select a live broker.
 import { randomUUID } from 'crypto';
 import { getAdminClient } from '@/lib/supabase/admin';
 import { hermesLog } from '@/lib/hermes/hermes-logger';
@@ -194,12 +193,15 @@ async function runTradeLoop(loop: LoopRow, trigger: EventRow | { type: 'manual' 
     return;
   }
 
-  const intent = { ...raw, loopId: loop.id };
+  // One loop run can emit at most one order. Its durable run UUID is therefore
+  // the stable client-order key across network retries and worker recovery.
+  const intent = { ...raw, loopId: loop.id, clientOrderId: runId };
   const adapter = await selectAdapter();
   const gate = await checkRisk(intent, loop.config, adapter);
 
   if (!gate.allowed) {
     await db().from('orders').insert({
+      client_order_id: intent.clientOrderId,
       loop_id: loop.id,
       symbol: intent.symbol,
       side: intent.side,
@@ -225,7 +227,8 @@ async function runTradeLoop(loop: LoopRow, trigger: EventRow | { type: 'manual' 
   }
 
   const result = await adapter.placeOrder(intent);
-  await db().from('orders').insert({
+  await db().from('orders').upsert({
+    client_order_id: intent.clientOrderId,
     loop_id: loop.id,
     symbol: intent.symbol,
     side: intent.side,
@@ -234,10 +237,9 @@ async function runTradeLoop(loop: LoopRow, trigger: EventRow | { type: 'manual' 
     type: intent.type,
     limit_price: intent.limitPrice ?? null,
     status: result.status,
-    broker_id: result.brokerId ?? null,
     fill_price: result.fillPrice ?? null,
     reason: result.reason ?? null,
-  });
+  }, { onConflict: 'client_order_id' });
   await hermesLog(
     result.status === 'dry_run' ? 'info' : 'success',
     `[ORDER] ${loop.name} ${intent.side} ${intent.symbol} via ${adapter.name} → ${result.status}${result.fillPrice ? ` @ $${result.fillPrice}` : ''}`

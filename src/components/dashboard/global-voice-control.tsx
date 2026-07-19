@@ -3,30 +3,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Mic, MicOff } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import { dispatchAgent } from '@/app/actions/agent-dispatcher';
 import { speakBrowser } from '@/hooks/use-browser-speech';
 import { useCoreFxStore } from '@/lib/fx/core-store';
 import { CHAT_HISTORY_UPDATED_EVENT } from '@/lib/chat/events';
 import type { ChatHistoryScope, ChatHistoryTurn } from '@/lib/chat/history';
+import { usePersonalLaneStore } from '@/lib/chat/lane-store';
+import { resolveVoiceTarget } from '@/lib/chat/voice-target';
+import { PRIMARY_WAKE_NAME, extractWakeCommand, looksLikeAssistantEcho } from '@/lib/voice/speech';
+import { LIFE_CONTEXT_UPDATED_EVENT } from '@/lib/life-context/events';
 import { cn } from '@/lib/utils';
 
-type ClaudePersona = 'architect' | 'trading' | 'coding' | 'business_mentor' | 'life_mentor' | 'focus_mentor';
 type VoiceState = 'idle' | 'arming' | 'listening' | 'processing' | 'unsupported' | 'blocked';
 
 // Web Speech API is still vendor-prefixed in Chromium and absent in some TS DOM lib builds.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecognition = any;
 
-const PRIMARY_WAKE_NAME = 'Nova';
-const WAKE_NAMES = [
-  'nova',
-  'claude',
-  'cloud',
-  'clawed',
-  'codex',
-  'jarvis',
-  'hermes',
-];
-const SILENCE_MS = 1600;
+// 1000ms: long enough that a mid-sentence breath doesn't cut the command,
+// short enough that every voice command stops paying a fixed 1.6s tax.
+const SILENCE_MS = 1000;
 const FOLLOW_UP_MS = 18_000;
 const AUTO_ARM_DELAY_MS = 1200;
 const RESTART_AFTER_TTS_MS = 80;
@@ -69,36 +65,6 @@ function getSpeechRecognitionCtor(): AnyRecognition | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function extractWakeCommand(raw: string): string | null {
-  const phrase = raw.replace(/\s+/g, ' ').trim();
-  if (!phrase) return null;
-
-  for (const name of WAKE_NAMES) {
-    const re = new RegExp(`(?:^|\\b)(?:hey|ok|okay)?\\s*${escapeRegExp(name)}\\b[\\s,.:;!-]*(.*)$`, 'i');
-    const match = phrase.match(re);
-    if (match) return (match[1] ?? '').trim();
-  }
-
-  return null;
-}
-
-function normalizeSpeech(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-function looksLikeAssistantEcho(heard: string, reply: string) {
-  const heardNorm = normalizeSpeech(heard);
-  const replyNorm = normalizeSpeech(reply);
-  if (heardNorm.length < 10 || replyNorm.length < 10) return false;
-  const head = heardNorm.slice(0, 60);
-  const replyHead = replyNorm.slice(0, 60);
-  return replyNorm.includes(head) || heardNorm.includes(replyHead);
-}
-
 function readRecognitionText(event: AnyRecognition) {
   let final = '';
   let interim = '';
@@ -111,16 +77,10 @@ function readRecognitionText(event: AnyRecognition) {
   return `${final}${interim}`.trim();
 }
 
-function voiceTarget(pathname: string): { scope: ChatHistoryScope; persona: ClaudePersona; label: string } {
-  if (pathname.includes('/rooms/trading')) return { scope: 'trading', persona: 'trading', label: 'Trading' };
-  if (pathname.includes('/rooms/coding')) return { scope: 'coding', persona: 'coding', label: 'Coding' };
-  if (pathname.includes('/dashboard/personal')) return { scope: 'personal', persona: 'business_mentor', label: 'Personal' };
-  return { scope: 'hub', persona: 'architect', label: 'Hub' };
-}
-
 export function GlobalVoiceControl({ compact = false }: { compact?: boolean }) {
   const pathname = usePathname();
-  const target = useMemo(() => voiceTarget(pathname), [pathname]);
+  const personalLane = usePersonalLaneStore((s) => s.personalLane);
+  const target = useMemo(() => resolveVoiceTarget(pathname, personalLane), [pathname, personalLane]);
   const targetRef = useRef(target);
   const setCoreListening = useCoreFxStore((s) => s.setIsListening);
 
@@ -256,20 +216,60 @@ export function GlobalVoiceControl({ compact = false }: { compact?: boolean }) {
       };
 
       try {
-        const res = await fetch('/api/converse', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: prompt,
-            scope: currentTarget.scope,
-            persona: currentTarget.persona,
-          }),
-        });
-        const data = (await res.json().catch(() => ({}))) as {
-          reply?: string;
-          error?: string;
-          history?: ChatHistoryTurn[];
-        };
+        let data: { reply?: string; error?: string; history?: ChatHistoryTurn[] };
+        if (currentTarget.kind === 'mentor') {
+          const historyRes = await fetch(`/api/chat-history?scope=${encodeURIComponent(currentTarget.scope)}`, { cache: 'no-store' });
+          const historyData = (await historyRes.json().catch(() => ({}))) as { turns?: ChatHistoryTurn[] };
+          const existing = Array.isArray(historyData.turns) ? historyData.turns : [];
+          const history = existing
+            .filter((turn) => !turn.error)
+            .slice(-18)
+            .map(({ role, content }) => ({ role, content }));
+          const result = await dispatchAgent({ agentId: currentTarget.agentId, prompt, history });
+          if (result.lifeContextProposals?.length) {
+            window.dispatchEvent(new CustomEvent(LIFE_CONTEXT_UPDATED_EVENT));
+          }
+          const next: ChatHistoryTurn[] = [
+            ...existing,
+            { role: 'user', content: prompt, createdAt: new Date().toISOString() },
+            {
+              role: 'assistant',
+              content: result.error ?? result.content,
+              agentId: result.agentId,
+              model: result.modelUsed,
+              error: Boolean(result.error),
+              createdAt: new Date().toISOString(),
+            },
+          ];
+          const saveRes = await fetch('/api/chat-history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scope: currentTarget.scope, turns: next }),
+          });
+          const saved = (await saveRes.json().catch(() => ({}))) as { turns?: ChatHistoryTurn[] };
+          data = {
+            reply: result.lifeContextProposals?.length
+              ? `${result.content} I have ${result.lifeContextProposals.length === 1 ? 'a shared fact' : `${result.lifeContextProposals.length} shared facts`} waiting for your explicit confirmation in the Personal Room.`
+              : result.content,
+            error: result.error,
+            history: Array.isArray(saved.turns) ? saved.turns : next,
+          };
+        } else {
+          const res = await fetch('/api/converse', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: prompt,
+              scope: currentTarget.scope,
+              persona: currentTarget.persona,
+            }),
+          });
+          data = (await res.json().catch(() => ({}))) as {
+            reply?: string;
+            error?: string;
+            history?: ChatHistoryTurn[];
+          };
+        }
         const reply = data.reply ?? data.error ?? 'I could not respond.';
         if (Array.isArray(data.history)) {
           window.dispatchEvent(
@@ -349,28 +349,32 @@ export function GlobalVoiceControl({ compact = false }: { compact?: boolean }) {
       }
 
       setState('arming');
-      setStatus(`Requesting microphone permission for ${PRIMARY_WAKE_NAME}...`);
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach((track) => track.stop());
-      } catch (err) {
-        const name = err instanceof DOMException ? err.name : 'unknown';
-        const blocked = name === 'NotAllowedError' && manual;
-        setState(blocked ? 'blocked' : 'idle');
-        setArmed(false);
-        armedRef.current = false;
-        setCoreListening(false);
-        setStatus(
-          name === 'NotAllowedError'
-            ? blocked
-              ? 'Mic blocked - allow microphone for this site, then arm voice'
-              : `Click Nova once to allow ${PRIMARY_WAKE_NAME}`
-            : name === 'NotFoundError'
-              ? 'No microphone found'
-              : `Mic unavailable (${name})`,
-        );
-        return;
+      const canPreflightMic = typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia);
+      if (canPreflightMic) {
+        setStatus(`Requesting microphone permission for ${PRIMARY_WAKE_NAME}...`);
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach((track) => track.stop());
+        } catch (err) {
+          const name = err instanceof DOMException ? err.name : 'unknown';
+          const blocked = name === 'NotAllowedError' && manual;
+          setState(blocked ? 'blocked' : 'idle');
+          setArmed(false);
+          armedRef.current = false;
+          setCoreListening(false);
+          setStatus(
+            name === 'NotAllowedError'
+              ? blocked
+                ? 'Mic blocked - allow microphone for this site, then arm voice'
+                : `Click Nova once to allow ${PRIMARY_WAKE_NAME}`
+              : name === 'NotFoundError'
+                ? 'No microphone found'
+                : `Mic unavailable (${name})`,
+          );
+          return;
+        }
+      } else {
+        setStatus(`Starting ${PRIMARY_WAKE_NAME} without preflight mic check...`);
       }
 
       if (!recognitionRef.current) {
@@ -438,7 +442,7 @@ export function GlobalVoiceControl({ compact = false }: { compact?: boolean }) {
   }, [target]);
 
   useEffect(() => {
-    const ok = getSpeechRecognitionCtor() !== null && typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia);
+    const ok = getSpeechRecognitionCtor() !== null;
     setSupported(ok);
     if (!ok) {
       setState('unsupported');

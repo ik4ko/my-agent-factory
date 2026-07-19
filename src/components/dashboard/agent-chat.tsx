@@ -3,6 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bot, Loader2, Mic, MicOff, Send, User, Volume2, VolumeX } from 'lucide-react';
 import { dispatchAgent, type MaterializedArtifact } from '@/app/actions/agent-dispatcher';
+import {
+  confirmLifeContextProposal,
+  discardLifeContextProposal,
+  editLifeContextProposal,
+  listLifeContext,
+} from '@/app/actions/life-context';
+import { recordMentorThumb } from '@/app/actions/feedback';
 import type { ActiveBrainId } from '@/lib/agents/brain-matrix';
 import { useCoreFxStore } from '@/lib/fx/core-store';
 import { CHAT_HISTORY_UPDATED_EVENT } from '@/lib/chat/events';
@@ -10,10 +17,14 @@ import { speakBrowser } from '@/hooks/use-browser-speech';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
 import { shortModel } from '@/lib/telemetry/pricing';
 import type { ChatHistoryScope } from '@/lib/chat/history';
+import { MENTOR_LANES, type MentorLaneId } from '@/lib/chat/mentor-lanes';
+import { usePersonalLaneStore, type PersonalLane } from '@/lib/chat/lane-store';
 import { cn } from '@/lib/utils';
+import { LIFE_CONTEXT_UPDATED_EVENT } from '@/lib/life-context/events';
+import type { PendingLifeContextProposal } from '@/lib/life-context/types';
 
 type ClaudePersona = 'architect' | 'trading' | 'coding' | 'business_mentor' | 'life_mentor' | 'focus_mentor';
-export type AgentChatLane = 'CLAUDE' | 'CODEX' | 'TRADING' | 'BUSINESS' | 'LIFE' | 'FOCUS';
+export type AgentChatLane = 'CLAUDE' | 'CODEX' | 'TRADING' | MentorLaneId;
 
 interface ChatTurn {
   role: 'user' | 'assistant';
@@ -28,9 +39,24 @@ interface ChatTurn {
 interface LaneConfig {
   label: string;
   description: string;
-  mode: 'claude' | 'codex';
+  /** 'claude' → /api/converse (CEO + persona appendix); 'dispatch' → dispatchAgent (brain-matrix lane). */
+  mode: 'claude' | 'dispatch';
   persona?: ClaudePersona;
   agentId?: ActiveBrainId;
+  /** Dedicated history scope — overrides the room's historyScope prop.
+   *  Mentor lanes each get their own so conversations never cross mentors. */
+  historyScope?: ChatHistoryScope;
+}
+
+function mentorLaneConfig(id: MentorLaneId): LaneConfig {
+  const lane = MENTOR_LANES[id];
+  return {
+    label: lane.label,
+    description: lane.description,
+    mode: 'dispatch',
+    agentId: lane.agentId,
+    historyScope: lane.scope,
+  };
 }
 
 const LANE_CONFIG: Record<AgentChatLane, LaneConfig> = {
@@ -43,7 +69,7 @@ const LANE_CONFIG: Record<AgentChatLane, LaneConfig> = {
   CODEX: {
     label: 'CODEX · engineer',
     description: 'Implementation, code review, and technical execution.',
-    mode: 'codex',
+    mode: 'dispatch',
     agentId: 'CODEX',
   },
   TRADING: {
@@ -52,25 +78,94 @@ const LANE_CONFIG: Record<AgentChatLane, LaneConfig> = {
     mode: 'claude',
     persona: 'trading',
   },
-  BUSINESS: {
-    label: 'Business mentor',
-    description: 'Strategy, customers, leverage, and money decisions.',
-    mode: 'claude',
-    persona: 'business_mentor',
-  },
-  LIFE: {
-    label: 'Life mentor',
-    description: 'Habits, judgment, relationships, and emotional clarity.',
-    mode: 'claude',
-    persona: 'life_mentor',
-  },
-  FOCUS: {
-    label: 'Focus mentor',
-    description: 'Calm prioritization and next actions.',
-    mode: 'claude',
-    persona: 'focus_mentor',
-  },
+  MENTOR_BUSINESS: mentorLaneConfig('MENTOR_BUSINESS'),
+  MENTOR_MONEY: mentorLaneConfig('MENTOR_MONEY'),
+  MENTOR_LIFE: mentorLaneConfig('MENTOR_LIFE'),
+  MENTOR_HEALTH: mentorLaneConfig('MENTOR_HEALTH'),
 };
+
+/** Parse the converse SSE stream: forward accumulated reply text per delta,
+ *  return the authoritative `done` payload (same shape as the JSON mode). */
+async function consumeConverseStream(
+  body: ReadableStream<Uint8Array>,
+  onPartial: (text: string) => void,
+): Promise<{ reply?: string; error?: string; history?: ChatTurn[]; brain?: { model?: string } }> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let frames = '';
+  let accumulated = '';
+  let final: { reply?: string; error?: string; history?: ChatTurn[]; brain?: { model?: string } } = {};
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      frames += decoder.decode(value, { stream: true });
+      let sep: number;
+      while ((sep = frames.indexOf('\n\n')) !== -1) {
+        const frame = frames.slice(0, sep);
+        frames = frames.slice(sep + 2);
+        const dataLine = frame.split('\n').find((l) => l.startsWith('data: '));
+        if (!dataLine) continue;
+        let event: { type?: string; text?: string; error?: string } & Record<string, unknown>;
+        try {
+          event = JSON.parse(dataLine.slice(6));
+        } catch {
+          continue;
+        }
+        if (event.type === 'delta' && typeof event.text === 'string') {
+          accumulated += event.text;
+          onPartial(accumulated);
+        } else if (event.type === 'done') {
+          final = event as typeof final;
+        } else if (event.type === 'error') {
+          final = { error: typeof event.error === 'string' ? event.error : 'converse failed' };
+        }
+      }
+    }
+  } catch {
+    // Mid-stream network failure: surface what we know rather than hanging.
+    if (!final.reply && !final.error) final = { error: 'stream interrupted' };
+  }
+  return final;
+}
+
+async function consumeDispatchStream(
+  body: ReadableStream<Uint8Array>,
+  onPartial: (text: string) => void,
+): Promise<Awaited<ReturnType<typeof dispatchAgent>>> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let frames = '';
+  let accumulated = '';
+  let final: Awaited<ReturnType<typeof dispatchAgent>> | null = null;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      frames += decoder.decode(value, { stream: true });
+      let separator: number;
+      while ((separator = frames.indexOf('\n\n')) !== -1) {
+        const frame = frames.slice(0, separator);
+        frames = frames.slice(separator + 2);
+        const line = frame.split('\n').find((item) => item.startsWith('data: '));
+        if (!line) continue;
+        const event = JSON.parse(line.slice(6)) as Record<string, unknown>;
+        if (event.type === 'delta' && typeof event.text === 'string') {
+          accumulated += event.text;
+          onPartial(accumulated);
+        } else if (event.type === 'done') {
+          final = event as unknown as Awaited<ReturnType<typeof dispatchAgent>>;
+        } else if (event.type === 'error') {
+          throw new Error(typeof event.error === 'string' ? event.error : 'dispatch failed');
+        }
+      }
+    }
+  } catch (error) {
+    throw error instanceof Error ? error : new Error('stream interrupted');
+  }
+  if (!final) throw new Error('stream interrupted before final result');
+  return final;
+}
 
 async function readHistory(scope: ChatHistoryScope): Promise<ChatTurn[]> {
   const res = await fetch(`/api/chat-history?scope=${encodeURIComponent(scope)}`, { cache: 'no-store' });
@@ -113,12 +208,50 @@ export function AgentChat({
   const [lane, setLane] = useState<AgentChatLane>(initialLane);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [busy, setBusy] = useState(false);
+  /** Accumulating streamed reply (claude/SSE mode) — rendered as a
+   *  provisional bubble, replaced by the persisted turn on completion. */
+  const [streamText, setStreamText] = useState<string | null>(null);
+  /** True while a submit is in flight — history-updated events must not
+   *  clobber the optimistic user turn / streaming bubble mid-request. */
+  const inFlightRef = useRef(false);
   const [loaded, setLoaded] = useState(false);
   const [value, setValue] = useState('');
   const [speakOn, setSpeakOn] = useState(false);
+  const [pendingFacts, setPendingFacts] = useState<PendingLifeContextProposal[]>([]);
+  const [pendingFactAction, setPendingFactAction] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const setCoreListening = useCoreFxStore((s) => s.setIsListening);
+  const setPersonalLane = usePersonalLaneStore((s) => s.setPersonalLane);
+  /** Feedback thumbs already given this session, keyed per rendered turn. */
+  const [ratedTurns, setRatedTurns] = useState<Record<string, 'up' | 'down'>>({});
+
+  const rateTurn = useCallback((turnKey: string, turn: ChatTurn, verdict: 'up' | 'down') => {
+    const note = verdict === 'down' ? window.prompt('What was wrong? (optional)') ?? undefined : undefined;
+    setRatedTurns((prev) => ({ ...prev, [turnKey]: verdict }));
+    void recordMentorThumb({
+      mentorId: turn.agentId ?? 'unknown',
+      verdict,
+      ...(turn.model ? { model: turn.model } : {}),
+      ...(note?.trim() ? { note: note.trim() } : {}),
+    }).catch(() => setRatedTurns((prev) => {
+      const next = { ...prev };
+      delete next[turnKey];
+      return next;
+    }));
+  }, []);
+
+  // A lane with its own historyScope (mentor lanes) overrides the room scope.
+  // Everything below — load, live-update events, persistence — keys on this,
+  // so choosing a lane swaps persona AND history together: the load effect
+  // clears `loaded`, and submit refuses to run until the right history is in.
+  const effectiveScope = LANE_CONFIG[lane].historyScope ?? historyScope;
+
+  useEffect(() => {
+    if (historyScope === 'personal' && (lane === 'CLAUDE' || lane in MENTOR_LANES)) {
+      setPersonalLane(lane as PersonalLane);
+    }
+  }, [historyScope, lane, setPersonalLane]);
 
   const chooseLane = useCallback(
     (next: AgentChatLane) => {
@@ -139,7 +272,7 @@ export function AgentChat({
   useEffect(() => {
     let alive = true;
     setLoaded(false);
-    void readHistory(historyScope)
+    void readHistory(effectiveScope)
       .then((history) => {
         if (alive) setTurns(history);
       })
@@ -149,18 +282,49 @@ export function AgentChat({
     return () => {
       alive = false;
     };
+  }, [effectiveScope]);
+
+  const refreshLifeContext = useCallback(() => {
+    if (historyScope !== 'personal') return;
+    void listLifeContext().then((document) => setPendingFacts(document.pending)).catch(() => undefined);
   }, [historyScope]);
 
   useEffect(() => {
+    refreshLifeContext();
+    window.addEventListener(LIFE_CONTEXT_UPDATED_EVENT, refreshLifeContext);
+    return () => window.removeEventListener(LIFE_CONTEXT_UPDATED_EVENT, refreshLifeContext);
+  }, [refreshLifeContext]);
+
+  const actOnFact = useCallback(async (proposal: PendingLifeContextProposal, action: 'confirm' | 'edit' | 'discard') => {
+    setPendingFactAction(proposal.id);
+    try {
+      if (action === 'confirm') await confirmLifeContextProposal(proposal.id);
+      if (action === 'discard') await discardLifeContextProposal(proposal.id);
+      if (action === 'edit') {
+        const value = window.prompt('Edit the fact before confirming it:', proposal.candidate.value);
+        if (value === null) return;
+        await editLifeContextProposal(proposal.id, { ...proposal.candidate, value });
+      }
+      refreshLifeContext();
+    } finally {
+      setPendingFactAction(null);
+    }
+  }, [refreshLifeContext]);
+
+  useEffect(() => {
     const onHistoryUpdated = (event: Event) => {
+      // A voice command or background delegation landing mid-submit must not
+      // overwrite the optimistic user turn or an in-progress stream; the
+      // submit's own finalize sets the fresh server history.
+      if (inFlightRef.current) return;
       const detail = (event as CustomEvent<{ scope?: ChatHistoryScope; turns?: ChatTurn[] }>).detail;
-      if (detail?.scope && detail.scope !== historyScope) return;
+      if (detail?.scope && detail.scope !== effectiveScope) return;
       if (Array.isArray(detail?.turns)) {
         setTurns(detail.turns);
         setLoaded(true);
         return;
       }
-      void readHistory(historyScope).then((history) => {
+      void readHistory(effectiveScope).then((history) => {
         setTurns(history);
         setLoaded(true);
       });
@@ -168,7 +332,7 @@ export function AgentChat({
 
     window.addEventListener(CHAT_HISTORY_UPDATED_EVENT, onHistoryUpdated);
     return () => window.removeEventListener(CHAT_HISTORY_UPDATED_EVENT, onHistoryUpdated);
-  }, [historyScope]);
+  }, [effectiveScope]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -178,19 +342,22 @@ export function AgentChat({
     async (next: ChatTurn[]) => {
       setTurns(next);
       try {
-        const saved = await writeHistory(historyScope, next);
+        const saved = await writeHistory(effectiveScope, next);
         setTurns(saved);
       } catch {
-        console.warn(`[${historyScope}] chat history save failed`);
+        console.warn(`[${effectiveScope}] chat history save failed`);
       }
     },
-    [historyScope],
+    [effectiveScope],
   );
 
   const submit = useCallback(
     async (override?: string, options?: { forceSpeak?: boolean }) => {
       const prompt = (override ?? value).trim();
-      if (!prompt || busy) return;
+      // `!loaded` guard: after a lane switch, `turns` may still hold the
+      // previous lane's history until the reload lands — sending then would
+      // persist that history into the NEW lane's scope (cross-mentor leak).
+      if (!prompt || busy || !loaded) return;
 
       const config = LANE_CONFIG[lane];
       const history = turns
@@ -202,26 +369,32 @@ export function AgentChat({
 
       setValue('');
       setBusy(true);
+      inFlightRef.current = true;
       setTurns(base);
 
       try {
         if (config.mode === 'claude') {
-          const res = await fetch('/api/converse', {
+          // ?stream=1: the server streams reply deltas as SSE when it can
+          // (CEO lane); trading-gate / budget-block / error outcomes still
+          // come back as plain JSON — branch on the response content type.
+          const res = await fetch('/api/converse?stream=1', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               message: prompt,
               history,
-              scope: historyScope,
+              scope: effectiveScope,
               persona: config.persona ?? 'architect',
             }),
           });
-          const data = (await res.json().catch(() => ({}))) as {
-            reply?: string;
-            error?: string;
-            history?: ChatTurn[];
-            brain?: { model?: string };
-          };
+
+          let data: { reply?: string; error?: string; history?: ChatTurn[]; brain?: { model?: string } } = {};
+          if (res.ok && res.body && (res.headers.get('content-type') ?? '').includes('text/event-stream')) {
+            data = await consumeConverseStream(res.body, (partial) => setStreamText(partial));
+          } else {
+            data = (await res.json().catch(() => ({}))) as typeof data;
+          }
+
           const reply = data.reply || data.error || 'I could not respond.';
           if (Array.isArray(data.history)) {
             setTurns(data.history);
@@ -243,7 +416,23 @@ export function AgentChat({
         }
 
         const agentId = config.agentId ?? 'CODEX';
-        const result = await dispatchAgent({ agentId, prompt, history });
+        const dispatchResponse = await fetch('/api/agent-dispatch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId, prompt, history }),
+        });
+        let result: Awaited<ReturnType<typeof dispatchAgent>>;
+        if (dispatchResponse.ok && dispatchResponse.body && (dispatchResponse.headers.get('content-type') ?? '').includes('text/event-stream')) {
+          result = await consumeDispatchStream(dispatchResponse.body, (partial) => setStreamText(partial));
+        } else {
+          result = await dispatchResponse.json().catch(() => ({
+            agentId,
+            modelUsed: 'unknown',
+            content: '',
+            timestamp: new Date().toISOString(),
+            error: `dispatch request failed (${dispatchResponse.status})`,
+          })) as Awaited<ReturnType<typeof dispatchAgent>>;
+        }
         const reply = result.error ?? result.content;
         const next = [
           ...base,
@@ -258,6 +447,7 @@ export function AgentChat({
           },
         ];
         await persist(next);
+        if (result.lifeContextProposals?.length) refreshLifeContext();
         if ((speakOn || options?.forceSpeak) && !result.error) speakBrowser(result.content);
       } catch (err) {
         await persist([
@@ -272,10 +462,12 @@ export function AgentChat({
         ]);
       } finally {
         setBusy(false);
+        inFlightRef.current = false;
+        setStreamText(null);
         inputRef.current?.focus();
       }
     },
-    [busy, historyScope, lane, persist, speakOn, turns, value],
+    [busy, effectiveScope, lane, loaded, persist, refreshLifeContext, speakOn, turns, value],
   );
 
   const speech = useSpeechRecognition((text) => {
@@ -295,7 +487,7 @@ export function AgentChat({
   const activeConfig = LANE_CONFIG[lane];
   const placeholder = speech.state === 'listening'
     ? 'Listening...'
-    : activeConfig.mode === 'codex'
+    : lane === 'CODEX'
       ? 'Ask Codex to build, review, or debug...'
       : `Message ${activeConfig.label}...`;
 
@@ -373,6 +565,34 @@ export function AgentChat({
                     </p>
                   )}
                   <span className="whitespace-pre-wrap break-words">{turn.content}</span>
+                  {!isUser && !turn.error && turn.agentId?.startsWith('MENTOR_') && (
+                    <div className="mt-1 flex gap-1.5">
+                      {(['up', 'down'] as const).map((verdict) => {
+                        const turnKey = `${turn.createdAt ?? i}-${i}`;
+                        const chosen = ratedTurns[turnKey];
+                        return (
+                          <button
+                            key={verdict}
+                            type="button"
+                            disabled={chosen !== undefined}
+                            aria-label={verdict === 'up' ? 'Good reply' : 'Bad reply'}
+                            title={verdict === 'up' ? 'Good reply' : 'Bad reply (optional note)'}
+                            onClick={() => rateTurn(turnKey, turn, verdict)}
+                            className={cn(
+                              'rounded px-1 font-terminal text-[10px] transition-colors',
+                              chosen === verdict
+                                ? 'bg-primary/20 text-primary'
+                                : chosen !== undefined
+                                  ? 'text-muted-foreground/20'
+                                  : 'text-muted-foreground/50 hover:text-foreground',
+                            )}
+                          >
+                            {verdict === 'up' ? '👍' : '👎'}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                   {turn.materialized && turn.materialized.length > 0 && (
                     <div className="mt-1.5 flex flex-wrap gap-1">
                       {turn.materialized.map((m) => (
@@ -398,7 +618,20 @@ export function AgentChat({
             );
           })
         )}
-        {busy && (
+        {busy && streamText !== null && (
+          /* Provisional streamed reply — replaced by the persisted turn when
+             the authoritative done payload lands. */
+          <div className="flex justify-start gap-2 pl-0.5">
+            <div className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border border-primary/25 bg-primary/10">
+              <Bot className="size-2.5 text-primary" aria-hidden />
+            </div>
+            <div className="max-w-[80%] rounded-lg border border-border bg-surface-1 px-2.5 py-1.5 text-xs leading-relaxed text-foreground/90">
+              <span className="whitespace-pre-wrap break-words">{streamText}</span>
+              <span className="ml-0.5 inline-block size-1.5 animate-pulse rounded-full bg-primary align-middle" aria-hidden />
+            </div>
+          </div>
+        )}
+        {busy && streamText === null && (
           <div className="flex items-center gap-2 font-terminal text-[10px] text-muted-foreground/60">
             <span className="size-1.5 animate-pulse rounded-full bg-primary" aria-hidden /> thinking...
           </div>
@@ -406,6 +639,22 @@ export function AgentChat({
       </div>
 
       <div className={cn('shrink-0 border-t border-border pt-2', variant === 'full' && 'px-4 pb-3')}>
+        {historyScope === 'personal' && pendingFacts.length > 0 && (
+          <div className="mb-2 space-y-2">
+            {pendingFacts.map((proposal) => (
+              <div key={proposal.id} className="rounded-md border border-amber-400/30 bg-amber-400/[0.06] p-2 font-terminal text-[10px]">
+                <p className="text-amber-200">Remember this shared fact?</p>
+                <p className="mt-1 text-foreground/85">{proposal.candidate.subject}: {proposal.candidate.value}</p>
+                <p className="mt-1 text-muted-foreground/60">Source: “{proposal.candidate.sourceQuote}” · expires in 24h</p>
+                <div className="mt-2 flex gap-2">
+                  <button type="button" disabled={pendingFactAction === proposal.id} onClick={() => void actOnFact(proposal, 'confirm')} className="text-emerald-400 hover:text-emerald-300">Confirm</button>
+                  <button type="button" disabled={pendingFactAction === proposal.id} onClick={() => void actOnFact(proposal, 'edit')} className="text-primary hover:text-primary/80">Edit</button>
+                  <button type="button" disabled={pendingFactAction === proposal.id} onClick={() => void actOnFact(proposal, 'discard')} className="text-muted-foreground hover:text-foreground">Discard</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="flex items-end gap-2 rounded-md border border-l-2 border-border bg-background px-2.5 py-1.5 focus-within:border-emerald-500/50 focus-within:border-l-emerald-500">
           <textarea
             ref={inputRef}
@@ -442,11 +691,11 @@ export function AgentChat({
           <button
             type="button"
             onClick={() => void submit()}
-            disabled={!value.trim() || busy}
+            disabled={!value.trim() || busy || !loaded}
             aria-label="Send prompt"
             className={cn(
               'flex shrink-0 items-center rounded transition-colors',
-              value.trim() && !busy ? 'text-emerald-500 hover:text-emerald-400' : 'cursor-not-allowed text-muted-foreground/25',
+              value.trim() && !busy && loaded ? 'text-emerald-500 hover:text-emerald-400' : 'cursor-not-allowed text-muted-foreground/25',
             )}
           >
             {busy ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <Send className="size-3.5" aria-hidden />}

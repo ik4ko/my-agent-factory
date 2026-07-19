@@ -97,7 +97,7 @@ export type EmergencyStopResult = {
 };
 
 // Phase 5/6 — staged (never executed) order proposals awaiting human review.
-// Structurally identical to RobinhoodStagedOrder in trading.types.ts;
+// Structurally identical to StagedOrder in trading.types.ts;
 // redeclared as a type alias so Database Row typing stays supabase-js
 // compatible (see NOTE on type aliases above).
 export type StagedOrderIntentKind = 'legacy' | 'option_intent';
@@ -159,10 +159,10 @@ export type PortfolioStateRow = {
 };
 
 // Phase Loops — standing objectives the system re-evaluates on a cadence
-// and/or in reaction to events (news/price/manual/phone).
+// and/or in reaction to events (news/price/manual).
 export type LoopKind = 'trade' | 'research' | 'build' | 'personal' | 'monitor';
 export type LoopStatus = 'armed' | 'paused' | 'stopped';
-export type LoopTrigger = { type: 'news' | 'price' | 'earnings' | 'manual' | 'phone'; symbol?: string; minSeverity?: EventSeverity };
+export type LoopTrigger = { type: 'news' | 'price' | 'earnings' | 'manual'; symbol?: string; minSeverity?: EventSeverity };
 
 export type LoopRow = {
   id: string;
@@ -196,8 +196,22 @@ export type LoopRunRow = {
   finished_at: string | null;
 };
 
+// Work-session indicator v0 — one row per agent work session; the header
+// chip shows the newest active row whose heartbeat is fresh (<3 min).
+export type WorkSessionStatus = 'active' | 'finished';
+export type WorkSessionRow = {
+  id: string;
+  agent_name: string;
+  task_summary: string;
+  touched_files: string[];
+  status: WorkSessionStatus;
+  started_at: string;
+  last_heartbeat_at: string;
+  finished_at: string | null;
+};
+
 // Event bus — market/news signals that can trigger an immediate loop run.
-export type EventType = 'news' | 'price' | 'earnings' | 'manual' | 'phone';
+export type EventType = 'news' | 'price' | 'earnings' | 'manual';
 export type EventSeverity = 'low' | 'med' | 'high' | 'critical';
 export type EventRow = {
   id: string;
@@ -216,6 +230,7 @@ export type OrderType = 'market' | 'limit';
 export type OrderStatus = 'intent' | 'risk_blocked' | 'dry_run' | 'submitted' | 'filled' | 'rejected' | 'canceled';
 export type OrderRow = {
   id: string;
+  client_order_id: string | null;
   loop_id: string | null;
   symbol: string;
   side: OrderSide;
@@ -381,7 +396,7 @@ export type Database = {
       };
       orders: {
         Row: OrderRow;
-        Insert: Omit<OrderRow, 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
+        Insert: Omit<OrderRow, 'id' | 'created_at' | 'updated_at' | 'client_order_id'> & { id?: string; client_order_id?: string | null; created_at?: string; updated_at?: string };
         Update: Partial<Omit<OrderRow, 'id' | 'created_at'>>;
         Relationships: [];
       };
@@ -403,6 +418,10 @@ export type Database = {
       agent_emergency_stop: {
         Args: Record<string, never>;
         Returns: EmergencyStopResult;
+      };
+      decide_task_intervention: {
+        Args: { p_task_id: string; p_decision: 'approve' | 'deny'; p_feedback?: string | null };
+        Returns: boolean;
       };
     };
     Enums: Record<string, never>;
