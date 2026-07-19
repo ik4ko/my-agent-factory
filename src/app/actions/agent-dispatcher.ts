@@ -103,6 +103,8 @@ export interface AgentDispatchResult {
   materialized?: MaterializedArtifact[];
   /** Sensitive/inferred/corrective memories awaiting an explicit action-by-ID. */
   lifeContextProposals?: PendingLifeContextProposal[];
+  /** Per-segment production timings for tool-loop profiling. */
+  toolLoopTimings?: { modelRoundMs: number[]; toolCalls: Array<{ name: string; latencyMs: number }> };
 }
 
 const MENTOR_AGENT_IDS = new Set<AgentId>(['MENTOR_BUSINESS', 'MENTOR_MONEY', 'MENTOR_LIFE', 'MENTOR_HEALTH']);
@@ -864,7 +866,12 @@ async function completeStreamedDispatch(
   prepared: PreparedDispatch,
   content: string,
   model: string,
-  usage: { inputTokens: number; outputTokens: number },
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+    modelRoundMs?: number[];
+    toolCalls?: Array<{ name: string; latencyMs: number }>;
+  },
   latencyMs: number,
 ): Promise<AgentDispatchResult> {
   const { agentId, agent, prompt } = prepared;
@@ -882,6 +889,9 @@ async function completeStreamedDispatch(
     modelUsed: model,
     content,
     timestamp: new Date().toISOString(),
+    ...(usage.modelRoundMs?.length
+      ? { toolLoopTimings: { modelRoundMs: usage.modelRoundMs, toolCalls: usage.toolCalls ?? [] } }
+      : {}),
     ...(materialized.length ? { materialized } : {}),
   }, prepared);
 }

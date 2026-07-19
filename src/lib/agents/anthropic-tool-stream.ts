@@ -16,6 +16,8 @@ export interface AnthropicStreamOutcome {
   inputTokens: number;
   outputTokens: number;
   toolRounds: number;
+  modelRoundMs: number[];
+  toolCalls: Array<{ name: string; latencyMs: number }>;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,8 +42,11 @@ export async function runAnthropicToolStream(opts: {
   let inputTokens = 0;
   let outputTokens = 0;
   let toolRounds = 0;
+  const modelRoundMs: number[] = [];
+  const toolCalls: Array<{ name: string; latencyMs: number }> = [];
 
   for (let round = 0; round < (opts.maxRounds ?? 4); round++) {
+    const modelStarted = performance.now();
     const stream = await opts.client.messages.create({
       model: opts.model,
       max_tokens: opts.maxTokens,
@@ -74,13 +79,17 @@ export async function runAnthropicToolStream(opts: {
         stopReason = event.delta.stop_reason ?? stopReason;
       }
     }
+    modelRoundMs.push(Math.round(performance.now() - modelStarted));
 
     if (stopReason !== 'tool_use' || toolUses.length === 0) break;
     toolRounds += 1;
 
-    const results = await Promise.all(
-      toolUses.map(async (t) => ({ id: t.id, output: await executeLiveTool(t.name, parseToolArgs(t.argsJson)) })),
-    );
+    const results = await Promise.all(toolUses.map(async (t) => {
+      const toolStarted = performance.now();
+      const output = await executeLiveTool(t.name, parseToolArgs(t.argsJson));
+      toolCalls.push({ name: t.name, latencyMs: Math.round(performance.now() - toolStarted) });
+      return { id: t.id, output };
+    }));
     messages.push({
       role: 'assistant',
       content: [
@@ -94,5 +103,5 @@ export async function runAnthropicToolStream(opts: {
     });
   }
 
-  return { text, model: reportedModel, inputTokens, outputTokens, toolRounds };
+  return { text, model: reportedModel, inputTokens, outputTokens, toolRounds, modelRoundMs, toolCalls };
 }

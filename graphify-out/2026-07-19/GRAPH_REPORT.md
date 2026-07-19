@@ -1,16 +1,16 @@
 # Graph Report - my agent factory  (2026-07-19)
 
 ## Corpus Check
-- 380 files · ~349,618 words
+- 380 files · ~349,768 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2535 nodes · 5282 edges · 197 communities (144 shown, 53 thin omitted)
+- 2535 nodes · 5282 edges · 198 communities (145 shown, 53 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 28 edges (avg confidence: 0.67)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `bec1f8cb`
+- Built from commit: `e2a07f51`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -181,6 +181,7 @@
 - [[_COMMUNITY_Capability|Capability]]
 - [[_COMMUNITY_description|description]]
 - [[_COMMUNITY_Capability|Capability]]
+- [[_COMMUNITY_Value|Value]]
 - [[_COMMUNITY_Identifier|Identifier]]
 - [[_COMMUNITY_Identifier|Identifier]]
 - [[_COMMUNITY_command.ts|command.ts]]
@@ -224,7 +225,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (197 total, 53 thin omitted)
+## Communities (198 total, 53 thin omitted)
 
 ### Community 0 - "NPM Package Dependencies"
 Cohesion: 0.03
@@ -291,8 +292,8 @@ Cohesion: 0.24
 Nodes (8): envFlags(), SettingsWorkspace(), EnvFlag, SettingsClient(), TestState, TIER_LABEL, BRAIN_IDS, BrainId
 
 ### Community 16 - "Trading Execution Adapters"
-Cohesion: 0.13
-Nodes (30): AgentActivity(), BRAINS, BUS_THOUGHTS_KEY, providerBadge(), readProvenance(), ThoughtProvenance, useBusThoughts(), DashboardClient() (+22 more)
+Cohesion: 0.16
+Nodes (24): BRAINS, BUS_THOUGHTS_KEY, ThoughtProvenance, DashboardClient(), DashboardClientProps, SpatialWorkspace, OutputCard, TaskResultPayload (+16 more)
 
 ### Community 17 - "Order Staging & Portfolio"
 Cohesion: 0.18
@@ -551,8 +552,8 @@ Cohesion: 0.33
 Nodes (5): description, identifier, permissions, $schema, windows
 
 ### Community 144 - "scope.ts"
-Cohesion: 0.15
-Nodes (13): definitions, Number, PermissionEntry, Target, Value, anyOf, description, anyOf (+5 more)
+Cohesion: 0.13
+Nodes (14): anyOf, definitions, Number, PermissionEntry, Target, description, anyOf, description (+6 more)
 
 ### Community 145 - "transport.ts"
 Cohesion: 0.08
@@ -663,8 +664,8 @@ Cohesion: 0.67
 Nodes (3): AgentDispatchInput, dispatchAgentStream(), POST()
 
 ### Community 177 - "desktop-schema.json"
-Cohesion: 0.40
-Nodes (4): anyOf, description, $schema, title
+Cohesion: 0.48
+Nodes (6): AgentActivity(), providerBadge(), readProvenance(), useBusThoughts(), BrainPanel(), SystemHealthPill()
 
 ### Community 178 - "local"
 Cohesion: 0.50
@@ -681,6 +682,10 @@ Nodes (4): default, description, type, description
 ### Community 181 - "Capability"
 Cohesion: 0.50
 Nodes (4): description, required, type, Capability
+
+### Community 182 - "Value"
+Cohesion: 0.67
+Nodes (3): Value, anyOf, description
 
 ### Community 183 - "Identifier"
 Cohesion: 0.67
@@ -746,7 +751,7 @@ Nodes (5): POST(), Schema, body, logInsertMock, rpcMock
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `cn()` connect `transport.ts` to `Watchlist Sweep Orchestrator`, `golive-client.tsx`, `registry.ts`, `global-controls.tsx`, `history.ts`, `consensus-view.tsx`, `Command Console & Store`, `Portfolio & Loop Clients`, `trading-room-client.tsx`, `App Layout & Providers`, `Dashboard Client & Stats`, `Trading Execution Adapters`, `room-status-strip.tsx`, `Voice Phone API`, `Cinematic 3D Core Widget`, `Preflight System Checks`, `Command Palette UI`, `route.ts`?**
+- **Why does `cn()` connect `transport.ts` to `registry.ts`, `global-controls.tsx`, `history.ts`, `consensus-view.tsx`, `Command Console & Store`, `Portfolio & Loop Clients`, `Dashboard Client & Stats`, `Trading Execution Adapters`, `room-status-strip.tsx`, `Cinematic 3D Core Widget`, `Preflight System Checks`, `Command Palette UI`, `Watchlist Sweep Orchestrator`, `golive-client.tsx`, `App Layout & Providers`, `desktop-schema.json`, `Voice Phone API`, `trading-room-client.tsx`, `route.ts`?**
   _High betweenness centrality (0.162) - this node is a cross-community bridge._
 - **Why does `ConnectionIndicator()` connect `consensus-view.tsx` to `transport.ts`, `Chat & Dashboard UI`?**
   _High betweenness centrality (0.157) - this node is a cross-community bridge._
