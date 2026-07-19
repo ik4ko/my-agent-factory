@@ -952,7 +952,7 @@ async function runStreamingProvider(prepared: PreparedDispatch, onDelta: (delta:
       const inputTokens = outcome.inputTokens;
       const outputTokens = outcome.outputTokens;
       const model = outcome.model;
-      return completeStreamedDispatch(prepared, content, model, { inputTokens, outputTokens }, Date.now() - started);
+      return completeStreamedDispatch(prepared, content, model, outcome, Date.now() - started);
     }
 
     if (agent.provider === 'openai-direct') {
