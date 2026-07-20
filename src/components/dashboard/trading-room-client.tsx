@@ -55,7 +55,7 @@ export function TradingRoomClient() {
       id: 'chart',
       label: 'chart',
       node: (
-        <PanelChrome title="CHART" bodyClassName="p-0" className="h-full">
+        <PanelChrome title="CHART" glow bodyClassName="p-0" className="h-full">
           <WidgetErrorBoundary name="Trading Chart">
             <TradingChart selectedSymbol={selectedSymbol} onSelectSymbol={handleSelectSymbol} />
           </WidgetErrorBoundary>

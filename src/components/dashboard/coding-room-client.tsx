@@ -33,7 +33,7 @@ export function CodingRoomClient() {
       id: 'chat',
       label: 'coding chat',
       node: (
-        <PanelChrome title="CODING CHAT" accent="agent" bodyClassName="p-0" className="h-full">
+        <PanelChrome title="CODING CHAT" accent="agent" glow bodyClassName="p-0" className="h-full">
           <WidgetErrorBoundary name="Coding Chat">
             <AgentChat
               variant="full"

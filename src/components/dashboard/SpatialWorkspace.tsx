@@ -111,7 +111,8 @@ function BrainNode({
   const mat = useRef<THREE.MeshStandardMaterial>(null);
   const ringMat = useRef<THREE.MeshBasicMaterial>(null);
   const highlight = useRef(0);
-  const base = focused ? 2.2 : active ? 1.4 : 0.45;
+  // Keep the sphere visibly lit: excessive emission removes its round shading.
+  const base = focused ? 0.5 : active ? 0.32 : 0.16;
   const ringBase = active ? 0.5 : 0.22;
 
   useFrame((_, delta) => {
@@ -128,7 +129,7 @@ function BrainNode({
     const target = focusId !== null && idToBrain.get(focusId) === def.key ? 1 : 0;
     highlight.current += (target - highlight.current) * (1 - Math.pow(0.002, delta));
 
-    m.emissiveIntensity = base + flash * 2.0 + highlight.current * 1.3;
+    m.emissiveIntensity = Math.min(0.5, base + flash * 0.14 + highlight.current * 0.12);
     const rm = ringMat.current;
     if (rm) rm.opacity = ringBase + highlight.current * 0.4;
     if (mesh.current) {
@@ -156,8 +157,8 @@ function BrainNode({
           document.body.style.cursor = 'auto';
         }}
       >
-        <icosahedronGeometry args={[0.3, 2]} />
-        <meshStandardMaterial ref={mat} color={color} emissive={color} emissiveIntensity={base} toneMapped={false} roughness={0.35} metalness={0.15} />
+        <sphereGeometry args={[0.3, 32, 20]} />
+        <meshStandardMaterial ref={mat} color={color} emissive={color} emissiveIntensity={base} roughness={0.5} metalness={0.1} />
       </mesh>
       {/* orbit ring — reads as "tracked fix", the 1A nav-instrument voice.
           Opacity is frame-driven (base + hover highlight). */}

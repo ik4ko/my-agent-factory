@@ -7,6 +7,7 @@ import { useCommandStore } from '@/lib/cli/command-store';
 import { useControlStore } from '@/lib/control/control-store';
 import { COMMANDS, parseCommand, autocomplete, type CommandContext } from '@/lib/cli/commands';
 import { cn } from '@/lib/utils';
+import { ShimmerButton } from '@/components/ui/shimmer-button';
 
 const OUTPUT_COLOR = {
   info: 'text-foreground/70',
@@ -148,9 +149,9 @@ export function CommandConsole() {
               className="relative w-full bg-transparent font-terminal text-xs text-foreground placeholder:text-muted-foreground/20 outline-none"
             />
           </div>
-          <button onClick={submit} className="flex items-center gap-1 font-terminal text-[10px] text-primary hover:text-primary/70">
+          <ShimmerButton onClick={submit} shimmerColor="#a3b1f7" background="rgba(163,177,247,.12)" borderRadius="4px" className="h-7 gap-1 px-2 font-terminal text-[10px] text-primary">
             <CornerDownLeft className="size-3" /> RUN
-          </button>
+          </ShimmerButton>
         </div>
       </div>
     </div>

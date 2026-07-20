@@ -14,6 +14,8 @@ import { useWorkspaceInit } from '@/hooks/use-workspace-init';
 import type { Agent, Task, Log } from '@/lib/types/database.types';
 import { useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
+import { NumberTicker } from '@/components/ui/number-ticker';
+import TiltedCard from '@/components/TiltedCard';
 
 // The Brain Hub WebGL scene touches window/canvas — client-only, and the ONE
 // Three.js surface on the dashboard.
@@ -73,7 +75,12 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
       <CommandConsole />
 
-      <div className="h-[360px] shrink-0 px-2 pt-2">
+      <div className="flex h-9 shrink-0 items-center justify-end gap-4 px-4 pt-2 font-mono text-[9px] text-ink-low">
+        <span>AGENTS <NumberTicker value={initialAgents.length} className="ml-1 text-primary" /></span>
+        <span>TASKS <NumberTicker value={initialTasks.length} className="ml-1 text-agent-codex" /></span>
+        <span>EVENTS <NumberTicker value={initialLogs.length} className="ml-1 text-agent-grok" /></span>
+      </div>
+      <div className="h-[351px] shrink-0 px-2 pt-2">
         <WidgetErrorBoundary name="Brain Hub">
           <SpatialWorkspace onBrainSelect={selectSpatialBrain} />
         </WidgetErrorBoundary>
@@ -81,7 +88,8 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 p-2 xl:grid-cols-12">
         <div className="min-h-[24rem] xl:col-span-8">
-          <PanelChrome title={`MAIN BRAINS · ${hubLane}`} bodyClassName="p-0" className="h-full">
+          <TiltedCard containerHeight="100%" imageHeight="100%" imageWidth="100%" scaleOnHover={1.01} rotateAmplitude={1.5} showMobileWarning={false} showTooltip={false}>
+          <PanelChrome title={`MAIN BRAINS · ${hubLane}`} bodyClassName="p-0" className="h-full glass">
             <WidgetErrorBoundary name="Hub Chat">
               <AgentChat
                 variant="full"
@@ -99,14 +107,17 @@ export function DashboardClient({ initialAgents, initialTasks, initialLogs }: Da
               />
             </WidgetErrorBoundary>
           </PanelChrome>
+          </TiltedCard>
         </div>
 
         <div className="min-h-[24rem] xl:col-span-4">
-          <PanelChrome title="HISTORY" bodyClassName="p-0" className="h-full">
+          <TiltedCard containerHeight="100%" imageHeight="100%" imageWidth="100%" scaleOnHover={1.01} rotateAmplitude={1.5} showMobileWarning={false} showTooltip={false}>
+          <PanelChrome title="HISTORY" bodyClassName="p-0" className="h-full glass">
             <WidgetErrorBoundary name="History">
               <ChatHistoryPanel mode="activity" maxItems={60} />
             </WidgetErrorBoundary>
           </PanelChrome>
+          </TiltedCard>
         </div>
       </div>
 

@@ -18,6 +18,7 @@ import {
 import { AGENT_SOCKET_EVENTS_KEY, type AgentSocketEvent } from '@/hooks/use-agent-socket';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { NumberTicker } from '@/components/ui/number-ticker';
 
 interface MarketTick {
   symbol: string;
@@ -496,7 +497,7 @@ export function TradingChart({ selectedSymbol, onSelectSymbol }: TradingChartPro
   const lastVwap = indicators.vwapMid.at(-1)?.value;
 
   return (
-    <div className="relative flex flex-col gap-2 overflow-hidden rounded-[6px] border border-border/90 bg-gradient-to-b from-surface-2 to-background p-3">
+    <div className="relative flex h-full min-h-0 flex-col gap-2 overflow-hidden rounded-[6px] border border-border/90 bg-gradient-to-b from-surface-2 to-background p-3">
       <span aria-hidden className="pointer-events-none absolute left-[6px] top-[6px] h-3 w-3 border-l border-t border-primary/40" />
       <span aria-hidden className="pointer-events-none absolute right-[6px] top-[6px] h-3 w-3 border-r border-t border-primary/40" />
 
@@ -505,7 +506,7 @@ export function TradingChart({ selectedSymbol, onSelectSymbol }: TradingChartPro
           <span className="font-mono text-[9.5px] tracking-[0.2em] text-[#4c6079]">
             ⌐ {chartSymbol} · CANDLES · +{PREVIEW_CANDLE_SPACE} PLAN
           </span>
-          {latest && <span className="tabular font-mono text-[13px] font-bold text-ink-hi">${latest.close.toFixed(2)}</span>}
+          {latest && <span className="tabular font-mono text-[13px] font-bold text-ink-hi">$<NumberTicker value={latest.close} decimalPlaces={2} className="text-ink-hi" /></span>}
           {symbols.map((s) => (
             <button
               key={s}
@@ -580,7 +581,9 @@ export function TradingChart({ selectedSymbol, onSelectSymbol }: TradingChartPro
         </div>
       )}
 
-      <div ref={containerRef} className="h-[min(60vh,560px)] w-full" />
+      {/* All four panes stay in the fixed workspace panel: candles/VWAP,
+          RSI, MACD, and volume never require a page scroll. */}
+      <div ref={containerRef} className="min-h-[260px] flex-1 w-full" />
       <div className="flex justify-between gap-2 font-mono text-[9px] text-ink-low/45">
         <span>VWAP bands: top / mid / bottom · RSI pane · MACD pane · candle volume pane</span>
         <span>charting by TradingView lightweight-charts™ · candles via Yahoo dev feed</span>

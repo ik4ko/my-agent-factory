@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
+import { BorderBeam } from '@/components/ui/border-beam';
 
 /**
  * PanelChrome — the Instrument Deck's signature panel treatment.
@@ -87,6 +88,7 @@ export function PanelChrome({
           <Bracket pos="tr" tone={BRACKET[accent]} />
         </>
       )}
+      {glow && <BorderBeam size={90} duration={7} colorFrom="#a3b1f7" colorTo="#8ec5ff" borderWidth={1} />}
 
       <header className="flex h-8 flex-shrink-0 items-center justify-between gap-2 border-b border-border/[0.06] px-3">
         <span className={cn('panel-label select-none', TITLE_TONE[accent])}>

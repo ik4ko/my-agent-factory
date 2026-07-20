@@ -200,11 +200,7 @@
   "198": "workspace-scaffold.tsx",
   "199": "desktop-schema.json",
   "200": "audio-briefing.tsx",
-  "201": "route.ts",
-  "202": "tool-budget.test.ts",
   "203": "dispatchAgentStream",
   "204": "finnhub.ts",
-  "205": "feedback.ts",
-  "206": "classifyNvidiaFailure",
   "207": "atomic.test.ts"
 }
