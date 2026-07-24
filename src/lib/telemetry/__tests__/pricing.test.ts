@@ -1,4 +1,4 @@
-import { summarizeSpend, shortModel, estimateModelCostUsd } from '@/lib/telemetry/pricing';
+import { summarizeSpend, shortModel, estimateModelCostUsd, isStrictlyCheaper } from '@/lib/telemetry/pricing';
 import type { Metric } from '@/lib/types/database.types';
 
 const m = (model: string, input: number, output: number): Metric => ({
@@ -56,6 +56,30 @@ describe('cache-aware pricing', () => {
 
   it('defaults cache counters to zero for lanes that do not report them', () => {
     expect(estimateModelCostUsd('claude-haiku-4-5', 1_000_000, 0)).toBeCloseTo(1, 5);
+  });
+});
+
+describe('isStrictlyCheaper (converse routing canary cost ceiling)', () => {
+  const CEO_DEFAULT = 'claude-sonnet-5';
+
+  it('lets a SEAT-to-Haiku decision through', () => {
+    expect(isStrictlyCheaper('claude-haiku-4-5', CEO_DEFAULT)).toBe(true);
+  });
+
+  it('VETOES the UP path, which lands on Opus and costs MORE than the default', () => {
+    // routeModel escalates high-stakes work to Fable, then DOWNs to Opus for
+    // payloads under 2k tokens — every chat message. Opus 4.8 is $5/$25 vs
+    // Sonnet 5 at $3/$15, so the canary must refuse it.
+    expect(isStrictlyCheaper('claude-opus-4-8', CEO_DEFAULT)).toBe(false);
+    expect(isStrictlyCheaper('claude-fable-5', CEO_DEFAULT)).toBe(false);
+  });
+
+  it('rejects an equal-priced model (no churn for no saving)', () => {
+    expect(isStrictlyCheaper(CEO_DEFAULT, CEO_DEFAULT)).toBe(false);
+  });
+
+  it('treats an unpriced model as the default rate, so it cannot sneak past', () => {
+    expect(isStrictlyCheaper('some-unknown-model', CEO_DEFAULT)).toBe(false);
   });
 });
 

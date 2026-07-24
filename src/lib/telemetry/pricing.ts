@@ -89,6 +89,18 @@ export function estimateMetricCostUsd(
   );
 }
 
+/**
+ * True when `candidate` costs less than `baseline` on both token directions
+ * (and strictly less on at least one). Used to enforce a one-way cost ceiling
+ * on model-routing experiments: a router decision may take a lane cheaper,
+ * never more expensive than the model it is piloting against.
+ */
+export function isStrictlyCheaper(candidate: string, baseline: string): boolean {
+  const c = PRICING_PER_MTOK[candidate] ?? DEFAULT_PRICE;
+  const b = PRICING_PER_MTOK[baseline] ?? DEFAULT_PRICE;
+  return c.input <= b.input && c.output <= b.output && (c.input < b.input || c.output < b.output);
+}
+
 export interface SpendSummary {
   totalTokens: number;
   totalCostUsd: number;
