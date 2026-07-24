@@ -35,8 +35,13 @@ export interface ThinkResult {
   model: string;
   /** Provider that actually ran (fallbacks report the fallback provider). */
   provider: AgentProvider;
+  /** UNCACHED prompt tokens. Anthropic reports cache traffic separately. */
   inputTokens: number;
   outputTokens: number;
+  /** `cache_creation_input_tokens` (Anthropic lanes only; 0 elsewhere). */
+  cacheWriteTokens?: number;
+  /** `cache_read_input_tokens` (Anthropic lanes only; 0 elsewhere). */
+  cacheReadTokens?: number;
   latencyMs: number;
 }
 

@@ -1,4 +1,5 @@
-import { AgentRegistry } from '@/lib/agents/registry';
+import { resolveAgent } from '@/lib/agents/registry';
+import { MODELS } from '@/lib/agents/model-router';
 import type { AgentType } from '@/lib/types/database.types';
 import type { ParsedIntent } from './types';
 
@@ -21,8 +22,13 @@ function applyRules(command: string): ParsedIntent | null {
 }
 
 async function llmFallback(command: string): Promise<ParsedIntent> {
-  // Federated route: Claude (CEO) classifies the command (registry picks the model).
-  const result = await AgentRegistry.CLAUDE.think({
+  // Routine by the model router's own taxonomy: a fixed-shape JSON
+  // classification capped at 128 output tokens. It was running on the CEO brain
+  // (claude-sonnet-5, $3/$15) because it called AgentRegistry.CLAUDE directly —
+  // one of the call sites that never reached routeModel(). MODELS.HAIKU is what
+  // the router SEATs routine work to; binding it here through the registry's
+  // existing model-override seam keeps that decision in one place.
+  const result = await resolveAgent('generic', MODELS.HAIKU).think({
     system: 'You classify operator commands for an AI agent factory. Reply with JSON only — no explanation.',
     prompt: `{"agentType":"coder"|"researcher"|"browser"|"planner"|"generic","priority":1-10}\n\nCommand: ${command}`,
     maxTokens: 128,

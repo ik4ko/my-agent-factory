@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { z } from 'zod';
-import { AgentRegistry } from '@/lib/agents/registry';
+import { AgentRegistry, resolveAgent } from '@/lib/agents/registry';
+import { routeModel } from '@/lib/agents/model-router';
 import { hermesLog } from '@/lib/hermes/hermes-logger';
 import { publishBusEvent } from '@/lib/bus/system-bus';
 import { sendEmail } from '@/lib/comms/email';
 import { readChatHistory, writeChatHistory, type ChatHistoryScope, type ChatHistoryTurn } from '@/lib/chat/history';
 import { CeoReplyStreamer } from '@/lib/chat/reply-stream';
 import { getSpendSnapshotSince, recordModelEvent } from '@/lib/telemetry/token-ledger';
-import { estimateModelCostUsd } from '@/lib/telemetry/pricing';
+import { estimateModelCostUsd, isStrictlyCheaper } from '@/lib/telemetry/pricing';
+import type { FederatedAgent } from '@/lib/agents/types';
 import {
   classifyTradingCommand,
   executeDirectOperatorOrder,
@@ -68,6 +70,89 @@ const PERSONA_APPENDIX: Record<string, string> = {
 const SYNTH_SYSTEM = `You are Claude, CEO of My Agent Factory. Your helpers just reported back. Give the operator ONE short spoken summary (2-4 sentences, no markdown) of what was found or done, in your own decisive voice as the boss.`;
 
 const CONVERSE_MONTHLY_BUDGET_DEFAULT_USD = 3.0;
+
+// ─── Model-routing canary (converse lane only) ───────────────────────────────
+//
+// routeModel() has never run in production: triageTick() is its only caller,
+// and chat-originated tasks are written straight to `completed`, so the
+// SEAT/UP/DOWN cap has governed nothing. This pilots it on ONE lane — the CEO
+// converse turn — so its decisions can be judged on a week of real traffic
+// before anyone considers the dispatcher lane, whose regex high-stakes
+// classifier is far too blunt to be trusted with coding work.
+//
+// Three deliberate constraints keep the blast radius at one lane:
+//
+//  1. CEO turn only. Background codex delegation and the synthesis call are
+//     untouched, as are all brain-matrix lanes.
+//  2. Mentor personas are exempt. Persona/model pairing is a deliberate
+//     quality decision; router cost savings must not leak into it silently.
+//  3. ONE-WAY COST CEILING. routeModel's UP path escalates to Fable, and for
+//     payloads under MIN_FABLE_PAYLOAD_TOKENS — which every chat message is —
+//     immediately DOWNs to Opus 4.8 at $5/$25, *more* than the claude-sonnet-5
+//     status quo. This canary exists to answer "is Haiku good enough for
+//     routine chat", not to quietly raise the bill, so any decision that is
+//     not strictly cheaper falls back to the CEO default.
+//
+// Kill switch: CONVERSE_MODEL_ROUTING=off reverts to the default immediately,
+// with no redeploy of anything else.
+const CEO_DEFAULT_MODEL = AgentRegistry.CLAUDE.model;
+const MENTOR_PERSONAS = new Set(['business_mentor', 'life_mentor', 'focus_mentor']);
+
+interface CeoRouting {
+  agent: FederatedAgent;
+  model: string;
+  /** Absent when routing was skipped (disabled, mentor persona, or gate error). */
+  note?: string;
+}
+
+/**
+ * Picks the CEO model for this turn. Never throws and never blocks the reply:
+ * any failure resolves to the default agent, because a routing experiment must
+ * not be able to break the conversation it is riding on.
+ */
+async function routeCeoTurn(message: string, persona: string, scope: ChatHistoryScope): Promise<CeoRouting> {
+  const fallback: CeoRouting = { agent: AgentRegistry.CLAUDE, model: CEO_DEFAULT_MODEL };
+  if (process.env.CONVERSE_MODEL_ROUTING === 'off') return fallback;
+  if (MENTOR_PERSONAS.has(persona)) return fallback;
+
+  try {
+    // Same month-start key the budget gate just read — memoized for 60s in the
+    // ledger, so this is a map hit and adds no query to the request path.
+    const snapshot = await getSpendSnapshotSince(currentUtcMonthStartIso());
+    const decision = routeModel(message, snapshot);
+    const cheaper = isStrictlyCheaper(decision.model, CEO_DEFAULT_MODEL);
+    const model = cheaper ? decision.model : CEO_DEFAULT_MODEL;
+
+    // Emit the decision even when the ceiling vetoes it — a week of "how often
+    // did routing want to go UP and cost more" is exactly what makes the
+    // extend-or-drop call reviewable. These are the first SEAT/UP/DOWN rows the
+    // ledger has ever carried.
+    void recordModelEvent({
+      model,
+      event: decision.transition,
+      inputTokens: decision.inputTokens,
+      detail: [
+        `converse:ceo-canary`,
+        `scope=${scope}`,
+        `persona=${persona}`,
+        `routed=${decision.model}`,
+        `applied=${model}`,
+        cheaper ? 'ceiling=pass' : 'ceiling=vetoed(not cheaper than default)',
+        decision.reason,
+      ].join(' · '),
+    }).catch(() => undefined);
+
+    if (!cheaper) return fallback;
+    return {
+      agent: resolveAgent('generic', model),
+      model,
+      note: `${decision.transition} → ${model} (${decision.reason})`,
+    };
+  } catch {
+    // Ledger unavailable, bad snapshot, anything — take the default.
+    return fallback;
+  }
+}
 
 interface Delegation { to: 'codex'; task: string; }
 interface EmailAction { to: string; subject: string; body: string; }
@@ -207,17 +292,22 @@ async function guardConverseBudget({
 }
 
 async function recordConverseUsage(stage: string, scope: ChatHistoryScope, result: ThinkResult): Promise<void> {
-  const costUsd = estimateModelCostUsd(result.model, result.inputTokens, result.outputTokens);
+  const cacheWrite = result.cacheWriteTokens ?? 0;
+  const cacheRead = result.cacheReadTokens ?? 0;
+  const costUsd = estimateModelCostUsd(result.model, result.inputTokens, result.outputTokens, cacheWrite, cacheRead);
   await recordModelEvent({
     model: result.model,
     event: 'USAGE',
     inputTokens: result.inputTokens,
     outputTokens: result.outputTokens,
+    cacheWriteTokens: cacheWrite,
+    cacheReadTokens: cacheRead,
     detail: [
       `converse:${stage}`,
       `scope=${scope}`,
       `provider=${result.provider}`,
       `latency=${result.latencyMs}ms`,
+      ...(cacheWrite || cacheRead ? [`cache_w=${cacheWrite}`, `cache_r=${cacheRead}`] : []),
       `est_usd=${costUsd.toFixed(6)}`,
     ].join(' · '),
   });
@@ -326,6 +416,12 @@ export async function POST(req: NextRequest) {
 
     const ceoSystem = `${CEO_SYSTEM}\n\n${PERSONA_APPENDIX[persona]}`;
 
+    // Canary: may take this turn to a cheaper model, never a dearer one.
+    const routing = await routeCeoTurn(message, persona, scope);
+    if (routing.note) {
+      void hermesLog('info', `[CONVERSE] model-routing canary — ${routing.note}`).catch(() => undefined);
+    }
+
     // ?stream=1 → SSE deltas of the CEO's visible reply text, then a `done`
     // event carrying the exact payload the JSON mode returns. Early exits
     // above (trading gate, budget block, bad payload) always answer as JSON —
@@ -338,7 +434,7 @@ export async function POST(req: NextRequest) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
           try {
             const streamer = new CeoReplyStreamer();
-            const ceo = await AgentRegistry.CLAUDE.think({
+            const ceo = await routing.agent.think({
               system: ceoSystem,
               prompt: ceoPrompt,
               maxTokens: 700,
@@ -372,7 +468,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const ceo = await AgentRegistry.CLAUDE.think({
+    const ceo = await routing.agent.think({
       system: ceoSystem,
       prompt: ceoPrompt,
       maxTokens: 700,
