@@ -55,7 +55,16 @@ async function anthropicThink(model: string, input: ThinkInput): Promise<ThinkRe
   outputTokens = outcome.outputTokens;
   text = outcome.text;
 
-  return { text: text.trim(), model, provider: 'anthropic', inputTokens, outputTokens, latencyMs: Date.now() - started };
+  return {
+    text: text.trim(),
+    model,
+    provider: 'anthropic',
+    inputTokens,
+    outputTokens,
+    cacheWriteTokens: outcome.cacheWriteTokens,
+    cacheReadTokens: outcome.cacheReadTokens,
+    latencyMs: Date.now() - started,
+  };
 }
 
 async function openAICompatibleThink(configuredModel: string, input: ThinkInput): Promise<ThinkResult> {
@@ -177,7 +186,13 @@ async function withRegistryLedger(
   await guardRegistryBudget(name, configuredModel, input);
   try {
     const result = await run();
-    const costUsd = estimateModelCostUsd(result.model, result.inputTokens, result.outputTokens);
+    const costUsd = estimateModelCostUsd(
+      result.model,
+      result.inputTokens,
+      result.outputTokens,
+      result.cacheWriteTokens ?? 0,
+      result.cacheReadTokens ?? 0,
+    );
     // Off the critical path: the caller gets the completion without waiting on
     // the ledger write. Registry runs in plain node workers too, so this is a
     // void-with-catch rather than next/server's after(); metrics are
@@ -189,6 +204,8 @@ async function withRegistryLedger(
       agentId: input.ledger?.agentId ?? null,
       inputTokens: result.inputTokens,
       outputTokens: result.outputTokens,
+      cacheWriteTokens: result.cacheWriteTokens ?? 0,
+      cacheReadTokens: result.cacheReadTokens ?? 0,
       detail: telemetryDetail([
         `registry:${name}`,
         input.ledger?.detail,

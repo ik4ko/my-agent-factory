@@ -62,8 +62,13 @@ export type Metric = {
   agent_id: string | null;
   model: string;
   event: ModelEvent;
+  /** UNCACHED prompt tokens only — see cache_* below for the rest. */
   input_tokens: number;
   output_tokens: number;
+  /** Anthropic `cache_creation_input_tokens` — billed at 1.25x input. */
+  cache_write_tokens?: number | null;
+  /** Anthropic `cache_read_input_tokens` — billed at 0.1x input. */
+  cache_read_tokens?: number | null;
   detail: string | null;
   created_at: string;
 };

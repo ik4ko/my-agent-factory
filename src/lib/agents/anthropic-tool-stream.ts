@@ -13,8 +13,15 @@ export interface AnthropicStreamOutcome {
   text: string;
   /** API-reported model id from message_start (falls back to the request model). */
   model: string;
+  /** UNCACHED prompt tokens. Cache traffic is reported separately below. */
   inputTokens: number;
   outputTokens: number;
+  /** `cache_creation_input_tokens` — prompt prefix written to cache (1.25x input). */
+  cacheWriteTokens: number;
+  /** `cache_read_input_tokens` — prefix served from cache (0.1x input). The
+   *  signal that caching is actually working; zero across repeated turns means
+   *  something upstream is invalidating the prefix. */
+  cacheReadTokens: number;
   toolRounds: number;
   modelRoundMs: number[];
   toolCalls: Array<{ name: string; latencyMs: number }>;
@@ -41,6 +48,8 @@ export async function runAnthropicToolStream(opts: {
   let reportedModel = opts.model;
   let inputTokens = 0;
   let outputTokens = 0;
+  let cacheWriteTokens = 0;
+  let cacheReadTokens = 0;
   let toolRounds = 0;
   const modelRoundMs: number[] = [];
   const toolCalls: Array<{ name: string; latencyMs: number }> = [];
@@ -67,6 +76,8 @@ export async function runAnthropicToolStream(opts: {
     for await (const event of stream) {
       if (event.type === 'message_start') {
         inputTokens += event.message.usage?.input_tokens ?? 0;
+        cacheWriteTokens += event.message.usage?.cache_creation_input_tokens ?? 0;
+        cacheReadTokens += event.message.usage?.cache_read_input_tokens ?? 0;
         reportedModel = event.message.model ?? reportedModel;
       } else if (event.type === 'content_block_start' && event.content_block.type === 'tool_use') {
         toolUses.push({ id: event.content_block.id, name: event.content_block.name, argsJson: '' });
@@ -106,5 +117,5 @@ export async function runAnthropicToolStream(opts: {
     });
   }
 
-  return { text, model: reportedModel, inputTokens, outputTokens, toolRounds, modelRoundMs, toolCalls };
+  return { text, model: reportedModel, inputTokens, outputTokens, cacheWriteTokens, cacheReadTokens, toolRounds, modelRoundMs, toolCalls };
 }

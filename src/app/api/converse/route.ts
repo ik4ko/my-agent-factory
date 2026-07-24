@@ -207,17 +207,22 @@ async function guardConverseBudget({
 }
 
 async function recordConverseUsage(stage: string, scope: ChatHistoryScope, result: ThinkResult): Promise<void> {
-  const costUsd = estimateModelCostUsd(result.model, result.inputTokens, result.outputTokens);
+  const cacheWrite = result.cacheWriteTokens ?? 0;
+  const cacheRead = result.cacheReadTokens ?? 0;
+  const costUsd = estimateModelCostUsd(result.model, result.inputTokens, result.outputTokens, cacheWrite, cacheRead);
   await recordModelEvent({
     model: result.model,
     event: 'USAGE',
     inputTokens: result.inputTokens,
     outputTokens: result.outputTokens,
+    cacheWriteTokens: cacheWrite,
+    cacheReadTokens: cacheRead,
     detail: [
       `converse:${stage}`,
       `scope=${scope}`,
       `provider=${result.provider}`,
       `latency=${result.latencyMs}ms`,
+      ...(cacheWrite || cacheRead ? [`cache_w=${cacheWrite}`, `cache_r=${cacheRead}`] : []),
       `est_usd=${costUsd.toFixed(6)}`,
     ].join(' · '),
   });
