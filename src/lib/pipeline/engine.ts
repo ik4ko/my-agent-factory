@@ -10,8 +10,9 @@ import {
 import { findIdleAgent } from '@/lib/hermes/task-router';
 import { runAgentWorker } from '@/lib/agents/runner';
 import { PLAYBOOKS, MARKET_STRATEGY_PLAYBOOK } from './playbook';
+import { loadChannelContext } from '@/lib/content/channels';
 import { PipelineContextSchema } from './types';
-import type { PipelineContext, PipelinePlaybook, PlaybookStep, StepDispatch } from './types';
+import type { ChannelContext, PipelineContext, PipelinePlaybook, PlaybookStep, StepDispatch } from './types';
 import type { Agent } from '@/lib/types/database.types';
 
 /**
@@ -75,6 +76,10 @@ async function createStepTask(
       description,
       status: 'pending',
       agent_id: agentId,
+      // The first real writer of assigned_lane. src/lib/rooms/scope.ts scopes
+      // the content room off this column instead of a description regex, so
+      // every content step task MUST carry its channel slug here.
+      ...(context.channelSlug ? { assigned_lane: context.channelSlug } : {}),
       result: { pipeline: context },
     })
     .select('id')
@@ -137,7 +142,14 @@ async function buildDispatch(
  *  Call `executeStep` with the result (typically inside `after()`). */
 export async function startPipeline(
   objective: string,
-  options: { simulate?: boolean; playbook?: string; trigger?: 'manual' | 'autonomous' } = {},
+  options: {
+    simulate?: boolean;
+    playbook?: string;
+    trigger?: 'manual' | 'autonomous';
+    /** Content runs only: binds every step task to a content_channels row via
+     *  assigned_lane, and injects the channel's voice into each prompt. */
+    channel?: { id: string; slug: string };
+  } = {},
 ): Promise<StepDispatch> {
   const playbook = getPlaybook(options.playbook ?? MARKET_STRATEGY_PLAYBOOK.name);
   const context: PipelineContext = {
@@ -148,10 +160,11 @@ export async function startPipeline(
     objective,
     simulate: options.simulate ?? true,
     trigger: options.trigger ?? 'manual',
+    ...(options.channel ? { channelId: options.channel.id, channelSlug: options.channel.slug } : {}),
   };
   await hermesLog(
     'info',
-    `Pipeline ${context.id.slice(0, 8)} started (${playbook.steps.length} stages${context.simulate ? ', SANDBOX' : ''}): "${objective.slice(0, 60)}"`,
+    `Pipeline ${context.id.slice(0, 8)} started (${playbook.steps.length} stages${context.simulate ? ', SANDBOX' : ''}${context.channelSlug ? `, channel=${context.channelSlug}` : ''}): "${objective.slice(0, 60)}"`,
   );
   return buildDispatch(context, null);
 }
@@ -178,8 +191,13 @@ export async function executeStep(dispatch: StepDispatch): Promise<void> {
     await stageOrderFromAnalysis(context, priorOutput, agentId);
   }
 
+  // Per-channel runtime context (content playbook only; null everywhere
+  // else). Loaded before the simulate branch so a sandbox trace shows the
+  // same channel voice a live run would use.
+  const channel = await loadChannelContext(context.channelId);
+
   if (context.simulate) {
-    await runSimulatedStep(dispatch, step);
+    await runSimulatedStep(dispatch, step, channel);
     return;
   }
 
@@ -221,7 +239,7 @@ export async function executeStep(dispatch: StepDispatch): Promise<void> {
     agentId,
     agentType: step.agentType,
     description,
-    systemPrompt: step.buildSystemPrompt(context.objective, priorOutput, market),
+    systemPrompt: step.buildSystemPrompt(context.objective, priorOutput, market, channel),
     // Expanded budget: the playbook's density directive asks for exhaustive
     // institutional briefings; the default 2048 would truncate them and feed
     // a clipped brief to the next stage.
@@ -233,9 +251,13 @@ export async function executeStep(dispatch: StepDispatch): Promise<void> {
 /** Sandbox path: deterministic output, realistic status/heartbeat cadence,
  *  zero model calls, zero external APIs. Everything else is real DB writes,
  *  so the dashboard traces the run exactly like a live one. */
-async function runSimulatedStep(dispatch: StepDispatch, step: PlaybookStep): Promise<void> {
+async function runSimulatedStep(
+  dispatch: StepDispatch,
+  step: PlaybookStep,
+  channel: ChannelContext | null = null,
+): Promise<void> {
   const { context, taskId, agentId, agentName } = dispatch;
-  const output = step.simulateOutput(context.objective, dispatch.priorOutput);
+  const output = step.simulateOutput(context.objective, dispatch.priorOutput, channel);
 
   // Two streaming flushes so realtime task previews have intermediate states.
   for (const fraction of [0.4, 1]) {

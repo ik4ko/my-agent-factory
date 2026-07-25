@@ -116,6 +116,14 @@ export const ALLOWED_WEB_DOMAINS_BY_SCOPE: Record<RoomScope, ReadonlySet<string>
   trading: new Set(['finance.yahoo.com', 'www.sec.gov', 'fred.stlouisfed.org', 'www.federalreserve.gov']),
   coding: new Set(['developer.mozilla.org', 'registry.npmjs.org', 'raw.githubusercontent.com', 'docs.python.org', 'nodejs.org']),
   research: new Set(['en.wikipedia.org', 'arxiv.org']),
+  // Content room: deliberately EMPTY. Every external call the content
+  // pipeline makes (Pexels, Kokoro, YouTube, Instagram) goes through a
+  // declared, env-gated integration in src/lib/content/integrations.ts — not
+  // through the sandbox's generic web_fetch. Granting this scope domains
+  // would create a second, ungoverned path to the same services. Add here
+  // only if a content task ever needs to read a page it cannot reach through
+  // a declared integration.
+  content: new Set<string>(),
 };
 
 // Binary/executable content is never a legitimate result for a text-scrape

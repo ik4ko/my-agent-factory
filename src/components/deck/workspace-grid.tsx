@@ -47,7 +47,7 @@ export function WorkspaceGrid({
   defaultLayouts,
   rowHeight = 40,
 }: {
-  room: 'trading' | 'coding' | 'personal' | 'hub';
+  room: 'trading' | 'coding' | 'personal' | 'hub' | 'youtube';
   panels: WorkspacePanelDef[];
   defaultLayouts: EditableLayouts;
   rowHeight?: number;

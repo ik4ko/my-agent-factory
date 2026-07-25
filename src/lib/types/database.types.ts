@@ -12,6 +12,21 @@ export type InterventionState = 'pending_approval' | 'approved' | 'denied';
 // · REAP: stale running-lock recycled to pending by the reaper.
 export type ModelEvent = 'SEAT' | 'UP' | 'DOWN' | 'USAGE' | 'HALT' | 'REAP';
 
+// Content channels — one row per content vertical (Faceless, Medicare,
+// Personal, …). Channels are DATA: adding a vertical is an INSERT from the
+// YouTube room, never a deploy. `slug` is written verbatim into
+// tasks.assigned_lane, which is how src/lib/rooms/scope.ts scopes the room.
+export type ContentChannel = {
+  id: string;
+  slug: string;
+  label: string;
+  niche: string;
+  brand_voice: string;
+  publish_targets: string[];
+  active: boolean;
+  created_at: string;
+};
+
 // NOTE: these are `type` aliases (not interfaces) on purpose — supabase-js's
 // GenericSchema requires Row/Insert/Update to satisfy Record<string, unknown>,
 // which interfaces do not (they are open to declaration merging). Using type
@@ -50,8 +65,17 @@ export type Task = {
   halted_at?: string | null;
   /** Model the orchestrator routed this task to (additive column). */
   model?: string | null;
-  /** Lane assigned by the router engine (SEAT | UP | DOWN). */
-  assigned_lane?: 'SEAT' | 'UP' | 'DOWN' | null;
+  /**
+   * Lane this task belongs to. TWO writers, disambiguated by value:
+   *  - the orchestrator's route-lane hook writes a routing transition
+   *    ('SEAT' | 'UP' | 'DOWN'), read back by triageTick;
+   *  - the content pipeline writes a content_channels.slug, read back by
+   *    src/lib/rooms/scope.ts (taskChannelSlug) to scope the YouTube room.
+   * Typed as string because the column is free-form text and a channel slug
+   * is operator-defined — narrowing it to the transitions would make the
+   * type lie about what is actually stored.
+   */
+  assigned_lane?: string | null;
   /** Factory-built system prompt the worker executes with. */
   system_prompt?: string | null;
 };

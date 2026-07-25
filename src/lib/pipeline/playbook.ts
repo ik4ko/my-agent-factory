@@ -1,5 +1,6 @@
 ﻿import type { PipelinePlaybook } from './types';
 import { formatMarketBlock } from '@/lib/market/fetcher';
+import { CONTENT_CHANNEL_PLAYBOOK } from '@/lib/content/playbook';
 
 /**
  * Global density mandate appended to both live reasoning stages (Hermes +
@@ -131,6 +132,7 @@ NOT EXECUTED: No orders were placed. This plan is a simulation artifact and requ
 
 export const PLAYBOOKS: Record<string, PipelinePlaybook> = {
   [MARKET_STRATEGY_PLAYBOOK.name]: MARKET_STRATEGY_PLAYBOOK,
+  [CONTENT_CHANNEL_PLAYBOOK.name]: CONTENT_CHANNEL_PLAYBOOK,
 };
 
 
