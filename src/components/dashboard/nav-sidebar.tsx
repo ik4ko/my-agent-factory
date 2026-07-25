@@ -1,17 +1,19 @@
 'use client';
 
-import { Cpu, Code2, LineChart, User, Settings, Zap, Repeat } from 'lucide-react';
+import { Cpu, Code2, LineChart, User, Settings, Zap, Repeat, Video } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
-// The four fixed rooms. Global ambient chat + E-STOP live in the shared
-// layout, not the rail.
+// The fixed rooms. Global ambient chat + E-STOP live in the shared
+// layout, not the rail. Keep in step with ROOMS in src/lib/rooms/scope.ts —
+// a room that is scoped but not listed here is reachable only by URL.
 const NAV_ITEMS = [
   { href: '/dashboard', icon: Cpu, label: 'Main Dashboard', primary: true },
   { href: '/dashboard/rooms/trading', icon: LineChart, label: 'Trading Room' },
   { href: '/dashboard/rooms/coding', icon: Code2, label: 'Coding Room' },
   { href: '/dashboard/personal', icon: User, label: 'Personal Room' },
+  { href: '/dashboard/rooms/youtube', icon: Video, label: 'YouTube Room' },
 ];
 
 // Utility routes — retained but demoted below a divider (not rooms).

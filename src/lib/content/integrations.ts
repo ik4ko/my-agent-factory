@@ -24,10 +24,40 @@ export interface IntegrationSpec {
   service: string;
   /** Env vars that must ALL be present for this stage to run for real. */
   envVars: string[];
+  /** Vars that UPGRADE the stage but are not required — the stage is already
+   *  live without them via credentials the app has. Reported separately so the
+   *  room never shows "STUBBED · needs X" for something that already works. */
+  optionalEnvVars?: string[];
   /** What the stage does once wired — shown in the room, and the TODO anchor. */
   plan: string;
   /** Why it is safe to run without it today. */
   simulateNote: string;
+  /** Custom readiness for stages that can run on credentials the app ALREADY
+   *  holds. Overrides the envVars check when present. */
+  isReady?: () => boolean;
+  /** What to report as missing when `isReady` fails — an isReady stage has no
+   *  single required env var to point at. */
+  missingLabel?: string[];
+}
+
+/** Anthropic access already exists in this app (mentor lanes + dispatcher). */
+function hasAnthropic(): boolean {
+  return Boolean(process.env.ANTHROPIC_API_KEY?.trim());
+}
+function hasGroq(): boolean {
+  return Boolean(process.env.GROQ_API_KEY?.trim());
+}
+
+/**
+ * Model the SCRIPT stage runs on. Groq when a key exists (free tier, faster);
+ * otherwise the Haiku lane, which needs no new signup because the app is
+ * already authenticated against Anthropic. Returns null only when neither
+ * credential is present, in which case the stage degrades to simulate.
+ */
+export function resolveScriptModel(): string | null {
+  if (hasGroq()) return 'groq/llama-3.1-8b-instant';
+  if (hasAnthropic()) return 'claude-haiku-4-5';
+  return null;
 }
 
 /**
@@ -37,8 +67,15 @@ export interface IntegrationSpec {
 export const CONTENT_INTEGRATIONS: readonly IntegrationSpec[] = [
   {
     stage: 'script',
-    service: 'Groq (Llama 3.1 8B) — falls back to the existing Haiku lane',
-    envVars: ['GROQ_API_KEY'],
+    // NOTE: this stage requires NO new signup. The app is already
+    // authenticated against Anthropic (mentor lanes + dispatcher), so the
+    // Haiku lane is a real, available backend today; GROQ_API_KEY is a
+    // free-tier upgrade, not a prerequisite.
+    service: 'Haiku lane (existing Anthropic access) · Groq free tier when GROQ_API_KEY is set',
+    envVars: [],
+    optionalEnvVars: ['GROQ_API_KEY'],
+    isReady: () => resolveScriptModel() !== null,
+    missingLabel: ['ANTHROPIC_API_KEY (or GROQ_API_KEY)'],
     plan: 'Generate hook + beat-sheet + VO script from the objective, in the channel brand voice.',
     simulateNote: 'Simulate emits a deterministic script skeleton stamped with the channel voice.',
   },
@@ -83,25 +120,38 @@ const BY_STAGE = new Map<ContentStageKey, IntegrationSpec>(
   CONTENT_INTEGRATIONS.map((spec) => [spec.stage, spec]),
 );
 
-/** True only when every env var for the stage is present and non-empty. */
+/** Live-readiness for one stage: a custom `isReady` when the stage can run on
+ *  credentials the app already holds, otherwise every required env var. */
 export function isStageConfigured(stage: ContentStageKey): boolean {
   const spec = BY_STAGE.get(stage);
   if (!spec) return false;
-  return spec.envVars.every((name) => Boolean(process.env[name]?.trim()));
+  if (spec.isReady) return spec.isReady();
+  return spec.envVars.length > 0 && spec.envVars.every((name) => Boolean(process.env[name]?.trim()));
 }
 
-export interface StageReadiness extends IntegrationSpec {
+export interface StageReadiness extends Omit<IntegrationSpec, 'isReady'> {
   configured: boolean;
-  /** env vars still missing — drives the room's status panel copy. */
+  /** Required env vars still missing — drives the room's status panel copy.
+   *  Empty for a stage that is live via existing credentials. */
   missing: string[];
+  /** Optional upgrades not yet set (shown as a hint, never as blocking). */
+  availableUpgrades: string[];
 }
 
 /** Readiness of every stage. Server-only (reads process.env); the room gets
- *  this through GET /api/content/integrations. */
+ *  this through GET /api/content/integrations. Env var NAMES only, no values. */
 export function contentIntegrationStatus(): StageReadiness[] {
   return CONTENT_INTEGRATIONS.map((spec) => {
-    const missing = spec.envVars.filter((name) => !process.env[name]?.trim());
-    return { ...spec, configured: missing.length === 0, missing };
+    const configured = isStageConfigured(spec.stage);
+    // A stage that is already live has nothing missing, even if some of its
+    // optional vars are unset.
+    const missing = configured
+      ? []
+      : spec.missingLabel ?? spec.envVars.filter((name) => !process.env[name]?.trim());
+    const availableUpgrades = (spec.optionalEnvVars ?? []).filter((name) => !process.env[name]?.trim());
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { isReady: _omit, ...rest } = spec;
+    return { ...rest, configured, missing, availableUpgrades };
   });
 }
 

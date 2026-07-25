@@ -92,6 +92,19 @@ export interface PlaybookStep {
     priorOutput: string | null,
     channel?: ChannelContext | null,
   ) => string;
+  /**
+   * PER-STAGE live gate. When present and false, this step runs its
+   * simulateOutput even inside a live run, so a partially-wired playbook still
+   * completes end-to-end instead of failing at the first unwired stage.
+   * Steps that omit it are always eligible to run live (existing behavior).
+   */
+  isConfigured?: () => boolean;
+  /**
+   * Model override for the live path, resolved at dispatch time. Lets a stage
+   * bind to a specific lane (e.g. the script stage to Haiku) without the
+   * engine knowing anything about that stage's provider.
+   */
+  resolveModel?: () => string | undefined;
 }
 
 export interface PipelinePlaybook {

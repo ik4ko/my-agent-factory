@@ -1,5 +1,5 @@
 import type { ChannelContext, PipelinePlaybook } from '@/lib/pipeline/types';
-import { isStageConfigured } from './integrations';
+import { isStageConfigured, resolveScriptModel } from './integrations';
 
 /**
  * content-channel — the five-stage faceless-content chain, harvested from
@@ -16,10 +16,14 @@ import { isStageConfigured } from './integrations';
  * voice arrive as `channel` (runtime context from the content_channels row),
  * so adding a vertical is an INSERT, never a deploy.
  *
- * Every stage is currently unwired: `isStageConfigured` is false for all of
- * them until the corresponding env var exists, so live runs degrade to the
- * engine's simulate path exactly like sandbox runs. Each buildSystemPrompt
- * carries the TODO anchor for its real integration.
+ * Stages gate INDEPENDENTLY via `isConfigured`. A live run executes each
+ * stage whose integration has credentials and simulates the rest, so a
+ * partially-wired playbook still completes end-to-end.
+ *
+ * Today SCRIPT is the only live-capable stage — it needs no new signup
+ * because the app already holds Anthropic credentials (Haiku lane); Groq is
+ * an optional free-tier upgrade. The other four remain stubbed and carry the
+ * TODO anchor for their integration in buildSystemPrompt.
  */
 
 /** Channel block prepended to every stage prompt. This IS the per-channel
@@ -50,9 +54,12 @@ export const CONTENT_CHANNEL_PLAYBOOK: PipelinePlaybook = {
       agentType: 'generic',
       nameHint: 'Strategist',
       describe: (objective) => `[SCRIPT 1/5] Script + hook: ${objective}`,
+      // The ONLY stage that is live-capable today: it needs no new signup,
+      // because the app already holds Anthropic credentials. Groq is a
+      // free-tier upgrade when GROQ_API_KEY is present, not a prerequisite.
+      isConfigured: () => isStageConfigured('script'),
+      resolveModel: () => resolveScriptModel() ?? undefined,
       buildSystemPrompt: (objective, _priorOutput, _market, channel) =>
-        // TODO(script): route through Groq (GROQ_API_KEY) or the existing
-        // Haiku lane. Until then this prompt is unused — the engine simulates.
         `You are the content strategist for a short-form video channel.
 Stage 1 of 5 — SCRIPT. Topic: "${objective}".
 ${channelBlock(channel)}
@@ -83,6 +90,7 @@ CTA: Follow for the next one.`,
       agentType: 'researcher',
       nameHint: 'Scout',
       describe: (objective) => `[ASSETS 2/5] Stock footage: ${objective}`,
+      isConfigured: () => isStageConfigured('assets'),
       buildSystemPrompt: (objective, priorOutput, _market, channel) =>
         // TODO(assets): call the Pexels video search API (PEXELS_API_KEY),
         // Pixabay as failover. Resolve one clip per beat, prefer vertical
@@ -116,6 +124,7 @@ TRACE: objective "${objective}"`,
       agentType: 'generic',
       nameHint: 'Narrator',
       describe: (objective) => `[VOICEOVER 3/5] TTS track: ${objective}`,
+      isConfigured: () => isStageConfigured('voiceover'),
       buildSystemPrompt: (objective, priorOutput, _market, channel) =>
         // TODO(voiceover): POST the VOICEOVER block to a self-hosted Kokoro
         // endpoint (KOKORO_TTS_URL) and persist the returned audio path.
@@ -148,6 +157,7 @@ AUDIO ARTIFACT: none written — real runs emit an audio path here`;
       agentType: 'coder',
       nameHint: 'Editor',
       describe: (objective) => `[ASSEMBLY 4/5] Subtitles + render: ${objective}`,
+      isConfigured: () => isStageConfigured('subtitles') && isStageConfigured('assembly'),
       buildSystemPrompt: (objective, priorOutput, _market, channel) =>
         // TODO(assembly): two integrations land here —
         //   (a) faster-whisper (WHISPER_MODEL_PATH) to force-align the VO
@@ -183,6 +193,7 @@ TRACE: objective "${objective}"`,
       agentType: 'generic',
       nameHint: 'Publisher',
       describe: (objective) => `[PUBLISH 5/5] Upload + metadata: ${objective}`,
+      isConfigured: () => isStageConfigured('publish'),
       buildSystemPrompt: (objective, priorOutput, _market, channel) =>
         // TODO(publish): upload to each target in channel.publishTargets —
         // YouTube Data API v3 videos.insert (YOUTUBE_OAUTH_REFRESH_TOKEN,

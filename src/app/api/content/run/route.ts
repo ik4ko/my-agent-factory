@@ -2,7 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import { z } from 'zod';
 import { startPipeline, executeStep } from '@/lib/pipeline/engine';
 import { CONTENT_CHANNEL_PLAYBOOK } from '@/lib/content/playbook';
-import { isPipelineFullyWired } from '@/lib/content/integrations';
+
 import { getAdminClient } from '@/lib/supabase/admin';
 import type { ContentChannel } from '@/lib/types/database.types';
 import type { PipelineRunResponse } from '@/lib/pipeline/types';
@@ -17,10 +17,14 @@ import type { PipelineRunResponse } from '@/lib/pipeline/types';
  * content-specific parts are the playbook name and the channel binding, which
  * stamps every step task's assigned_lane with the channel slug.
  *
- * simulate defaults to TRUE and is currently FORCED true: no content
- * integration has credentials yet (see src/lib/content/integrations.ts), so a
- * live run would produce prompts with nothing to execute against. The force
- * lifts automatically once every stage reports configured.
+ * simulate defaults to TRUE. Passing false does NOT make every stage live:
+ * each stage gates independently on its own integration (PlaybookStep
+ * .isConfigured), so a live run executes the stages that have credentials
+ * and simulates the rest. Today that means SCRIPT runs for real on the
+ * existing Haiku lane while the other four still simulate.
+ *
+ * PUBLISH is outward-facing and has no credentials, so it cannot execute —
+ * its gate is what keeps an unattended auto-publish impossible today.
  */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -58,10 +62,10 @@ export async function POST(req: NextRequest) {
 
   const row = channel as ContentChannel;
 
-  // Until every stage has credentials, a "live" run has nothing real to call.
-  // Forcing simulate keeps the room honest rather than silently producing an
-  // identical trace under a different label.
-  const simulate = parsed.data.simulate || !isPipelineFullyWired();
+  // Honor the caller: per-stage gating (PlaybookStep.isConfigured) decides
+  // what actually executes, so a live run degrades unwired stages to simulate
+  // instead of failing or pretending.
+  const simulate = parsed.data.simulate;
 
   let dispatch;
   try {

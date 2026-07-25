@@ -249,6 +249,11 @@ function StageStatus() {
           {!s.configured && (
             <p className="pl-3 font-mono text-[8.5px] leading-tight text-ink-low">needs {s.missing.join(', ')}</p>
           )}
+          {s.configured && s.availableUpgrades.length > 0 && (
+            <p className="pl-3 font-mono text-[8.5px] leading-tight text-ink-low">
+              optional: {s.availableUpgrades.join(', ')}
+            </p>
+          )}
         </div>
       ))}
     </div>

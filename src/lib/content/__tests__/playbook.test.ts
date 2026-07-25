@@ -2,7 +2,7 @@ import { CONTENT_CHANNEL_PLAYBOOK } from '@/lib/content/playbook';
 import { PLAYBOOKS } from '@/lib/pipeline/playbook';
 import { PipelineContextSchema, PIPELINE_ROLES } from '@/lib/pipeline/types';
 import { slugifyChannelLabel, toChannelContext } from '@/lib/content/channels';
-import { CONTENT_INTEGRATIONS, isStageConfigured } from '@/lib/content/integrations';
+import { CONTENT_INTEGRATIONS, contentIntegrationStatus, isStageConfigured, resolveScriptModel } from '@/lib/content/integrations';
 import type { ChannelContext } from '@/lib/pipeline/types';
 import type { ContentChannel } from '@/lib/types/database.types';
 
@@ -96,6 +96,80 @@ describe('pipeline context carries the channel binding', () => {
       simulate: true,
     });
     expect(parsed.success).toBe(true);
+  });
+});
+
+describe('script stage runs on existing credentials (no new signup)', () => {
+  const saved = { anthropic: process.env.ANTHROPIC_API_KEY, groq: process.env.GROQ_API_KEY };
+  afterEach(() => {
+    process.env.ANTHROPIC_API_KEY = saved.anthropic;
+    process.env.GROQ_API_KEY = saved.groq;
+    if (saved.anthropic === undefined) delete process.env.ANTHROPIC_API_KEY;
+    if (saved.groq === undefined) delete process.env.GROQ_API_KEY;
+  });
+
+  it('is LIVE off Anthropic access alone, with no Groq key', () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    delete process.env.GROQ_API_KEY;
+    expect(isStageConfigured('script')).toBe(true);
+    expect(resolveScriptModel()).toBe('claude-haiku-4-5');
+  });
+
+  it('prefers Groq when its key is present', () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    process.env.GROQ_API_KEY = 'gsk-test';
+    expect(resolveScriptModel()).toContain('groq/');
+  });
+
+  it('degrades to simulate only when BOTH credentials are absent', () => {
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.GROQ_API_KEY;
+    expect(resolveScriptModel()).toBeNull();
+    expect(isStageConfigured('script')).toBe(false);
+  });
+
+  it('binds the live path to the resolved lane via the step', () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    delete process.env.GROQ_API_KEY;
+    const script = CONTENT_CHANNEL_PLAYBOOK.steps[0];
+    expect(script.isConfigured?.()).toBe(true);
+    expect(script.resolveModel?.()).toBe('claude-haiku-4-5');
+  });
+
+  it('reports no missing requirement while it is live', () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    const script = contentIntegrationStatus().find((s) => s.stage === 'script')!;
+    expect(script.configured).toBe(true);
+    expect(script.missing).toEqual([]);
+    // Groq is surfaced as an upgrade, never as a blocker.
+    expect(script.availableUpgrades).toContain('GROQ_API_KEY');
+  });
+});
+
+describe('per-stage gating', () => {
+  it('gates every stage independently so a partial wiring still completes', () => {
+    for (const step of CONTENT_CHANNEL_PLAYBOOK.steps) {
+      expect(typeof step.isConfigured).toBe('function');
+    }
+  });
+
+  it('keeps the four unwired stages stubbed regardless of Anthropic access', () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    const [, assets, voiceover, assembly, publish] = CONTENT_CHANNEL_PLAYBOOK.steps;
+    expect(assets.isConfigured?.()).toBe(false);
+    expect(voiceover.isConfigured?.()).toBe(false);
+    expect(assembly.isConfigured?.()).toBe(false);
+    // The outward-facing stage must not be live without its own credentials.
+    expect(publish.isConfigured?.()).toBe(false);
+  });
+
+  it('requires BOTH of assembly’s integrations before it can run live', () => {
+    process.env.WHISPER_MODEL_PATH = '/tmp/model';
+    expect(CONTENT_CHANNEL_PLAYBOOK.steps[3].isConfigured?.()).toBe(false); // ffmpeg missing
+    process.env.FFMPEG_PATH = '/usr/bin/ffmpeg';
+    expect(CONTENT_CHANNEL_PLAYBOOK.steps[3].isConfigured?.()).toBe(true);
+    delete process.env.WHISPER_MODEL_PATH;
+    delete process.env.FFMPEG_PATH;
   });
 });
 

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Repeat, Menu, X, Cpu, Code2, LineChart, User, Settings } from 'lucide-react';
+import { Repeat, Menu, X, Cpu, Code2, LineChart, User, Settings, Video } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const TABS = [
@@ -11,6 +11,7 @@ const TABS = [
   { href: '/dashboard/rooms/trading', icon: LineChart, label: 'Trading' },
   { href: '/dashboard/rooms/coding', icon: Code2, label: 'Coding' },
   { href: '/dashboard/personal', icon: User, label: 'Personal' },
+  { href: '/dashboard/rooms/youtube', icon: Video, label: 'YouTube' },
 ];
 
 const MORE_ITEMS = [

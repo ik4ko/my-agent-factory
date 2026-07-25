@@ -196,7 +196,19 @@ export async function executeStep(dispatch: StepDispatch): Promise<void> {
   // same channel voice a live run would use.
   const channel = await loadChannelContext(context.channelId);
 
-  if (context.simulate) {
+  // Per-stage gate: a live run still simulates any stage whose integration
+  // has no credentials, so a partially-wired playbook completes end-to-end
+  // rather than dying at the first unwired stage. Steps without the gate keep
+  // the previous all-or-nothing behavior.
+  const stageConfigured = step.isConfigured?.() ?? true;
+  if (context.simulate || !stageConfigured) {
+    if (!context.simulate && !stageConfigured) {
+      await hermesLog(
+        'warn',
+        `[${context.role}] integration not configured — stage simulated inside a live run`,
+        agentId,
+      );
+    }
     await runSimulatedStep(dispatch, step, channel);
     return;
   }
@@ -240,6 +252,9 @@ export async function executeStep(dispatch: StepDispatch): Promise<void> {
     agentType: step.agentType,
     description,
     systemPrompt: step.buildSystemPrompt(context.objective, priorOutput, market, channel),
+    // Stage-bound lane (e.g. SCRIPT → Haiku). Undefined keeps the router's
+    // default worker, which is what every market-strategy step does.
+    ...(step.resolveModel?.() ? { model: step.resolveModel()! } : {}),
     // Expanded budget: the playbook's density directive asks for exhaustive
     // institutional briefings; the default 2048 would truncate them and feed
     // a clipped brief to the next stage.
