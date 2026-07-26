@@ -392,7 +392,10 @@ export async function fetchVideoComments(
       id: String((raw as any)?.id ?? ''),
       author: String(top.authorDisplayName ?? ''),
       authorAvatarUrl: top.authorProfileImageUrl ?? null,
-      text: String(top.textDisplay ?? ''),
+      // textOriginal is PLAIN TEXT. textDisplay is YouTube's HTML-formatted
+      // variant, and its content is authored by arbitrary commenters — never
+      // render that into the DOM. See the note in channel-connect-panel.tsx.
+      text: String(top.textOriginal ?? top.textDisplay ?? ''),
       likeCount: Number(top.likeCount ?? 0),
       publishedAt: top.publishedAt ?? null,
     };

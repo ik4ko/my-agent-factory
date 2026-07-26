@@ -281,7 +281,11 @@ function CommentDrawer({ video, onClose }: { video: ContentChannelVideo; onClose
       {comments?.map((c) => (
         <div key={c.id} className="border-b border-line/50 py-1">
           <p className="font-mono text-[8.5px] text-primary">{c.author} · {c.likeCount} likes</p>
-          <p className="font-mono text-[8.5px] leading-tight text-ink-low" dangerouslySetInnerHTML={{ __html: c.text }} />
+          {/* Rendered as TEXT, never HTML. Comment bodies are authored by
+              arbitrary third parties; the fetcher hands us textOriginal
+              (plain) precisely so this stays inert. Do not reintroduce
+              dangerouslySetInnerHTML here. */}
+          <p className="whitespace-pre-wrap break-words font-mono text-[8.5px] leading-tight text-ink-low">{c.text}</p>
         </div>
       ))}
     </div>
