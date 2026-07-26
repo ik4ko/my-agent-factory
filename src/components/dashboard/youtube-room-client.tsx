@@ -7,6 +7,7 @@ import { TaskFeed } from './task-feed';
 import { PanelChrome } from '@/components/deck';
 import { WorkspaceGrid, type WorkspacePanelDef } from '@/components/deck/workspace-grid';
 import { WidgetErrorBoundary } from './widget-error-boundary';
+import { ChannelConnectPanel, ChannelSettingsPanel, ChannelVideosPanel } from './channel-connect-panel';
 import { useContentChannels, CONTENT_CHANNELS_KEY } from '@/hooks/use-content-channels-query';
 import { cn } from '@/lib/utils';
 import type { ContentChannel } from '@/lib/types/database.types';
@@ -27,19 +28,28 @@ const DEFAULT_LAYOUTS = {
     { i: 'channels', x: 0, y: 0, w: 3, h: 16, minW: 2, minH: 8 },
     { i: 'runner', x: 3, y: 0, w: 5, h: 8, minW: 3, minH: 5 },
     { i: 'stages', x: 8, y: 0, w: 4, h: 8, minW: 3, minH: 5 },
-    { i: 'runs', x: 3, y: 8, w: 9, h: 8, minW: 3, minH: 4 },
+    { i: 'connect', x: 3, y: 8, w: 5, h: 9, minW: 3, minH: 5 },
+    { i: 'settings', x: 8, y: 8, w: 4, h: 9, minW: 3, minH: 5 },
+    { i: 'videos', x: 0, y: 17, w: 7, h: 10, minW: 3, minH: 5 },
+    { i: 'runs', x: 7, y: 17, w: 5, h: 10, minW: 3, minH: 4 },
   ],
   md: [
     { i: 'channels', x: 0, y: 0, w: 8, h: 7 },
     { i: 'runner', x: 0, y: 7, w: 8, h: 7 },
     { i: 'stages', x: 0, y: 14, w: 8, h: 7 },
-    { i: 'runs', x: 0, y: 21, w: 8, h: 7 },
+    { i: 'connect', x: 0, y: 21, w: 8, h: 9 },
+    { i: 'settings', x: 0, y: 30, w: 8, h: 9 },
+    { i: 'videos', x: 0, y: 39, w: 8, h: 10 },
+    { i: 'runs', x: 0, y: 49, w: 8, h: 7 },
   ],
   sm: [
     { i: 'channels', x: 0, y: 0, w: 1, h: 7 },
     { i: 'runner', x: 0, y: 7, w: 1, h: 7 },
     { i: 'stages', x: 0, y: 14, w: 1, h: 7 },
-    { i: 'runs', x: 0, y: 21, w: 1, h: 7 },
+    { i: 'connect', x: 0, y: 21, w: 1, h: 9 },
+    { i: 'settings', x: 0, y: 30, w: 1, h: 9 },
+    { i: 'videos', x: 0, y: 39, w: 1, h: 10 },
+    { i: 'runs', x: 0, y: 49, w: 1, h: 7 },
   ],
 };
 
@@ -334,6 +344,49 @@ export function YoutubeRoomClient() {
         >
           <WidgetErrorBoundary name="Stage Status">
             <StageStatus />
+          </WidgetErrorBoundary>
+        </PanelChrome>
+      ),
+    },
+    {
+      id: 'connect',
+      label: 'youtube',
+      node: (
+        <PanelChrome
+          title="YOUTUBE CHANNEL"
+          headerRight={<span className="font-mono text-[8.5px] text-ink-low">read-only</span>}
+          bodyClassName="p-0 overflow-y-auto"
+          className="h-full"
+        >
+          <WidgetErrorBoundary name="Channel Connect">
+            <ChannelConnectPanel channel={selected} />
+          </WidgetErrorBoundary>
+        </PanelChrome>
+      ),
+    },
+    {
+      id: 'settings',
+      label: 'settings',
+      node: (
+        <PanelChrome title="CHANNEL SETTINGS" bodyClassName="p-0 overflow-y-auto" className="h-full">
+          <WidgetErrorBoundary name="Channel Settings">
+            <ChannelSettingsPanel channel={selected} />
+          </WidgetErrorBoundary>
+        </PanelChrome>
+      ),
+    },
+    {
+      id: 'videos',
+      label: 'videos',
+      node: (
+        <PanelChrome
+          title="VIDEOS"
+          headerRight={<span className="font-mono text-[8.5px] text-ink-low">comments load on click</span>}
+          bodyClassName="p-0 overflow-y-auto"
+          className="h-full"
+        >
+          <WidgetErrorBoundary name="Channel Videos">
+            <ChannelVideosPanel channel={selected} />
           </WidgetErrorBoundary>
         </PanelChrome>
       ),

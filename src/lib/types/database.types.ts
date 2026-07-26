@@ -27,6 +27,48 @@ export type ContentChannel = {
   created_at: string;
 };
 
+// A channel's actual presence on a platform. Its own table (not columns on
+// content_channels) so one channel can hold a YouTube link and an Instagram
+// link without a reshape. external_id is resolved ONCE at connect time and
+// cached forever, so an expensive resolution is never repaid on refresh.
+export type ContentChannelLink = {
+  id: string;
+  channel_id: string;
+  platform: string;
+  handle: string | null;
+  external_id: string;
+  connected_at: string;
+  last_synced_at: string | null;
+  /** Surfaced in the room instead of failing silently; cleared on next success. */
+  last_error: string | null;
+};
+
+// INSERT-ONLY, never upserted — an immutable audit artifact, like tasks. Two
+// rows are all a growth curve needs.
+export type ContentChannelStatsSnapshot = {
+  id: string;
+  link_id: string;
+  fetched_at: string;
+  subscriber_count: number | null;
+  view_count: number | null;
+  video_count: number | null;
+  raw: Record<string, unknown>;
+};
+
+// Upserted per video — current state is the useful state here.
+export type ContentChannelVideo = {
+  id: string;
+  link_id: string;
+  external_video_id: string;
+  title: string;
+  thumbnail_url: string | null;
+  published_at: string | null;
+  view_count: number | null;
+  like_count: number | null;
+  comment_count: number | null;
+  last_synced_at: string;
+};
+
 // NOTE: these are `type` aliases (not interfaces) on purpose — supabase-js's
 // GenericSchema requires Row/Insert/Update to satisfy Record<string, unknown>,
 // which interfaces do not (they are open to declaration merging). Using type
