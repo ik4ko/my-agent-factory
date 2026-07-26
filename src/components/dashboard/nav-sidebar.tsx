@@ -1,6 +1,6 @@
 'use client';
 
-import { Cpu, Code2, LineChart, User, Settings, Zap, Repeat, Video } from 'lucide-react';
+import { Cpu, Code2, LineChart, User, Settings, Zap, Repeat, Video, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: '/dashboard/rooms/coding', icon: Code2, label: 'Coding Room' },
   { href: '/dashboard/personal', icon: User, label: 'Personal Room' },
   { href: '/dashboard/rooms/youtube', icon: Video, label: 'YouTube Room' },
+  { href: '/dashboard/rooms/medicare', icon: ShieldCheck, label: 'Medicare CRM' },
 ];
 
 // Utility routes — retained but demoted below a divider (not rooms).

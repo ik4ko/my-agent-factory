@@ -356,6 +356,30 @@ export type QuoteRow = {
   updated_at: string;
 };
 
+// Medicare CRM (ag_*) — isolated room-owned tables. Keep these as aliases so
+// Supabase's GenericSchema can infer insert/update payloads correctly.
+export type AgAgencySettings = {
+  id: string;
+  agency_name: string;
+  npn: string | null;
+  resident_state: string | null;
+  licensed_states: string[];
+  ahip_status: string;
+  ahip_expires_at: string | null;
+  hipaa_status: string;
+  hipaa_expires_at: string | null;
+  compliance_flags: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+export type AgFmo = { id: string; name: string; status: string; start_date: string | null; notes: string; created_at: string; updated_at: string };
+export type AgCarrier = { id: string; name: string; fmo_id: string | null; appointment_status: string; lines_of_business: string[]; active_states: string[]; created_at: string; updated_at: string };
+export type AgClient = { id: string; first_name: string; last_name: string; phone: string | null; email: string | null; date_of_birth: string | null; physical_address: string | null; city: string | null; state: string | null; zip: string | null; medicare_beneficiary_identifier: string | null; tags: string[]; created_at: string; updated_at: string };
+export type AgClientNote = { id: string; client_id: string; note: string; created_at: string; created_by: string | null };
+export type AgPolicy = { id: string; client_id: string; carrier_id: string | null; fmo_id: string | null; plan_name: string; plan_id: string | null; effective_date: string | null; monthly_premium: number | null; commission_level: string | null; status: string; created_at: string; updated_at: string };
+export type AgCommunication = { id: string; client_id: string; type: string; content: string; direction: string; timestamp: string; source_metadata: Record<string, unknown>; created_at: string };
+export type AgComplianceDocument = { id: string; client_id: string | null; document_type: string; title: string; storage_path: string | null; expires_at: string | null; uploaded_at: string; notes: string };
+
 export type Database = {
   public: {
     Tables: {
@@ -476,6 +500,54 @@ export type Database = {
         Row: QuoteRow;
         Insert: Omit<QuoteRow, 'updated_at'> & { updated_at?: string };
         Update: Partial<Omit<QuoteRow, 'symbol'>>;
+        Relationships: [];
+      };
+      ag_agency_settings: {
+        Row: AgAgencySettings;
+        Insert: Omit<AgAgencySettings, 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<Omit<AgAgencySettings, 'id' | 'created_at'>>;
+        Relationships: [];
+      };
+      ag_fmos: {
+        Row: AgFmo;
+        Insert: Omit<AgFmo, 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<Omit<AgFmo, 'id' | 'created_at'>>;
+        Relationships: [];
+      };
+      ag_carriers: {
+        Row: AgCarrier;
+        Insert: Omit<AgCarrier, 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<Omit<AgCarrier, 'id' | 'created_at'>>;
+        Relationships: [];
+      };
+      ag_clients: {
+        Row: AgClient;
+        Insert: Omit<AgClient, 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<Omit<AgClient, 'id' | 'created_at'>>;
+        Relationships: [];
+      };
+      ag_client_notes: {
+        Row: AgClientNote;
+        Insert: Omit<AgClientNote, 'id' | 'created_at'> & { id?: string; created_at?: string };
+        Update: Partial<Omit<AgClientNote, 'id' | 'created_at'>>;
+        Relationships: [];
+      };
+      ag_policies: {
+        Row: AgPolicy;
+        Insert: Omit<AgPolicy, 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<Omit<AgPolicy, 'id' | 'created_at'>>;
+        Relationships: [];
+      };
+      ag_communications_log: {
+        Row: AgCommunication;
+        Insert: Omit<AgCommunication, 'id' | 'created_at'> & { id?: string; created_at?: string };
+        Update: Partial<Omit<AgCommunication, 'id' | 'created_at'>>;
+        Relationships: [];
+      };
+      ag_compliance_documents: {
+        Row: AgComplianceDocument;
+        Insert: Omit<AgComplianceDocument, 'id' | 'uploaded_at'> & { id?: string; uploaded_at?: string };
+        Update: Partial<Omit<AgComplianceDocument, 'id' | 'uploaded_at'>>;
         Relationships: [];
       };
     };
