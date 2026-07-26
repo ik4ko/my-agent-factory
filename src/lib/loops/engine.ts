@@ -260,6 +260,92 @@ async function runTradeLoop(loop: LoopRow, trigger: EventRow | { type: 'manual' 
 }
 
 /**
+ * content_sync loop body — refresh every connected channel link on cadence.
+ *
+ * Deliberately thin: it calls the SAME refreshLink the manual Refresh button
+ * uses, so automated and manual syncs cannot drift apart. No brain, no tokens,
+ * no second orchestrator.
+ *
+ * Quota (verified 2026-07-26): 3 units per channel per refresh — channels.list
+ * 1 + playlistItems.list 1 + videos.list 1 (ids batched 50/call). Three
+ * channels hourly is ~216 units/day against a 10,000/day allowance, ~2.2%.
+ * Comments are never fetched here; they stay click-through only.
+ *
+ * `config.channelSlugs` (optional string[]) narrows which channels sync; absent
+ * means all of them. Per-link failures are recorded and do NOT abort the
+ * sweep — one channel hitting a quota wall must not stop the others.
+ */
+async function runContentSyncLoop(loop: LoopRow, runId: string): Promise<void> {
+  const { listLinks, refreshLink } = await import('@/lib/content/channel-links');
+  const { isYoutubeDataConfigured } = await import('@/lib/content/youtube-data');
+
+  // Missing key is a configuration state, not a failure: record it and leave
+  // without burning the run or spamming the error log every hour.
+  if (!isYoutubeDataConfigured()) {
+    await db()
+      .from('loop_runs')
+      .update({
+        decision: { type: 'content_sync', skipped: 'YOUTUBE_DATA_API_KEY not configured' },
+        actions: [],
+        result: { executed: false, links: 0 },
+        status: 'completed',
+        finished_at: new Date().toISOString(),
+      })
+      .eq('id', runId);
+    return;
+  }
+
+  const wanted = Array.isArray(loop.config?.channelSlugs)
+    ? (loop.config.channelSlugs as unknown[]).filter((s): s is string => typeof s === 'string')
+    : null;
+
+  const allLinks = await listLinks();
+  // channelSlugs filters by the CHANNEL's slug, so resolve through the
+  // channels table rather than assuming the link carries it.
+  let links = allLinks;
+  if (wanted && wanted.length > 0) {
+    const { data: channels } = await db()
+      .from('content_channels')
+      .select('id, slug')
+      .in('slug', wanted);
+    const ids = new Set(((channels ?? []) as Array<{ id: string }>).map((c) => c.id));
+    links = allLinks.filter((l) => ids.has(l.channel_id));
+  }
+
+  const actions: Array<{ linkId: string; ok: boolean; units: number; videos?: number; error?: string }> = [];
+  let unitsSpent = 0;
+  for (const link of links) {
+    const result = await refreshLink(link.id);
+    unitsSpent += result.quota.units;
+    actions.push({
+      linkId: link.id,
+      ok: result.ok,
+      units: result.quota.units,
+      ...(result.videoCount !== undefined ? { videos: result.videoCount } : {}),
+      ...(result.error ? { error: result.error } : {}),
+    });
+  }
+
+  const failed = actions.filter((a) => !a.ok).length;
+  await hermesLog(
+    failed > 0 ? 'warn' : 'info',
+    `[LOOP] ${loop.name} synced ${actions.length - failed}/${actions.length} channels · ${unitsSpent} quota units`,
+  );
+  await db()
+    .from('loop_runs')
+    .update({
+      decision: { type: 'content_sync', links: links.length, scope: wanted ?? 'all' },
+      actions,
+      // A partial sweep is still a completed run — per-link errors live in
+      // actions[] and on the link row, where the room already surfaces them.
+      result: { executed: true, synced: actions.length - failed, failed, quotaUnits: unitsSpent },
+      status: 'completed',
+      finished_at: new Date().toISOString(),
+    })
+    .eq('id', runId);
+}
+
+/**
  * Evaluate one loop, either on cadence (trigger=null) or in reaction to a
  * bus event. Writes a full audit row to loop_runs and never throws — a
  * failing loop must not take down the worker or other loops.
@@ -289,6 +375,8 @@ export async function runLoop(loop: LoopRow, trigger: EventRow | { type: 'manual
         .eq('id', runId);
     } else if (loop.kind === 'trade') {
       await runTradeLoop(loop, trigger, runId);
+    } else if (loop.kind === 'content_sync') {
+      await runContentSyncLoop(loop, runId);
     } else {
       // research/build/personal — ask the loop's brain for a decision. No
       // execution path for these kinds; this records what the brain would

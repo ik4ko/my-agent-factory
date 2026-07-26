@@ -226,7 +226,10 @@ export type PortfolioStateRow = {
 
 // Phase Loops — standing objectives the system re-evaluates on a cadence
 // and/or in reaction to events (news/price/manual).
-export type LoopKind = 'trade' | 'research' | 'build' | 'personal' | 'monitor';
+// 'content_sync' refreshes connected YouTube channels on cadence. Unlike the
+// research/build/personal kinds it spends NO tokens — it calls the read-only
+// fetcher directly, so it must never fall through to the brain-decision branch.
+export type LoopKind = 'trade' | 'research' | 'build' | 'personal' | 'monitor' | 'content_sync';
 export type LoopStatus = 'armed' | 'paused' | 'stopped';
 export type LoopTrigger = { type: 'news' | 'price' | 'earnings' | 'manual'; symbol?: string; minSeverity?: EventSeverity };
 
