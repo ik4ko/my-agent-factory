@@ -239,15 +239,31 @@ function StageStatus() {
       {stages.map((s) => (
         <div key={s.stage} className="px-2 py-1.5">
           <div className="flex items-center gap-1.5">
-            <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', s.configured ? 'bg-primary' : 'bg-neon-orange')} />
+            {/* Three states, not two: credentials alone are not capability. */}
+            <span
+              className={cn(
+                'h-1.5 w-1.5 shrink-0 rounded-full',
+                s.configured ? 'bg-primary' : s.credentialsPresent ? 'bg-neon-cyan' : 'bg-neon-orange',
+              )}
+            />
             <span className="font-mono text-[10px] uppercase text-ink-high">{s.stage}</span>
-            <span className={cn('ml-auto font-mono text-[8.5px]', s.configured ? 'text-primary' : 'text-neon-orange')}>
-              {s.configured ? 'LIVE' : 'STUBBED'}
+            <span
+              className={cn(
+                'ml-auto font-mono text-[8.5px]',
+                s.configured ? 'text-primary' : s.credentialsPresent ? 'text-neon-cyan' : 'text-neon-orange',
+              )}
+            >
+              {s.configured ? 'LIVE' : s.credentialsPresent ? 'KEYED · PENDING' : 'STUBBED'}
             </span>
           </div>
           <p className="pl-3 font-mono text-[8.5px] leading-tight text-ink-low">{s.service}</p>
-          {!s.configured && (
+          {!s.credentialsPresent && (
             <p className="pl-3 font-mono text-[8.5px] leading-tight text-ink-low">needs {s.missing.join(', ')}</p>
+          )}
+          {s.credentialsPresent && !s.configured && (
+            <p className="pl-3 font-mono text-[8.5px] leading-tight text-ink-low">
+              credentials present · provider call not yet implemented
+            </p>
           )}
           {s.configured && s.availableUpgrades.length > 0 && (
             <p className="pl-3 font-mono text-[8.5px] leading-tight text-ink-low">

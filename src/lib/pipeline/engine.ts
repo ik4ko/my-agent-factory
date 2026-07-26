@@ -97,7 +97,17 @@ async function markStepRunning(taskId: string, agentId: string | null): Promise<
   ]);
 }
 
-/** Persist the full step output (context survives worker preview overwrites). */
+/** Persist the full step output (context survives worker preview overwrites).
+ *
+ *  DECISION (2026-07-25, approved): when the PUBLISH stage is wired it must
+ *  record `result.publications` — an ARRAY of {platform, externalId, url,
+ *  publishedAt, channelSlug, status, error} — emitted by the stage as a
+ *  `PUBLICATIONS: [{...}]` line, same machine-hand-off pattern as
+ *  TRADE_PARAMS. externalId is the join key a future content-stats loop polls
+ *  videos.list with; the stats themselves belong in loop_runs.result, never
+ *  back in this row (it is an immutable audit artifact). NOTE THE TRAP: this
+ *  function REPLACES result wholesale and is called twice per step, so a
+ *  sibling key is wiped unless an optional merge param is added here first. */
 async function persistStepOutput(
   taskId: string,
   context: PipelineContext,

@@ -38,6 +38,16 @@ export interface IntegrationSpec {
   /** What to report as missing when `isReady` fails — an isReady stage has no
    *  single required env var to point at. */
   missingLabel?: string[];
+  /**
+   * Whether the stage's REAL call is actually written. Defaults to true.
+   *
+   * Set false for a stage whose credentials may be present but whose provider
+   * call is still a TODO — credentials alone are not capability. This is the
+   * guard against the exact mistake the script stage made: advertising LIVE
+   * off an env var while the code path did nothing. A stage with
+   * `implemented: false` reports credentials separately and keeps simulating.
+   */
+  implemented?: boolean;
 }
 
 /** Anthropic access already exists in this app (mentor lanes + dispatcher). */
@@ -46,6 +56,26 @@ function hasAnthropic(): boolean {
 }
 function hasGroq(): boolean {
   return Boolean(process.env.GROQ_API_KEY?.trim());
+}
+function hasPexels(): boolean {
+  return Boolean(process.env.PEXELS_API_KEY?.trim());
+}
+function hasPixabay(): boolean {
+  return Boolean(process.env.PIXABAY_API_KEY?.trim());
+}
+
+export type AssetsProvider = 'pexels' | 'pixabay';
+
+/**
+ * Stock-footage provider for the ASSETS stage. Pexels is preferred (more
+ * generous limits, native video search); Pixabay is the failover used when
+ * PEXELS_API_KEY is absent but PIXABAY_API_KEY is present. Null when neither
+ * exists, in which case the stage degrades to simulate.
+ */
+export function resolveAssetsProvider(): AssetsProvider | null {
+  if (hasPexels()) return 'pexels';
+  if (hasPixabay()) return 'pixabay';
+  return null;
 }
 
 /**
@@ -81,8 +111,15 @@ export const CONTENT_INTEGRATIONS: readonly IntegrationSpec[] = [
   },
   {
     stage: 'assets',
-    service: 'Pexels Video API (Pixabay as failover)',
-    envVars: ['PEXELS_API_KEY'],
+    service: 'Pexels Video API · Pixabay failover when PEXELS_API_KEY is absent',
+    // Either key satisfies this stage — neither is individually required.
+    envVars: [],
+    isReady: () => resolveAssetsProvider() !== null,
+    missingLabel: ['PEXELS_API_KEY (or PIXABAY_API_KEY)'],
+    // Credentials resolve, but the provider fetch itself is still a TODO in
+    // the stage's run path. Flip to true in the SAME commit that adds the
+    // real search call — never before.
+    implemented: false,
     plan: 'Resolve one stock clip per beat by keyword; store URLs + durations on the step output.',
     simulateNote: 'Simulate emits placeholder clip slots so downstream assembly has a shot list.',
   },
@@ -111,7 +148,9 @@ export const CONTENT_INTEGRATIONS: readonly IntegrationSpec[] = [
     stage: 'publish',
     service: 'YouTube Data API v3 · Instagram Graph API',
     envVars: ['YOUTUBE_OAUTH_REFRESH_TOKEN', 'INSTAGRAM_ACCESS_TOKEN'],
-    plan: "Upload to each of the channel's publish_targets and record the returned post IDs.",
+    // Output shape is DECIDED (2026-07-25) — see the note on persistStepOutput
+    // in src/lib/pipeline/engine.ts before implementing.
+    plan: "Upload to each of the channel's publish_targets and record the returned post IDs as result.publications[] — {platform, externalId, url, publishedAt, channelSlug, status, error} — emitted by the stage as a PUBLICATIONS: [{...}] line. externalId is the join key for a future stats loop.",
     simulateNote: 'Simulate lists the targets it WOULD publish to and explicitly uploads nothing.',
   },
 ] as const;
@@ -120,17 +159,31 @@ const BY_STAGE = new Map<ContentStageKey, IntegrationSpec>(
   CONTENT_INTEGRATIONS.map((spec) => [spec.stage, spec]),
 );
 
-/** Live-readiness for one stage: a custom `isReady` when the stage can run on
- *  credentials the app already holds, otherwise every required env var. */
-export function isStageConfigured(stage: ContentStageKey): boolean {
+/** Do this stage's credentials resolve? Says nothing about whether the real
+ *  call is written — see isStageConfigured for that. */
+export function hasStageCredentials(stage: ContentStageKey): boolean {
   const spec = BY_STAGE.get(stage);
   if (!spec) return false;
   if (spec.isReady) return spec.isReady();
   return spec.envVars.length > 0 && spec.envVars.every((name) => Boolean(process.env[name]?.trim()));
 }
 
+/** Live-readiness: credentials resolve AND the provider call actually exists.
+ *  Both halves are required — credentials alone are not capability. */
+export function isStageConfigured(stage: ContentStageKey): boolean {
+  const spec = BY_STAGE.get(stage);
+  if (!spec) return false;
+  if (spec.implemented === false) return false;
+  return hasStageCredentials(stage);
+}
+
 export interface StageReadiness extends Omit<IntegrationSpec, 'isReady'> {
+  /** Live: credentials resolve AND the provider call is written. */
   configured: boolean;
+  /** Credentials resolve — true even when the call is still a TODO, so the
+   *  room can say "keys present · integration pending" instead of a
+   *  misleading LIVE or a wrong "needs PEXELS_API_KEY". */
+  credentialsPresent: boolean;
   /** Required env vars still missing — drives the room's status panel copy.
    *  Empty for a stage that is live via existing credentials. */
   missing: string[];
@@ -143,15 +196,16 @@ export interface StageReadiness extends Omit<IntegrationSpec, 'isReady'> {
 export function contentIntegrationStatus(): StageReadiness[] {
   return CONTENT_INTEGRATIONS.map((spec) => {
     const configured = isStageConfigured(spec.stage);
-    // A stage that is already live has nothing missing, even if some of its
-    // optional vars are unset.
-    const missing = configured
+    const credentialsPresent = hasStageCredentials(spec.stage);
+    // Nothing is "missing" once the credentials resolve — a stage waiting on
+    // its provider call is pending, not under-configured.
+    const missing = credentialsPresent
       ? []
       : spec.missingLabel ?? spec.envVars.filter((name) => !process.env[name]?.trim());
     const availableUpgrades = (spec.optionalEnvVars ?? []).filter((name) => !process.env[name]?.trim());
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { isReady: _omit, ...rest } = spec;
-    return { ...rest, configured, missing, availableUpgrades };
+    return { ...rest, configured, credentialsPresent, missing, availableUpgrades };
   });
 }
 

@@ -2,7 +2,7 @@ import { CONTENT_CHANNEL_PLAYBOOK } from '@/lib/content/playbook';
 import { PLAYBOOKS } from '@/lib/pipeline/playbook';
 import { PipelineContextSchema, PIPELINE_ROLES } from '@/lib/pipeline/types';
 import { slugifyChannelLabel, toChannelContext } from '@/lib/content/channels';
-import { CONTENT_INTEGRATIONS, contentIntegrationStatus, isStageConfigured, resolveScriptModel } from '@/lib/content/integrations';
+import { CONTENT_INTEGRATIONS, contentIntegrationStatus, hasStageCredentials, isStageConfigured, resolveAssetsProvider, resolveScriptModel } from '@/lib/content/integrations';
 import type { ChannelContext } from '@/lib/pipeline/types';
 import type { ContentChannel } from '@/lib/types/database.types';
 
@@ -146,6 +146,54 @@ describe('script stage runs on existing credentials (no new signup)', () => {
   });
 });
 
+describe('assets stage — Pexels with Pixabay failover', () => {
+  const saved = { pexels: process.env.PEXELS_API_KEY, pixabay: process.env.PIXABAY_API_KEY };
+  afterEach(() => {
+    for (const [k, v] of [['PEXELS_API_KEY', saved.pexels], ['PIXABAY_API_KEY', saved.pixabay]] as const) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  });
+
+  it('prefers Pexels when both keys are present', () => {
+    process.env.PEXELS_API_KEY = 'pex';
+    process.env.PIXABAY_API_KEY = 'pix';
+    expect(resolveAssetsProvider()).toBe('pexels');
+  });
+
+  it('fails over to Pixabay when only Pixabay is set', () => {
+    delete process.env.PEXELS_API_KEY;
+    process.env.PIXABAY_API_KEY = 'pix';
+    expect(resolveAssetsProvider()).toBe('pixabay');
+    expect(hasStageCredentials('assets')).toBe(true);
+  });
+
+  it('resolves no provider when neither key is set', () => {
+    delete process.env.PEXELS_API_KEY;
+    delete process.env.PIXABAY_API_KEY;
+    expect(resolveAssetsProvider()).toBeNull();
+    expect(hasStageCredentials('assets')).toBe(false);
+  });
+
+  it('does NOT report LIVE on credentials alone — the fetch is still a TODO', () => {
+    // The exact trap the script stage fell into: an env var must never by
+    // itself advertise a capability the code path does not have.
+    process.env.PEXELS_API_KEY = 'pex';
+    expect(hasStageCredentials('assets')).toBe(true);
+    expect(isStageConfigured('assets')).toBe(false);
+    const assets = contentIntegrationStatus().find((s) => s.stage === 'assets')!;
+    expect(assets.credentialsPresent).toBe(true);
+    expect(assets.configured).toBe(false);
+    // …and it must not claim a key is missing when one is present.
+    expect(assets.missing).toEqual([]);
+  });
+
+  it('keeps the stage simulating while the fetch is unimplemented', () => {
+    process.env.PEXELS_API_KEY = 'pex';
+    expect(CONTENT_CHANNEL_PLAYBOOK.steps[1].isConfigured?.()).toBe(false);
+  });
+});
+
 describe('per-stage gating', () => {
   it('gates every stage independently so a partial wiring still completes', () => {
     for (const step of CONTENT_CHANNEL_PLAYBOOK.steps) {
@@ -186,13 +234,24 @@ describe('integration gating', () => {
   });
 
   it('reports a stage as unconfigured while its env var is unset', () => {
-    delete process.env.PEXELS_API_KEY;
-    expect(isStageConfigured('assets')).toBe(false);
+    delete process.env.KOKORO_TTS_URL;
+    expect(isStageConfigured('voiceover')).toBe(false);
   });
 
   it('flips to configured once every env var for that stage is present', () => {
+    // voiceover has no `implemented: false` guard, so credentials alone are
+    // sufficient here — this is the plain env-var path.
+    process.env.KOKORO_TTS_URL = 'http://127.0.0.1:8880';
+    expect(isStageConfigured('voiceover')).toBe(true);
+    delete process.env.KOKORO_TTS_URL;
+  });
+
+  it('separates CREDENTIALS from CAPABILITY for an unimplemented stage', () => {
+    // assets carries `implemented: false`, so its key resolves credentials but
+    // must not flip live readiness until the provider call is written.
     process.env.PEXELS_API_KEY = 'test-key';
-    expect(isStageConfigured('assets')).toBe(true);
+    expect(hasStageCredentials('assets')).toBe(true);
+    expect(isStageConfigured('assets')).toBe(false);
     delete process.env.PEXELS_API_KEY;
   });
 
