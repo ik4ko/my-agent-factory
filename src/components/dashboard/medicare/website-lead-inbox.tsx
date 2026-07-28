@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Inbox, RefreshCcw, UserPlus } from 'lucide-react';
 import { PanelChrome } from '@/components/deck';
 import { MedicareEmpty, MedicareStatus } from './medicare-primitives';
+import { BridgeHealth, type BridgeHealthData } from './bridge-health';
 import {
   AnimatedList,
   CountUp,
@@ -71,11 +72,34 @@ export function WebsiteLeadInbox() {
   const [loading, setLoading] = useState(true);
   const [migrationApplied, setMigrationApplied] = useState(true);
   const [note, setNote] = useState<string | null>(null);
+  const [health, setHealth] = useState<BridgeHealthData | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/website-leads', { cache: 'no-store' });
+      /*
+        Both reads happen in this one loader on purpose. Bridge health could
+        have owned its own effect, but that would mean a second polling
+        lifecycle for data an operator only ever reads next to the queue —
+        and one more instance of the setState-in-effect pattern the linter
+        already flags here. One fetch pass, one refresh button.
+
+        Health is settled independently: the website being unreachable must
+        never blank out the lead list, which comes from this project.
+      */
+      const [leadsRes, healthRes] = await Promise.allSettled([
+        fetch('/api/website-leads', { cache: 'no-store' }),
+        fetch('/api/website-leads/health', { cache: 'no-store' }),
+      ]);
+
+      if (healthRes.status === 'fulfilled') {
+        setHealth(await healthRes.value.json().catch(() => null));
+      } else {
+        setHealth({ configured: true, error: 'Could not reach the bridge health endpoint.' });
+      }
+
+      if (leadsRes.status === 'rejected') throw new Error('Request failed');
+      const res = leadsRes.value;
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error ?? 'Request failed');
       setLeads(body.leads ?? []);
@@ -88,6 +112,19 @@ export function WebsiteLeadInbox() {
       setLoading(false);
     }
   }, []);
+
+  /** Re-drive one stuck delivery, then refresh so the result is visible. */
+  const retryDelivery = useCallback(
+    async (id: string) => {
+      await fetch('/api/website-leads/health', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      await load();
+    },
+    [load],
+  );
 
   useEffect(() => {
     void load();
@@ -158,6 +195,8 @@ export function WebsiteLeadInbox() {
         <Metric label="No owner" value={stats.unassigned} />
         <Metric label="Alert failed" value={stats.alertFailed} tone="danger" />
       </div>
+
+      <BridgeHealth health={health} onRetry={retryDelivery} />
 
       {!migrationApplied ? (
         <div className="rounded border border-amber-500/40 bg-amber-500/10 p-3 text-[11px] text-amber-200">
