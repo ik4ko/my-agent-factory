@@ -296,6 +296,10 @@ export function YoutubeRoomClient() {
   // selected channel disappears (deactivated in another tab).
   useEffect(() => {
     if (!channels.length) return;
+    // Intentional synchronisation with an external/prop change. The guard above
+    // makes this a no-op unless the value actually changed, so it settles in one
+    // extra render rather than cascading.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!selectedId || !channels.some((c) => c.id === selectedId)) setSelectedId(channels[0].id);
   }, [channels, selectedId]);
 

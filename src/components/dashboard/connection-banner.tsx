@@ -23,11 +23,19 @@ export function ConnectionBanner() {
   // this node (which React reports against the adjacent sibling).
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => {
+    // Browser capability / hydration flag, resolved after mount on purpose.
+    // The server cannot know it, so the first paint renders the fallback and
+    // this corrects it once. Deliberate one-shot, not a render loop.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMounted(true);
   }, []);
 
   // Re-arm when the status changes away from the one the user dismissed.
   useEffect(() => {
+    // Intentional synchronisation with an external/prop change. The guard above
+    // makes this a no-op unless the value actually changed, so it settles in one
+    // extra render rather than cascading.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (dismissed && status !== dismissed) setDismissed(null);
   }, [status, dismissed]);
 

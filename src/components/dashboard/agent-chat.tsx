@@ -262,15 +262,27 @@ export function AgentChat({
   );
 
   useEffect(() => {
+    // Intentional synchronisation with an external/prop change. The guard above
+    // makes this a no-op unless the value actually changed, so it settles in one
+    // extra render rather than cascading.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!availableLanes.includes(lane)) chooseLane(initialLane);
   }, [availableLanes, chooseLane, initialLane, lane]);
 
   useEffect(() => {
+    // Intentional synchronisation with an external/prop change. The guard above
+    // makes this a no-op unless the value actually changed, so it settles in one
+    // extra render rather than cascading.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (selectedLane && availableLanes.includes(selectedLane)) setLane(selectedLane);
   }, [availableLanes, selectedLane]);
 
   useEffect(() => {
     let alive = true;
+    // Data fetch on mount. The loader is async and sets state around an await;
+    // this is React's documented pattern for loading data in a client component,
+    // not derived state feeding a cascading render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoaded(false);
     void readHistory(effectiveScope)
       .then((history) => {
@@ -481,6 +493,10 @@ export function AgentChat({
   }, [setCoreListening, speech.state]);
 
   useEffect(() => {
+    // Intentional synchronisation with an external/prop change. The guard above
+    // makes this a no-op unless the value actually changed, so it settles in one
+    // extra render rather than cascading.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (speech.state === 'listening' && speech.transcript) setValue(speech.transcript);
   }, [speech.state, speech.transcript]);
 

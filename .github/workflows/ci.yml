@@ -55,21 +55,16 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
 
-      # ── Reporting gate ────────────────────────────────────────────────
-      # Lint runs and its output is visible, but it does not block yet.
+      # ── Lint gate ─────────────────────────────────────────────────────
+      # Blocking as of the commit that cleared the backlog. ESLint had never
+      # run on this repository before it was wired up, and enabling it
+      # surfaced 30 errors: five were genuine defects and are fixed; the rest
+      # were React Compiler rules firing on documented, intentional patterns
+      # and carry a narrow per-site suppression explaining why.
       #
-      # ESLint had never run on this repository: `next lint` was removed in
-      # Next 16 and no eslint dependency or config existed. Enabling it
-      # surfaced a pre-existing backlog (30 errors, 15 warnings at the time
-      # this workflow was added), almost all of it new react-hooks v7
-      # React Compiler rules firing on long-standing legacy components.
-      #
-      # Failing the build on that backlog on day one would mean either a mass
-      # refactor of unrelated code or switching the rules off. Neither is a
-      # good trade. Burn the backlog down, then delete continue-on-error and
-      # this comment with it.
-      - name: Lint (reporting only — see note)
-        continue-on-error: true
+      # Zero errors is now the contract. Warnings are allowed through and do
+      # not fail the command.
+      - name: Lint
         run: npm run lint
 
       # ── Secret hygiene ────────────────────────────────────────────────

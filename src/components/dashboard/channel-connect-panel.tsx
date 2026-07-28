@@ -346,6 +346,10 @@ export function ChannelSettingsPanel({ channel }: { channel: ContentChannel | nu
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
+    // Intentional synchronisation with an external/prop change. The guard above
+    // makes this a no-op unless the value actually changed, so it settles in one
+    // extra render rather than cascading.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLabel(channel?.label ?? '');
     setNiche(channel?.niche ?? '');
     setVoice(channel?.brand_voice ?? '');

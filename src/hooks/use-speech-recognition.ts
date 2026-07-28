@@ -35,7 +35,14 @@ export function useSpeechRecognition(
   const [transcript, setTranscript] = useState('');
   const recogRef = useRef<AnyRecognition>(null);
   const onFinalRef = useRef(onFinal);
-  onFinalRef.current = onFinal;
+  // Assigned in an effect, not during render. Writing a ref while rendering
+  // makes render impure — React may render a component twice, or throw the
+  // result away, and a mutation done during that pass is not guaranteed to
+  // stick. The ref only has to be current by the time an async recognition
+  // callback fires, which is always after commit.
+  useEffect(() => {
+    onFinalRef.current = onFinal;
+  }, [onFinal]);
 
   // isSupported is STATE set post-mount, never computed during render:
   // SSR and the client's first paint both render the unsupported branch,
@@ -47,6 +54,10 @@ export function useSpeechRecognition(
     // any permission prompt are deferred to start(), which callers invoke
     // from a user gesture, satisfying browser autoplay/mic policies on hard
     // reloads.
+    // Browser capability / hydration flag, resolved after mount on purpose.
+    // The server cannot know it, so the first paint renders the fallback and
+    // this corrects it once. Deliberate one-shot, not a render loop.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (getSpeechRecognition() !== null) setIsSupported(true);
     else setState('unsupported');
 

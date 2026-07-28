@@ -344,8 +344,21 @@ export function TaskFeed({
 
   // Approval intercepts always render standalone — a frozen decision row must
   // never be buried inside a collapsed group.
-  const intercepts = !historical ? tasks.filter((t) => t.intervention_state === 'pending_approval') : [];
-  const groupable = tasks.filter((t) => !intercepts.includes(t));
+  /*
+    intercepts/groupable were rebuilt on every render, so the useMemo below
+    received a new array identity every time and never actually memoized —
+    buildRunGroups ran on every render regardless. Deriving all three from the
+    same memo makes the memoization real; the values are unchanged.
+  */
+  const { intercepts, groupable } = useMemo(() => {
+    const pendingApproval = !historical
+      ? tasks.filter((t) => t.intervention_state === 'pending_approval')
+      : [];
+    return {
+      intercepts: pendingApproval,
+      groupable: tasks.filter((t) => !pendingApproval.includes(t)),
+    };
+  }, [tasks, historical]);
   const rows = useMemo(() => buildRunGroups(groupable), [groupable]);
 
   const pending = tasks.filter((t) => t.status === 'pending').length;

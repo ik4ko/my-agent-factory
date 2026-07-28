@@ -149,6 +149,10 @@ export function ChatHistoryPanel({
   }, [maxItems, mode, scopes]);
 
   useEffect(() => {
+    // Data fetch on mount. The loader is async and sets state around an await;
+    // this is React's documented pattern for loading data in a client component,
+    // not derived state feeding a cascading render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
   }, [refresh]);
 

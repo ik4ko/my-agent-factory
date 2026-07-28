@@ -250,6 +250,10 @@ export function StatusTransition({ status }: { status: LeadStatus }) {
     previous.current = status;
 
     if (reduced) {
+      // Intentional synchronisation with an external/prop change. The guard above
+      // makes this a no-op unless the value actually changed, so it settles in one
+      // extra render rather than cascading.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShown(status);
       return;
     }

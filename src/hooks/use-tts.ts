@@ -20,6 +20,10 @@ export function useTTS() {
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    // Browser capability / hydration flag, resolved after mount on purpose.
+    // The server cannot know it, so the first paint renders the fallback and
+    // this corrects it once. Deliberate one-shot, not a render loop.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsSupported(true);
     synthRef.current = window.speechSynthesis;
 

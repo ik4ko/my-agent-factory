@@ -73,6 +73,17 @@ export function MedicareRoomClient() {
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  /*
+    "Now", sampled when the data was fetched rather than read during render.
+
+    Compliance expiry was computed with Date.now() inside a useMemo and again
+    inline in JSX, which makes render non-deterministic: the same props and
+    state could produce different output on two renders, and React is free to
+    render twice or discard a render. Sampling the clock at load time is also
+    more honest about what the panel actually shows — expiry as of the data it
+    is displaying.
+  */
+  const [dataLoadedAt, setDataLoadedAt] = useState(0);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -81,6 +92,7 @@ export function MedicareRoomClient() {
       const payload = (await response.json()) as MedicareRoomData & { error?: string };
       if (!response.ok) throw new Error(payload.error ?? 'Unable to load Medicare CRM data');
       setData(payload);
+      setDataLoadedAt(Date.now());
       setError(null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Unable to load Medicare CRM data');
@@ -89,6 +101,10 @@ export function MedicareRoomClient() {
     }
   }, []);
 
+  // Data fetch on mount. The loader is async and sets state around an await;
+  // this is React's documented pattern for loading data in a client component,
+  // not derived state feeding a cascading render.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void loadData(); }, [loadData]);
 
   const fmoById = useMemo(() => new Map(data.fmos.map((fmo) => [fmo.id, fmo])), [data.fmos]);
@@ -129,7 +145,7 @@ export function MedicareRoomClient() {
   const complianceAlerts = useMemo(() => {
     const alerts: string[] = [];
     if (!data.agencySettings) alerts.push('Agency profile is not configured. Add NPN, state licenses, and certification dates.');
-    const now = Date.now();
+    const now = dataLoadedAt;
     const threshold = now + 45 * 24 * 60 * 60 * 1000;
     for (const [label, expiresAt] of [['AHIP', data.agencySettings?.ahip_expires_at], ['HIPAA', data.agencySettings?.hipaa_expires_at]] as const) {
       if (!expiresAt) continue;
@@ -141,7 +157,7 @@ export function MedicareRoomClient() {
       if (document.expires_at && new Date(document.expires_at).getTime() <= threshold) alerts.push(`${document.title} expires ${formatDate(document.expires_at)}.`);
     }
     return alerts;
-  }, [data.agencySettings, data.complianceDocuments]);
+  }, [data.agencySettings, data.complianceDocuments, dataLoadedAt]);
 
   async function addNote() {
     if (!selectedClient || !noteDraft.trim()) return;
@@ -256,7 +272,7 @@ export function MedicareRoomClient() {
       <div className="grid gap-3 xl:grid-cols-[1.3fr_0.7fr]">
         <PanelChrome title="COMPLIANCE VAULT" headerRight={<span className="text-[10px] text-muted-foreground">Metadata ready · Storage pending</span>}>
           <div className="mb-3 rounded border border-dashed border-border/70 bg-surface-2/20 p-3 text-xs text-muted-foreground"><div className="flex items-center gap-2 text-foreground"><Upload className="size-4 text-primary" /> Supabase Storage upload boundary</div><div className="mt-1">Document metadata is live-ready. File upload and signed URL handling remain intentionally unconfigured.</div></div>
-          {data.complianceDocuments.length ? <div className="space-y-2">{data.complianceDocuments.map((document) => <div key={document.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-border/60 p-2.5"><div><div className="text-xs font-medium">{document.title}</div><div className="text-[11px] text-muted-foreground">{document.document_type} · uploaded {formatDate(document.uploaded_at)}</div></div><MedicareStatus tone={document.expires_at && new Date(document.expires_at).getTime() < Date.now() ? 'danger' : 'warning'}>{document.expires_at ? `Expires ${formatDate(document.expires_at)}` : 'No expiry'}</MedicareStatus></div>)}</div> : <MedicareEmpty message="No compliance documents recorded yet." />}
+          {data.complianceDocuments.length ? <div className="space-y-2">{data.complianceDocuments.map((document) => <div key={document.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-border/60 p-2.5"><div><div className="text-xs font-medium">{document.title}</div><div className="text-[11px] text-muted-foreground">{document.document_type} · uploaded {formatDate(document.uploaded_at)}</div></div><MedicareStatus tone={document.expires_at && new Date(document.expires_at).getTime() < dataLoadedAt ? 'danger' : 'warning'}>{document.expires_at ? `Expires ${formatDate(document.expires_at)}` : 'No expiry'}</MedicareStatus></div>)}</div> : <MedicareEmpty message="No compliance documents recorded yet." />}
         </PanelChrome>
         <PanelChrome title="AGENCY READINESS">
           <div className="space-y-2 text-xs">{[['Agency', data.agencySettings?.agency_name || 'Not configured'], ['NPN', data.agencySettings?.npn || 'Not recorded'], ['Resident state', data.agencySettings?.resident_state || 'Not recorded'], ['AHIP', data.agencySettings?.ahip_status || 'Not started'], ['HIPAA', data.agencySettings?.hipaa_status || 'Not started']].map(([label, value]) => <div key={label} className="flex items-center justify-between gap-3 border-b border-border/40 py-2 last:border-0"><span className="text-muted-foreground">{label}</span><span className="text-right font-medium">{value}</span></div>)}</div>

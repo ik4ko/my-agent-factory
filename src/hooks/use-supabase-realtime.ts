@@ -49,7 +49,11 @@ export function useSupabaseRealtime<Row extends Record<string, unknown>>({
   onChange,
 }: UseSupabaseRealtimeOptions<Row>): void {
   const handlerRef = useRef(onChange);
-  handlerRef.current = onChange;
+  // Effect, not render: see the note in use-speech-recognition.ts. The
+  // handler only needs to be current when a realtime payload arrives.
+  useEffect(() => {
+    handlerRef.current = onChange;
+  }, [onChange]);
   const disposeRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {

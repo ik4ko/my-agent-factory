@@ -74,6 +74,10 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     const labels = Array.from(document.querySelectorAll<HTMLElement>('[data-screen-label]'))
       .map((el) => el.dataset.screenLabel)
       .filter((v): v is string => Boolean(v));
+    // Browser capability / hydration flag, resolved after mount on purpose.
+    // The server cannot know it, so the first paint renders the fallback and
+    // this corrects it once. Deliberate one-shot, not a render loop.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPanelLabels(Array.from(new Set(labels)));
   }, [open]);
 

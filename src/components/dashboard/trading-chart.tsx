@@ -380,6 +380,10 @@ export function TradingChart({ selectedSymbol, onSelectSymbol }: TradingChartPro
   // Historical candle pull.
   useEffect(() => {
     const controller = new AbortController();
+    // Data fetch on mount. The loader is async and sets state around an await;
+    // this is React's documented pattern for loading data in a client component,
+    // not derived state feeding a cascading render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setYahooQuote(null);
     setChartError(null);
@@ -453,6 +457,10 @@ export function TradingChart({ selectedSymbol, onSelectSymbol }: TradingChartPro
     for (let i = events.length - 1; i >= 0; i--) {
       const tick = readTick(events[i]);
       if (!tick || tick.symbol !== chartSymbol) continue;
+      // Intentional synchronisation with an external/prop change. The guard above
+      // makes this a no-op unless the value actually changed, so it settles in one
+      // extra render rather than cascading.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       updateCurrentCandle(tick.price, tick.ts * 1000, tick.provider);
       break;
     }

@@ -138,6 +138,10 @@ export function GlobalVoiceControl({ compact = false }: { compact?: boolean }) {
     // the TTS output instead of the operator. Reschedule until synthesis ends.
     if (typeof window !== 'undefined' && window.speechSynthesis?.speaking) {
       if (restartRef.current) clearTimeout(restartRef.current);
+      // startRecognition is a useCallback invoked from events and timers, never during
+      // render, so writing the retry handle here is safe. The rule cannot prove that
+      // because the function schedules itself.
+      // eslint-disable-next-line react-hooks/immutability
       restartRef.current = setTimeout(() => startRecognition(), 400);
       return;
     }
@@ -443,6 +447,10 @@ export function GlobalVoiceControl({ compact = false }: { compact?: boolean }) {
 
   useEffect(() => {
     const ok = getSpeechRecognitionCtor() !== null;
+    // Browser capability / hydration flag, resolved after mount on purpose.
+    // The server cannot know it, so the first paint renders the fallback and
+    // this corrects it once. Deliberate one-shot, not a render loop.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSupported(ok);
     if (!ok) {
       setState('unsupported');
