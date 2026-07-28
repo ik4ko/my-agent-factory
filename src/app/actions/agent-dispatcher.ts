@@ -17,7 +17,7 @@ import { classifyNvidiaFailure } from '@/lib/agents/nvidia-errors';
 import { agentLog } from '@/lib/hermes/hermes-logger';
 import { getAdminClient } from '@/lib/supabase/admin';
 import { getSpendSnapshotSince, recordModelEvent } from '@/lib/telemetry/token-ledger';
-import { estimateModelCostUsd } from '@/lib/telemetry/pricing';
+import { CACHE_READ_MULTIPLIER, CACHE_WRITE_MULTIPLIER, estimateModelCostUsd } from '@/lib/telemetry/pricing';
 import { extractTradeParams, buildStagedOrder, persistStagedOrder } from '@/lib/trading/stage';
 import { getActivePortfolioBalance } from '@/lib/market/portfolio';
 import { publishAgentEvent } from '@/lib/omnigent/bridge';
@@ -309,23 +309,38 @@ async function materializeArtifacts(
  * a `USAGE` row keyed by the returned model id, which begins "claude"). Throws
  * on a query failure so the caller can FAIL CLOSED rather than dispatch blind.
  */
+// 60s memo, matching openaiSpendCache and getSpendSnapshotSince. This gate is
+// awaited on the STREAMING hot path (guardStreamingBudget) before the first
+// token reaches the operator, and the CLAUDE lane is the busiest lane — so an
+// un-memoized ≤50k-row scan per dispatch was pure added time-to-first-token.
+// Staleness can under-count at most one minute of spend against a
+// conservatively-priced cap; query FAILURES are never cached, so the gate
+// still fails closed on a live ledger error.
+let anthropicSpendCache: { at: number; usd: number } | null = null;
+
 async function anthropicMonthlySpendUsd(): Promise<number> {
+  if (anthropicSpendCache && Date.now() - anthropicSpendCache.at < 60_000) return anthropicSpendCache.usd;
   const db = getAdminClient();
   const now = new Date();
   const monthStartIso = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
   const { data, error } = await db
     .from('metrics')
-    .select('input_tokens, output_tokens')
+    .select('input_tokens, output_tokens, cache_write_tokens, cache_read_tokens')
     .like('model', 'claude%')
     .gte('created_at', monthStartIso)
     .limit(50_000);
   if (error) throw new Error(error.message);
   let usd = 0;
   for (const row of data ?? []) {
+    // Cache traffic is billed but was previously invisible here: writes cost
+    // 1.25x input and reads 0.1x, and neither is included in input_tokens.
     usd +=
       ((row.input_tokens ?? 0) / 1_000_000) * ANTHROPIC_INPUT_USD_PER_MTOK +
-      ((row.output_tokens ?? 0) / 1_000_000) * ANTHROPIC_OUTPUT_USD_PER_MTOK;
+      ((row.output_tokens ?? 0) / 1_000_000) * ANTHROPIC_OUTPUT_USD_PER_MTOK +
+      ((row.cache_write_tokens ?? 0) / 1_000_000) * ANTHROPIC_INPUT_USD_PER_MTOK * CACHE_WRITE_MULTIPLIER +
+      ((row.cache_read_tokens ?? 0) / 1_000_000) * ANTHROPIC_INPUT_USD_PER_MTOK * CACHE_READ_MULTIPLIER;
   }
+  anthropicSpendCache = { at: Date.now(), usd };
   return usd;
 }
 
@@ -375,6 +390,11 @@ async function dispatchAnthropic(
     const msg = await client.messages.create({
       model: agent.model,
       max_tokens: ANTHROPIC_MAX_TOKENS,
+      // Prompt caching, matching the streaming twin in anthropic-tool-stream.ts.
+      // Without it this path re-paid full input price on the same stable
+      // system+history prefix every call. Auto-placement puts the breakpoint on
+      // the last cacheable block, which is the correct multi-turn pattern.
+      cache_control: { type: 'ephemeral' },
       // No temperature — Sonnet 5 rejects non-default sampling params.
       // Thinking disabled for parity with the completion-style matrix lanes
       // and predictable token accounting against the budget cap.
@@ -406,12 +426,14 @@ async function dispatchAnthropic(
         event: 'USAGE',
         inputTokens: msg.usage.input_tokens,
         outputTokens: msg.usage.output_tokens,
+        cacheWriteTokens: msg.usage.cache_creation_input_tokens ?? 0,
+        cacheReadTokens: msg.usage.cache_read_input_tokens ?? 0,
         detail: `${agentId} lane · ${latencyMs}ms`,
       }),
       agentLog(
         'success',
         agentId,
-        `dispatch completed in ${latencyMs}ms · ${msg.model} · in=${msg.usage.input_tokens} out=${msg.usage.output_tokens}`,
+        `dispatch completed in ${latencyMs}ms · ${msg.model} · in=${msg.usage.input_tokens} out=${msg.usage.output_tokens} cache_w=${msg.usage.cache_creation_input_tokens ?? 0} cache_r=${msg.usage.cache_read_input_tokens ?? 0}`,
       ),
     ]));
     const materialized = await materializeArtifacts(agentId, prompt, content, msg.model);
@@ -870,6 +892,9 @@ async function completeStreamedDispatch(
   usage: {
     inputTokens: number;
     outputTokens: number;
+    /** Anthropic-only; OpenAI-compatible lanes leave these undefined. */
+    cacheWriteTokens?: number;
+    cacheReadTokens?: number;
     modelRoundMs?: number[];
     toolCalls?: Array<{ name: string; latencyMs: number }>;
   },
@@ -877,9 +902,22 @@ async function completeStreamedDispatch(
 ): Promise<AgentDispatchResult> {
   const { agentId, agent, prompt } = prepared;
   if (!content) return dispatchFailure(agentId, model, 'provider returned an empty completion');
+  const cacheWrite = usage.cacheWriteTokens ?? 0;
+  const cacheRead = usage.cacheReadTokens ?? 0;
+  // cache= is surfaced in the log line so a prefix that stopped caching is
+  // visible in the terminal without a metrics query.
+  const cacheNote = cacheWrite || cacheRead ? ` cache_w=${cacheWrite} cache_r=${cacheRead}` : '';
   deferTelemetry(() => Promise.all([
-    recordModelEvent({ model, event: 'USAGE', inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, detail: `${agentId} lane · ${latencyMs}ms · streamed` }),
-    agentLog('success', agentId, `stream dispatch completed in ${latencyMs}ms · ${model} · in=${usage.inputTokens} out=${usage.outputTokens}`),
+    recordModelEvent({
+      model,
+      event: 'USAGE',
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      cacheWriteTokens: cacheWrite,
+      cacheReadTokens: cacheRead,
+      detail: `${agentId} lane · ${latencyMs}ms · streamed`,
+    }),
+    agentLog('success', agentId, `stream dispatch completed in ${latencyMs}ms · ${model} · in=${usage.inputTokens} out=${usage.outputTokens}${cacheNote}`),
   ]));
   const materialized = await materializeArtifacts(agentId, prompt, content, model);
   if (!agent.private) {
@@ -1096,11 +1134,28 @@ function positiveUsdEnv(name: string): number | null {
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
+/**
+ * Models that reach the ledger but are NOT billed by OpenRouter. Excluding
+ * only `claude*` charged this gate for the openai-direct CODEX lane (billed by
+ * OpenAI, and already gated by openaiMonthlySpendUsd — so it was counted
+ * twice), the free NVIDIA lane, and the zero-cost pseudo-model markers. With a
+ * $1 default cap that inflation closes every OpenRouter lane well before the
+ * real budget is spent.
+ */
+function isOpenRouterBilled(model: string): boolean {
+  if (model.startsWith('claude')) return false;        // anthropic-direct lane
+  if (model.startsWith('gpt-')) return false;          // openai-direct lane (API-returned id, no prefix)
+  if (model.startsWith('nvidia/')) return false;       // nvidia-direct free tier
+  if (model === 'converse-budget-gate') return false;  // event marker, not a call
+  if (model === 'direct-tool-fast-path') return false; // quick-info fast path, zero tokens
+  return true;
+}
+
 async function openRouterMonthlySpendUsd(): Promise<number> {
   const snapshot = await getSpendSnapshotSince(currentUtcMonthStartIso());
   const byModelCost = snapshot.byModelCostUsd ?? {};
-  return Object.entries(byModelCost).reduce((sum, [model, cost]) => {
-    if (model.startsWith('claude') || model === 'converse-budget-gate') return sum;
-    return sum + cost;
-  }, 0);
+  return Object.entries(byModelCost).reduce(
+    (sum, [model, cost]) => (isOpenRouterBilled(model) ? sum + cost : sum),
+    0,
+  );
 }

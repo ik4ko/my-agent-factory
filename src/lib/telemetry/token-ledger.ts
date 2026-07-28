@@ -9,8 +9,13 @@ export interface ModelEventInput {
   event: ModelEvent;
   taskId?: string | null;
   agentId?: string | null;
+  /** UNCACHED prompt tokens. Anthropic reports cache traffic separately. */
   inputTokens?: number;
   outputTokens?: number;
+  /** Anthropic `cache_creation_input_tokens` — billed at 1.25x input. */
+  cacheWriteTokens?: number;
+  /** Anthropic `cache_read_input_tokens` — billed at 0.1x input. */
+  cacheReadTokens?: number;
   detail?: string;
 }
 
@@ -25,6 +30,8 @@ export async function recordModelEvent(e: ModelEventInput): Promise<void> {
       agent_id: e.agentId ?? null,
       input_tokens: e.inputTokens ?? 0,
       output_tokens: e.outputTokens ?? 0,
+      cache_write_tokens: e.cacheWriteTokens ?? 0,
+      cache_read_tokens: e.cacheReadTokens ?? 0,
       detail: e.detail ?? null,
     });
     if (error) {
@@ -65,7 +72,7 @@ async function getSpendSnapshotFrom(since: string, windowHours: number): Promise
   const db = getAdminClient();
   const { data, error } = await db
     .from('metrics')
-    .select('model, input_tokens, output_tokens')
+    .select('model, input_tokens, output_tokens, cache_write_tokens, cache_read_tokens')
     .gte('created_at', since)
     .limit(10_000);
   if (error) throw new Error(`[ledger] spend query failed: ${error.message}`);
@@ -75,7 +82,11 @@ async function getSpendSnapshotFrom(since: string, windowHours: number): Promise
   let totalTokens = 0;
   let totalCostUsd = 0;
   for (const row of data ?? []) {
-    const spend = (row.input_tokens ?? 0) + (row.output_tokens ?? 0);
+    const spend =
+      (row.input_tokens ?? 0) +
+      (row.output_tokens ?? 0) +
+      (row.cache_write_tokens ?? 0) +
+      (row.cache_read_tokens ?? 0);
     const costUsd = estimateMetricCostUsd(row);
     byModel[row.model] = (byModel[row.model] ?? 0) + spend;
     byModelCostUsd[row.model] = (byModelCostUsd[row.model] ?? 0) + costUsd;
