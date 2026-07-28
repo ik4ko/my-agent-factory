@@ -5,8 +5,6 @@
   "scripts": {
     "dev": "next dev --turbopack -p 9002",
     "dev:preview": "rimraf .next-preview && cross-env NEXT_DIST_DIR=.next-preview next dev --turbopack -p 9003",
-    "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
-    "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "cross-env NODE_ENV=production next build",
     "start": "next start",
     "lint": "eslint .",
@@ -25,7 +23,6 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.106.0",
-    "@genkit-ai/google-genai": "^1.28.0",
     "@hookform/resolvers": "^4.1.3",
     "@paper-design/shaders-react": "^0.0.77",
     "@pdf-lib/fontkit": "^1.1.1",
@@ -67,7 +64,6 @@
     "dotenv": "^16.5.0",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.40.0",
-    "genkit": "^1.28.0",
     "gun": "^0.2020.1239",
     "lightweight-charts": "^5.2.0",
     "lucide-react": "^0.475.0",
@@ -111,7 +107,6 @@
     "cross-env": "^10.1.0",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.2.12",
-    "genkit-cli": "^1.28.0",
     "jest": "^30.4.2",
     "postcss": "^8",
     "rimraf": "^6.1.3",
