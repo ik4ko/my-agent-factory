@@ -1,0 +1,92 @@
+name: CI
+
+# Quality gates for the Agent Factory dashboard, which hosts the website lead
+# ingest bridge. Nothing here deploys — Vercel owns deployment. This exists so
+# a change that breaks typecheck, the build, or the test suite is caught
+# before it reaches the production branch rather than after.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A second push to the same branch cancels the first; there is no value in
+# finishing a run for a commit that has already been superseded.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # ── Blocking gates ────────────────────────────────────────────────
+      # These three must pass. Between them they cover the bridge's ingest
+      # route, its HMAC/replay/idempotency logic, and the operator inbox.
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+        env:
+          # The build must not need real credentials. Placeholder values keep
+          # module-level env reads from throwing during static analysis; any
+          # route that genuinely requires a secret is dynamic and is never
+          # executed at build time.
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+
+      # ── Reporting gate ────────────────────────────────────────────────
+      # Lint runs and its output is visible, but it does not block yet.
+      #
+      # ESLint had never run on this repository: `next lint` was removed in
+      # Next 16 and no eslint dependency or config existed. Enabling it
+      # surfaced a pre-existing backlog (30 errors, 15 warnings at the time
+      # this workflow was added), almost all of it new react-hooks v7
+      # React Compiler rules firing on long-standing legacy components.
+      #
+      # Failing the build on that backlog on day one would mean either a mass
+      # refactor of unrelated code or switching the rules off. Neither is a
+      # good trade. Burn the backlog down, then delete continue-on-error and
+      # this comment with it.
+      - name: Lint (reporting only — see note)
+        continue-on-error: true
+        run: npm run lint
+
+      # ── Secret hygiene ────────────────────────────────────────────────
+      # The bridge's secrets are server-only by design. This asserts that no
+      # build output shipped to a browser mentions them. A hit here means a
+      # server-only value has been pulled into a client component.
+      - name: Assert no server secrets in client bundles
+        run: |
+          set -euo pipefail
+          if [ ! -d .next ]; then echo "no build output"; exit 1; fi
+          FOUND=0
+          for NAME in WEBSITE_LEAD_INGEST_SECRET SUPABASE_SERVICE_ROLE_KEY \
+                      DASHBOARD_PASSWORD MACHINE_API_TOKEN CRON_SECRET \
+                      ANTHROPIC_API_KEY OPENAI_API_KEY OPERATOR_PIN; do
+            if grep -rq "$NAME" .next/static 2>/dev/null; then
+              echo "::error::$NAME appears in a client bundle (.next/static)"
+              FOUND=1
+            fi
+          done
+          [ "$FOUND" -eq 0 ] && echo "OK: no server-only secret names in .next/static"

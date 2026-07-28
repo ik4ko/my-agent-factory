@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 /**
  * Lead-inbox primitives.
@@ -21,18 +21,32 @@ import { useEffect, useRef, useState } from 'react';
  * operator who misreads a queue at 7am.
  */
 
-function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
+/**
+ * Reads the OS reduced-motion preference.
+ *
+ * useSyncExternalStore rather than useState + useEffect. The previous version
+ * initialised to `false` and then called setState inside an effect, which
+ * meant every operator who has reduced motion turned on got one frame of
+ * animation before it was switched off — the exact thing the preference
+ * exists to prevent — plus a cascading render on mount.
+ *
+ * getServerSnapshot returns false because the server cannot know the
+ * preference; the client subscribes and corrects it before paint.
+ */
+const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
-  useEffect(() => {
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setReduced(query.matches);
-    const onChange = (event: MediaQueryListEvent) => setReduced(event.matches);
+function usePrefersReducedMotion(): boolean {
+  const subscribe = useCallback((onChange: () => void) => {
+    const query = window.matchMedia(REDUCED_MOTION_QUERY);
     query.addEventListener('change', onChange);
     return () => query.removeEventListener('change', onChange);
   }, []);
 
-  return reduced;
+  return useSyncExternalStore(
+    subscribe,
+    () => window.matchMedia(REDUCED_MOTION_QUERY).matches,
+    () => false,
+  );
 }
 
 // ── Status badge ───────────────────────────────────────────────────────────

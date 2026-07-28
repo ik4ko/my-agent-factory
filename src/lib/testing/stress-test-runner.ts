@@ -75,7 +75,6 @@ export async function runApprovalConcurrencyStressTest(
             action,
             errored: Boolean(res.error),
           }))
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .catch(() => ({ won: false, action, errored: true }));
       }),
     );
