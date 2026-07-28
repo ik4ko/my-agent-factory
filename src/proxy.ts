@@ -5,11 +5,21 @@ import { SESSION_COOKIE, verifySessionToken, timingSafeEqualStr } from '@/lib/au
 // Supabase writes (and model routes can spend paid tokens), so nothing is
 // reachable without a valid session cookie unless the route self-authorizes.
 // /api/orchestrator/cron and /api/loops/tick self-authorize via CRON_SECRET.
+// /api/website-leads/ingest self-authorizes via an HMAC signature over
+// "${timestamp}.${rawBody}" using WEBSITE_LEAD_INGEST_SECRET, with a 300s
+// replay window and constant-time comparison. It is write-only into
+// ag_website_leads and cannot read ag_clients or any other CRM table, so
+// exempting it does not widen the operator-session boundary that
+// /api/medicare-crm deliberately enforces.
+//
+// NOTE: only the /ingest child is exempt. /api/website-leads itself is the
+// operator-facing read/update route and stays behind the session gate.
 const PUBLIC_PATHS = new Set([
   '/login',
   '/api/auth/login',
   '/api/orchestrator/cron',
   '/api/loops/tick',
+  '/api/website-leads/ingest',
 ]);
 
 export async function proxy(req: NextRequest) {

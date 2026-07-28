@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowRight, CircleAlert, Database, FileSpreadsheet, Mail, MessageSquare, RefreshCcw, Search, ShieldCheck, Smartphone, StickyNote, Upload } from 'lucide-react';
 import { PanelChrome } from '@/components/deck';
 import { MedicareEmpty, MedicareMetric, MedicareStatus, formatCurrency, maskMbi } from './medicare/medicare-primitives';
+import { WebsiteLeadInbox } from './medicare/website-lead-inbox';
 import { EMPTY_MEDICARE_ROOM_DATA, type AgCarrier, type AgClient, type MedicareRoomData } from '@/lib/medicare-crm/types';
 
 type ImportEntity = 'clients' | 'carriers' | 'policies';
@@ -216,6 +217,15 @@ export function MedicareRoomClient() {
         <MedicareMetric label="Pending carriers" value={loading ? '—' : pendingCarriers.toString()} detail="Appointment follow-up queue" tone={pendingCarriers ? 'warning' : 'default'} />
         <MedicareMetric label="Licensed footprint" value={`${licensedStates.length} states`} detail={licensedStates.join(' · ')} />
       </div>
+
+      {/*
+        Website lead inbox sits above the book of business on purpose: an
+        unanswered enquiry is more time-sensitive than an existing client
+        record, and this is the queue that decides whether someone gets a
+        reply today. It reads from /api/website-leads, which is gated by the
+        same operator session as the rest of this room.
+      */}
+      <WebsiteLeadInbox />
 
       <PanelChrome title="BOOK OF BUSINESS" headerRight={<span className="text-[10px] text-muted-foreground">{filteredClients.length} visible</span>} bodyClassName="p-0">
         <div className="flex flex-wrap gap-2 border-b border-border/50 p-2">
