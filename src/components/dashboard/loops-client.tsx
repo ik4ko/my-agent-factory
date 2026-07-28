@@ -10,7 +10,7 @@ import { useLoopRunsQuery } from '@/hooks/use-loop-runs-query';
 import { useConnectionStore, type ChannelStatus } from '@/lib/realtime/connection-store';
 import type { LoopKind, LoopRow, LoopRunRow, LoopStatus } from '@/lib/types/database.types';
 
-const KIND_OPTIONS: LoopKind[] = ['monitor', 'research', 'build', 'trade', 'personal'];
+const KIND_OPTIONS: LoopKind[] = ['monitor', 'research', 'build', 'trade', 'personal', 'content_sync'];
 const BRAIN_OPTIONS = ['claude', 'codex', 'hermes'] as const;
 
 const STATUS_BADGE: Record<LoopStatus, 'success' | 'muted' | 'error'> = {

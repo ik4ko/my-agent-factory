@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import type { Agent, Task, TaskStatus } from '@/lib/types/database.types';
 import { splitObjective, type TaskRunGroup } from '@/lib/types/control-room.types';
-import { roomsByAgentId, taskInScope, type RoomScope } from '@/lib/rooms/scope';
+import { roomsByAgentId, taskInChannel, taskInScope, type RoomScope } from '@/lib/rooms/scope';
 import { formatDistanceToNow } from 'date-fns';
 
 const STATUS_VARIANT: Record<TaskStatus, 'success' | 'cyan' | 'muted' | 'error' | 'warning'> = {
@@ -299,7 +299,17 @@ function TaskSkeleton() {
   );
 }
 
-export function TaskFeed({ initialTasks = [], scope = 'all' }: { initialTasks?: Task[]; scope?: RoomScope }) {
+export function TaskFeed({
+  initialTasks = [],
+  scope = 'all',
+  channelSlug,
+}: {
+  initialTasks?: Task[];
+  scope?: RoomScope;
+  /** Content room only: narrow to one channel via the real assigned_lane
+   *  column. Applied on top of `scope`, never instead of it. */
+  channelSlug?: string;
+}) {
   const { data: rawTasks = [], isLoading } = useTasksQuery(initialTasks);
   const snapshotAt = useSnapshotAt();
   const historical = snapshotAt !== null;
@@ -325,10 +335,12 @@ export function TaskFeed({ initialTasks = [], scope = 'all' }: { initialTasks?: 
     ? rawTasks.filter((t) => new Date(t.created_at).getTime() <= snapshotAt)
     : rawTasks;
   const tasks = useMemo(() => {
-    if (scope === 'all') return timeFiltered;
-    const byAgent = roomsByAgentId(agents);
-    return timeFiltered.filter((t) => taskInScope(t, scope, byAgent));
-  }, [timeFiltered, scope, agents]);
+    const scoped =
+      scope === 'all'
+        ? timeFiltered
+        : timeFiltered.filter((t) => taskInScope(t, scope, roomsByAgentId(agents)));
+    return channelSlug ? scoped.filter((t) => taskInChannel(t, channelSlug)) : scoped;
+  }, [timeFiltered, scope, agents, channelSlug]);
 
   // Approval intercepts always render standalone — a frozen decision row must
   // never be buried inside a collapsed group.

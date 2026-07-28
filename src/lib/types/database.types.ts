@@ -12,6 +12,63 @@ export type InterventionState = 'pending_approval' | 'approved' | 'denied';
 // · REAP: stale running-lock recycled to pending by the reaper.
 export type ModelEvent = 'SEAT' | 'UP' | 'DOWN' | 'USAGE' | 'HALT' | 'REAP';
 
+// Content channels — one row per content vertical (Faceless, Medicare,
+// Personal, …). Channels are DATA: adding a vertical is an INSERT from the
+// YouTube room, never a deploy. `slug` is written verbatim into
+// tasks.assigned_lane, which is how src/lib/rooms/scope.ts scopes the room.
+export type ContentChannel = {
+  id: string;
+  slug: string;
+  label: string;
+  niche: string;
+  brand_voice: string;
+  publish_targets: string[];
+  active: boolean;
+  created_at: string;
+};
+
+// A channel's actual presence on a platform. Its own table (not columns on
+// content_channels) so one channel can hold a YouTube link and an Instagram
+// link without a reshape. external_id is resolved ONCE at connect time and
+// cached forever, so an expensive resolution is never repaid on refresh.
+export type ContentChannelLink = {
+  id: string;
+  channel_id: string;
+  platform: string;
+  handle: string | null;
+  external_id: string;
+  connected_at: string;
+  last_synced_at: string | null;
+  /** Surfaced in the room instead of failing silently; cleared on next success. */
+  last_error: string | null;
+};
+
+// INSERT-ONLY, never upserted — an immutable audit artifact, like tasks. Two
+// rows are all a growth curve needs.
+export type ContentChannelStatsSnapshot = {
+  id: string;
+  link_id: string;
+  fetched_at: string;
+  subscriber_count: number | null;
+  view_count: number | null;
+  video_count: number | null;
+  raw: Record<string, unknown>;
+};
+
+// Upserted per video — current state is the useful state here.
+export type ContentChannelVideo = {
+  id: string;
+  link_id: string;
+  external_video_id: string;
+  title: string;
+  thumbnail_url: string | null;
+  published_at: string | null;
+  view_count: number | null;
+  like_count: number | null;
+  comment_count: number | null;
+  last_synced_at: string;
+};
+
 // NOTE: these are `type` aliases (not interfaces) on purpose — supabase-js's
 // GenericSchema requires Row/Insert/Update to satisfy Record<string, unknown>,
 // which interfaces do not (they are open to declaration merging). Using type
@@ -50,8 +107,17 @@ export type Task = {
   halted_at?: string | null;
   /** Model the orchestrator routed this task to (additive column). */
   model?: string | null;
-  /** Lane assigned by the router engine (SEAT | UP | DOWN). */
-  assigned_lane?: 'SEAT' | 'UP' | 'DOWN' | null;
+  /**
+   * Lane this task belongs to. TWO writers, disambiguated by value:
+   *  - the orchestrator's route-lane hook writes a routing transition
+   *    ('SEAT' | 'UP' | 'DOWN'), read back by triageTick;
+   *  - the content pipeline writes a content_channels.slug, read back by
+   *    src/lib/rooms/scope.ts (taskChannelSlug) to scope the YouTube room.
+   * Typed as string because the column is free-form text and a channel slug
+   * is operator-defined — narrowing it to the transitions would make the
+   * type lie about what is actually stored.
+   */
+  assigned_lane?: string | null;
   /** Factory-built system prompt the worker executes with. */
   system_prompt?: string | null;
 };
@@ -165,7 +231,10 @@ export type PortfolioStateRow = {
 
 // Phase Loops — standing objectives the system re-evaluates on a cadence
 // and/or in reaction to events (news/price/manual).
-export type LoopKind = 'trade' | 'research' | 'build' | 'personal' | 'monitor';
+// 'content_sync' refreshes connected YouTube channels on cadence. Unlike the
+// research/build/personal kinds it spends NO tokens — it calls the read-only
+// fetcher directly, so it must never fall through to the brain-decision branch.
+export type LoopKind = 'trade' | 'research' | 'build' | 'personal' | 'monitor' | 'content_sync';
 export type LoopStatus = 'armed' | 'paused' | 'stopped';
 export type LoopTrigger = { type: 'news' | 'price' | 'earnings' | 'manual'; symbol?: string; minSeverity?: EventSeverity };
 
@@ -295,6 +364,30 @@ export type QuoteRow = {
   updated_at: string;
 };
 
+// Medicare CRM (ag_*) — isolated room-owned tables. Keep these as aliases so
+// Supabase's GenericSchema can infer insert/update payloads correctly.
+export type AgAgencySettings = {
+  id: string;
+  agency_name: string;
+  npn: string | null;
+  resident_state: string | null;
+  licensed_states: string[];
+  ahip_status: string;
+  ahip_expires_at: string | null;
+  hipaa_status: string;
+  hipaa_expires_at: string | null;
+  compliance_flags: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+export type AgFmo = { id: string; name: string; status: string; start_date: string | null; notes: string; created_at: string; updated_at: string };
+export type AgCarrier = { id: string; name: string; fmo_id: string | null; appointment_status: string; lines_of_business: string[]; active_states: string[]; created_at: string; updated_at: string };
+export type AgClient = { id: string; first_name: string; last_name: string; phone: string | null; email: string | null; date_of_birth: string | null; physical_address: string | null; city: string | null; state: string | null; zip: string | null; medicare_beneficiary_identifier: string | null; tags: string[]; created_at: string; updated_at: string };
+export type AgClientNote = { id: string; client_id: string; note: string; created_at: string; created_by: string | null };
+export type AgPolicy = { id: string; client_id: string; carrier_id: string | null; fmo_id: string | null; plan_name: string; plan_id: string | null; effective_date: string | null; monthly_premium: number | null; commission_level: string | null; status: string; created_at: string; updated_at: string };
+export type AgCommunication = { id: string; client_id: string; type: string; content: string; direction: string; timestamp: string; source_metadata: Record<string, unknown>; created_at: string };
+export type AgComplianceDocument = { id: string; client_id: string | null; document_type: string; title: string; storage_path: string | null; expires_at: string | null; uploaded_at: string; notes: string };
+
 export type Database = {
   public: {
     Tables: {
@@ -415,6 +508,54 @@ export type Database = {
         Row: QuoteRow;
         Insert: Omit<QuoteRow, 'updated_at'> & { updated_at?: string };
         Update: Partial<Omit<QuoteRow, 'symbol'>>;
+        Relationships: [];
+      };
+      ag_agency_settings: {
+        Row: AgAgencySettings;
+        Insert: Omit<AgAgencySettings, 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<Omit<AgAgencySettings, 'id' | 'created_at'>>;
+        Relationships: [];
+      };
+      ag_fmos: {
+        Row: AgFmo;
+        Insert: Omit<AgFmo, 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<Omit<AgFmo, 'id' | 'created_at'>>;
+        Relationships: [];
+      };
+      ag_carriers: {
+        Row: AgCarrier;
+        Insert: Omit<AgCarrier, 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<Omit<AgCarrier, 'id' | 'created_at'>>;
+        Relationships: [];
+      };
+      ag_clients: {
+        Row: AgClient;
+        Insert: Omit<AgClient, 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<Omit<AgClient, 'id' | 'created_at'>>;
+        Relationships: [];
+      };
+      ag_client_notes: {
+        Row: AgClientNote;
+        Insert: Omit<AgClientNote, 'id' | 'created_at'> & { id?: string; created_at?: string };
+        Update: Partial<Omit<AgClientNote, 'id' | 'created_at'>>;
+        Relationships: [];
+      };
+      ag_policies: {
+        Row: AgPolicy;
+        Insert: Omit<AgPolicy, 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<Omit<AgPolicy, 'id' | 'created_at'>>;
+        Relationships: [];
+      };
+      ag_communications_log: {
+        Row: AgCommunication;
+        Insert: Omit<AgCommunication, 'id' | 'created_at'> & { id?: string; created_at?: string };
+        Update: Partial<Omit<AgCommunication, 'id' | 'created_at'>>;
+        Relationships: [];
+      };
+      ag_compliance_documents: {
+        Row: AgComplianceDocument;
+        Insert: Omit<AgComplianceDocument, 'id' | 'uploaded_at'> & { id?: string; uploaded_at?: string };
+        Update: Partial<Omit<AgComplianceDocument, 'id' | 'uploaded_at'>>;
         Relationships: [];
       };
     };

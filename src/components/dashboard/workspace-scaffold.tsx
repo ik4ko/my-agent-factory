@@ -12,6 +12,7 @@ import {
   Settings,
   ShieldCheck,
   User,
+  Video,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -38,6 +39,7 @@ export const ICON_REGISTRY = {
   settings: Settings,
   shieldcheck: ShieldCheck,
   user: User,
+  video: Video,
 } satisfies Record<string, LucideIcon>;
 
 export type WorkspaceIconKey = keyof typeof ICON_REGISTRY;
