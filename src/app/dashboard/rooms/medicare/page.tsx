@@ -1,15 +1,12 @@
-import { WorkspaceScaffold } from '@/components/dashboard/workspace-scaffold';
-import { MedicareRoomClient } from '@/components/dashboard/medicare-room-client';
+import { TodayQueue } from '@/components/dashboard/medicare/today-queue';
 
-export default function MedicareRoom() {
-  return (
-    <WorkspaceScaffold
-      title="Medicare CRM"
-      icon="shieldcheck"
-      accent="text-neon-cyan"
-      blurb="Book of business, carrier relationships, imports, and compliance readiness for an independent Medicare practice."
-    >
-      <MedicareRoomClient />
-    </WorkspaceScaffold>
-  );
+/**
+ * The room's default view is the work queue, not a summary.
+ *
+ * Opening a CRM to a dashboard of totals answers "how is the business doing?",
+ * which is a question Eric can ask when he wants to. The question he has every
+ * morning is "what needs me today", so that is what the room opens to.
+ */
+export default function MedicareTodayPage() {
+  return <TodayQueue />;
 }

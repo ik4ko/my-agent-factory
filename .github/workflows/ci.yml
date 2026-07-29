@@ -78,7 +78,8 @@ jobs:
           FOUND=0
           for NAME in WEBSITE_LEAD_INGEST_SECRET SUPABASE_SERVICE_ROLE_KEY \
                       DASHBOARD_PASSWORD MACHINE_API_TOKEN CRON_SECRET \
-                      ANTHROPIC_API_KEY OPENAI_API_KEY OPERATOR_PIN; do
+                      ANTHROPIC_API_KEY OPENAI_API_KEY OPERATOR_PIN \
+                      WEBSITE_LEAD_HEALTH_TOKEN; do
             if grep -rq "$NAME" .next/static 2>/dev/null; then
               echo "::error::$NAME appears in a client bundle (.next/static)"
               FOUND=1
