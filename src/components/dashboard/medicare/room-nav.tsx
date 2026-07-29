@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Activity, CalendarCheck, Inbox, Search, SplitSquareHorizontal, Users, X, type LucideIcon } from 'lucide-react';
+import { Activity, CalendarCheck, Inbox, Search, SplitSquareHorizontal, Upload, Users, X, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -25,6 +25,7 @@ const TABS: readonly Tab[] = [
   { href: '/dashboard/rooms/medicare/leads', label: 'Website Leads', icon: Inbox },
   { href: '/dashboard/rooms/medicare/clients', label: 'Clients', icon: Users },
   { href: '/dashboard/rooms/medicare/coverage', label: 'Coverage Reviews', icon: SplitSquareHorizontal },
+  { href: '/dashboard/rooms/medicare/imports', label: 'Imports', icon: Upload },
   { href: '/dashboard/rooms/medicare/bridge', label: 'Bridge Health', icon: Activity },
 ];
 
